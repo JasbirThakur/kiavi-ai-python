@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widget</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+    </style>
+</head>
+<body class="font-sans antialiased">
+
+    <div class="w-full h-full relative flex flex-col justify-end items-end p-2 box-border">
+
+        <!-- The Chat Window -->
+        <div id="chatWindow" class="hidden bg-white w-[350px] h-[520px] rounded-3xl shadow-2xl flex-col overflow-hidden mb-3 border border-slate-200">
+            <!-- Header -->
+            <div id="wHeader" class="p-4 text-white flex items-center justify-between" style="background-color: #00c48c;">
+                <div class="flex items-center gap-3">
+                    <div id="wAvatar" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm">T</div>
+                    <div>
+                        <div id="wBotName" class="font-bold text-xs">Test Boat</div>
+                        <div class="text-[10px] text-white/80">We typically reply in a few minutes</div>
+                    </div>
+                </div>
+                <button onclick="toggleChat()" class="text-white hover:text-white/80"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+
+            <!-- Chat Body -->
+            <div id="wChatBody" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50 text-xs">
+                <div class="bg-white border border-slate-100 p-3 rounded-2xl max-w-[85%] text-slate-700 shadow-sm" id="wGreeting">
+                    Hi! How can I help?
+                </div>
+                <div id="wSuggestions" class="flex flex-col items-end gap-1.5 pt-1"></div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="p-3 bg-white border-t border-slate-100">
+                <div class="flex items-center gap-2">
+                    <input id="wInput" type="text" placeholder="Type your message..." class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400" onkeydown="if(event.key==='Enter') sendMessage()" />
+                    <button id="wSendBtn" onclick="sendMessage()" class="p-2 rounded-xl text-white transition" style="background-color: #00c48c;">
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Launcher Button -->
+        <button id="wLauncher" onclick="toggleChat()" class="w-14 h-14 rounded-full flex items-center justify-center text-white shadow-2xl hover:scale-105 transition cursor-pointer" style="background-color: #00c48c;">
+            <i id="wLauncherIcon" data-lucide="message-square" class="w-6 h-6"></i>
+        </button>
+
+    </div>
+
+    <script>
+        const publicKey = window.location.pathname.split('/').pop();
+        let botConfig = null;
+        let isOpen = false;
+
+        function formatTime() {
+            const d = new Date();
+            let h = d.getHours();
+            const m = d.getMinutes().toString().padStart(2, '0');
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12 || 12;
+            return `${h}:${m} ${ampm}`;
+        }
+
+        async function init() {
+            lucide.createIcons();
+            try {
+                const res = await fetch(`/api/public/config/${publicKey}`);
+                if (!res.ok) return;
+                botConfig = await res.json();
+                
+                document.getElementById('wHeader').style.backgroundColor = botConfig.accentColor;
+                document.getElementById('wSendBtn').style.backgroundColor = botConfig.accentColor;
+                document.getElementById('wLauncher').style.backgroundColor = botConfig.accentColor;
+                document.getElementById('wBotName').innerText = botConfig.name;
+                document.getElementById('wAvatar').innerText = botConfig.name.charAt(0).toUpperCase();
+                document.getElementById('wGreeting').innerText = botConfig.greeting;
+
+                if (botConfig.suggestions && botConfig.suggestions.length > 0) {
+                    document.getElementById('wSuggestions').innerHTML = botConfig.suggestions.map(s => `
+                        <button onclick="sendSuggestion('${s}')" class="bg-white border border-slate-200 px-3 py-1.5 rounded-full text-[11px] text-slate-600 shadow-sm">${s}</button>
+                    `).join('');
+                }
+            } catch(e) {}
+        }
+
+        function toggleChat() {
+            isOpen = !isOpen;
+            const chatWindow = document.getElementById('chatWindow');
+            if (isOpen) {
+                chatWindow.classList.remove('hidden');
+                chatWindow.classList.add('flex');
+                document.getElementById('wLauncherIcon').setAttribute('data-lucide', 'x');
+                window.parent.postMessage({ type: 'resize', width: '380px', height: '620px' }, '*');
+            } else {
+                chatWindow.classList.add('hidden');
+                chatWindow.classList.remove('flex');
+                document.getElementById('wLauncherIcon').setAttribute('data-lucide', 'message-square');
+                window.parent.postMessage({ type: 'resize', width: '80px', height: '80px' }, '*');
+            }
+            lucide.createIcons();
+        }
+
+        function sendSuggestion(s) {
+            document.getElementById('wInput').value = s;
+            sendMessage();
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('wInput');
+            const q = input.value.trim();
+            if (!q || !botConfig) return;
+            input.value = "";
+
+            const body = document.getElementById('wChatBody');
+            const timeStr = formatTime();
+
+            body.innerHTML += `
+                <div class="flex flex-col items-end">
+                    <span class="text-white px-3.5 py-2 rounded-2xl inline-block shadow-sm" style="background-color: ${botConfig.accentColor}">${q}</span>
+                    <span class="text-[9px] text-slate-400 mt-0.5 mr-1 font-mono">${timeStr}</span>
+                </div>
+            `;
+            
+            const msgId = 'wmsg_' + Date.now();
+            body.innerHTML += `
+                <div class="flex flex-col items-start">
+                    <span id="${msgId}" class="bg-white border border-slate-100 p-3 rounded-2xl inline-block max-w-[85%] text-slate-700 shadow-sm leading-relaxed">Thinking...</span>
+                    <div id="${msgId}_lead"></div>
+                    <span class="text-[9px] text-slate-400 mt-0.5 ml-1 font-mono">${timeStr}</span>
+                </div>
+            `;
+            body.scrollTop = body.scrollHeight;
+
+            const form = new FormData();
+            form.append('bot_id', botConfig.botId);
+            form.append('question', q);
+
+            const res = await fetch('/api/public/chat/stream', { method: 'POST', body: form });
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            const target = document.getElementById(msgId);
+            let fullText = "";
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                const lines = decoder.decode(value).split('\n');
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.replace('data: ', ''));
+                            if (data.type === 'token') {
+                                if (target.innerText === "Thinking...") target.innerText = "";
+                                fullText += data.content;
+                                target.innerText = fullText;
+                                body.scrollTop = body.scrollHeight;
+                            } else if (data.type === 'lead_form') {
+                                document.getElementById(msgId + '_lead').innerHTML = `
+                                    <div class="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 max-w-[85%]">
+                                        <div class="font-bold text-slate-700 text-[11px]">Leave your details:</div>
+                                        <input id="l_name" placeholder="Name" class="w-full bg-white border border-slate-200 p-1.5 rounded-lg text-xs outline-none" />
+                                        <input id="l_email" placeholder="Email / Phone" class="w-full bg-white border border-slate-200 p-1.5 rounded-lg text-xs outline-none" />
+                                        <button onclick="submitLead('${botConfig.botId}', this)" class="w-full text-white font-bold p-1.5 rounded-lg text-xs transition" style="background-color: ${botConfig.accentColor}">Submit</button>
+                                    </div>
+                                `;
+                                body.scrollTop = body.scrollHeight;
+                            }
+                        } catch(e) {}
+                    }
+                }
+            }
+        }
+
+        async function submitLead(botId, btn) {
+            const parent = btn.parentElement;
+            const name = parent.querySelector('#l_name').value;
+            const email = parent.querySelector('#l_email').value;
+            if(!name && !email) return alert("Please enter your name or email.");
+            
+            const f = new FormData();
+            f.append('bot_id', botId);
+            f.append('name', name);
+            f.append('email', email);
+            await fetch('/api/public/lead', { method: 'POST', body: f });
+            parent.innerHTML = `<span class="text-emerald-600 font-bold">✓ Thanks, we'll reach out!</span>`;
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

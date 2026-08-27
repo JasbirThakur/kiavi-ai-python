@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiavi IQ - Intelligence Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Plus Jakarta Sans', sans-serif; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        
+        /* Cosmic Deep Space Background */
+        body {
+            background-color: #030712;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(37, 99, 235, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.06) 0%, transparent 60%),
+                radial-gradient(2px 2px at 20px 30px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 90px 80px, #38bdf8, rgba(0,0,0,0)),
+                radial-gradient(1.5px 1.5px at 150px 180px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 240px 50px, #818cf8, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 320px 220px, #ffffff, rgba(0,0,0,0));
+            background-repeat: repeat;
+            background-size: auto, auto, auto, 350px 350px, 400px 400px, 300px 300px, 450px 450px, 500px 500px;
+        }
+
+        /* Neon Glow Cards */
+        .glow-box {
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.75) 0%, rgba(10, 15, 30, 0.85) 100%);
+            border: 1px solid rgba(59, 130, 246, 0.22);
+            backdrop-filter: blur(16px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glow-box:hover {
+            border-color: rgba(56, 189, 248, 0.6);
+            box-shadow: 0 0 30px rgba(37, 99, 235, 0.25), 0 0 10px rgba(6, 182, 212, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .glow-btn {
+            background: linear-gradient(135deg, #2563eb 0%, #3b82f6 50%, #06b6d4 100%);
+            box-shadow: 0 0 20px rgba(37, 99, 235, 0.4);
+            transition: all 0.3s ease;
+        }
+        .glow-btn:hover {
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.6);
+            transform: scale(1.02);
+        }
+
+        .tab-btn {
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        .tab-btn.active {
+            color: #38bdf8;
+            font-weight: 700;
+        }
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #3b82f6, #38bdf8);
+            box-shadow: 0 0 12px #38bdf8;
+            border-radius: 2px;
+        }
+
+        .template-card.active {
+            border-color: #38bdf8;
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.3);
+            background: rgba(14, 165, 233, 0.08);
+        }
+    </style>
+</head>
+<body class="text-slate-200 min-h-screen antialiased text-xs">
+
+    <!-- TOP COSMIC NAV -->
+    <header class="border-b border-blue-500/20 bg-[#060b17]/80 backdrop-blur-xl px-6 py-3 flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="showHomeView()">
+                <div class="w-7 h-7 bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.6)]">
+                    <i data-lucide="zap" class="w-4 h-4 text-white fill-white"></i>
+                </div>
+                <span class="font-black text-slate-100 text-sm tracking-tight">Kiavi<span class="text-cyan-400">IQ</span></span>
+            </div>
+            <span class="text-blue-500/40">/</span>
+            <span id="userDisplayName" class="text-xs text-slate-400 font-medium tracking-wide">Workspace</span>
+        </div>
+
+        <div class="relative">
+            <button onclick="toggleUserDropdown()" class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white flex items-center justify-center font-bold shadow-[0_0_15px_rgba(37,99,235,0.4)] border border-cyan-400/40 hover:scale-105 transition">
+                <span id="userInitials">US</span>
+            </button>
+
+            <!-- Dropdown Menu -->
+            <div id="userDropdown" class="hidden absolute right-0 mt-2 w-52 glow-box rounded-2xl p-2 shadow-2xl space-y-1 z-50">
+                <div class="p-2.5 border-b border-blue-500/20">
+                    <div id="dropUserName" class="font-bold text-white tracking-tight">User</div>
+                    <div id="dropUserEmail" class="text-[10px] text-cyan-400 font-mono truncate">user@example.com</div>
+                </div>
+                <a href="/dashboard/account" class="w-full text-left px-3 py-2 hover:bg-blue-600/20 rounded-xl text-slate-300 flex items-center gap-2 transition">
+                    <i data-lucide="settings" class="w-3.5 h-3.5 text-cyan-400"></i> Account Settings
+                </a>
+                <button onclick="openTeamModal()" class="w-full text-left px-3 py-2 hover:bg-blue-600/20 rounded-xl text-slate-300 flex items-center gap-2 transition">
+                    <i data-lucide="users" class="w-3.5 h-3.5 text-blue-400"></i> Team Access
+                </button>
+                <button onclick="logout()" class="w-full text-left px-3 py-2 hover:bg-red-500/20 text-red-400 rounded-xl flex items-center gap-2 border-t border-blue-500/20 mt-1 transition">
+                    <i data-lucide="log-out" class="w-3.5 h-3.5 text-red-400"></i> Disconnect
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="max-w-6xl mx-auto px-6 py-8">
+
+        <!-- 1. MULTI-BOT HOME VIEW -->
+        <div id="homeView" class="space-y-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 id="greetingHeading" class="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+                        Good morning <span class="text-cyan-400">✨</span>
+                    </h1>
+                    <p id="botsCountSubtitle" class="text-xs text-slate-400 mt-0.5">Neural agent status & active deployments.</p>
+                </div>
+                <button onclick="openNewBotModal()" class="glow-btn text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2">
+                    <i data-lucide="plus" class="w-4 h-4"></i> New Agent
+                </button>
+            </div>
+
+            <!-- METRIC CARDS (Neon Interactive Glow) -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div onclick="openFirstBotSection('conversations')" title="Open Transcripts" class="glow-box p-4 rounded-2xl space-y-2 cursor-pointer group">
+                    <div class="text-slate-400 group-hover:text-cyan-400 flex items-center gap-2 text-[11px] font-medium transition">
+                        <i data-lucide="message-square" class="w-4 h-4 text-blue-400"></i> Conversations
+                    </div>
+                    <div id="statConvs" class="text-2xl font-black text-white group-hover:text-cyan-400 transition">0</div>
+                </div>
+
+                <div onclick="openFirstBotSection('leads')" title="Open Leads" class="glow-box p-4 rounded-2xl space-y-2 cursor-pointer group">
+                    <div class="text-slate-400 group-hover:text-emerald-400 flex items-center gap-2 text-[11px] font-medium transition">
+                        <i data-lucide="user-plus" class="w-4 h-4 text-emerald-400"></i> Captured Leads
+                    </div>
+                    <div id="statLeads" class="text-2xl font-black text-white group-hover:text-emerald-400 transition">0</div>
+                </div>
+
+                <div onclick="openFirstBotSection('insights')" title="Open Insights" class="glow-box p-4 rounded-2xl space-y-2 cursor-pointer group">
+                    <div class="text-slate-400 group-hover:text-amber-400 flex items-center gap-2 text-[11px] font-medium transition">
+                        <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i> Answer Accuracy
+                    </div>
+                    <div id="statAnswered" class="text-2xl font-black text-white group-hover:text-amber-400 transition">100%</div>
+                </div>
+
+                <div onclick="openFirstBotSection('knowledge')" title="Open Knowledge" class="glow-box p-4 rounded-2xl space-y-2 cursor-pointer group">
+                    <div class="text-slate-400 group-hover:text-purple-400 flex items-center gap-2 text-[11px] font-medium transition">
+                        <i data-lucide="database" class="w-4 h-4 text-purple-400"></i> Vector Memory
+                    </div>
+                    <div class="flex items-baseline gap-1">
+                        <span id="statTokens" class="text-2xl font-black text-white group-hover:text-purple-400 transition">0K</span>
+                        <span class="text-[10px] text-slate-500">/ 60K tokens</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ATTENTION BAR (Cosmic Glow Alert) -->
+            <div class="glow-box p-4 rounded-2xl flex justify-between items-center border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-transparent to-transparent">
+                <div class="flex items-center gap-3 text-slate-300">
+                    <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shadow-[0_0_15px_rgba(245,158,11,0.3)]">
+                        <i data-lucide="alert-circle" class="w-4 h-4 text-amber-400"></i>
+                    </div>
+                    <span><strong id="attentionCount" class="text-white">0 questions</strong> need your attention. Each gap represents unwritten knowledge.</span>
+                </div>
+                <button onclick="openFirstBotSection('insights')" class="text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1">Inspect Gaps &rarr;</button>
+            </div>
+
+            <!-- YOUR BOTS SECTION -->
+            <div class="space-y-3 pt-2">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Active AI Agents</h2>
+                <div id="botsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            </div>
+        </div>
+
+        <!-- 2. SINGLE BOT WORKSPACE VIEW -->
+        <div id="botWorkspaceView" class="hidden space-y-6">
+            <button onclick="showHomeView()" class="text-slate-400 hover:text-cyan-400 flex items-center gap-1.5 font-bold transition">
+                <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> All Agents
+            </button>
+
+            <!-- BOT HEADER -->
+            <div class="flex justify-between items-center glow-box p-5 rounded-3xl">
+                <div class="flex items-center gap-4">
+                    <div id="botIconBg" class="w-11 h-11 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-2xl flex items-center justify-center text-white shadow-[0_0_20px_rgba(6,182,212,0.4)]">
+                        <i data-lucide="bot" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h1 id="activeBotName" class="text-lg font-black text-white tracking-tight">Agent</h1>
+                        <p class="text-slate-400 text-[11px]"><span id="activeBotConvs" class="text-cyan-400 font-bold">0</span> conversations &middot; <span id="activeBotDomain" class="font-mono text-slate-500">appdeft.ai</span></p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="switchTab('leads')" class="px-3.5 py-2 glow-box rounded-xl text-slate-300 flex items-center gap-2 hover:text-emerald-400 transition">
+                        <i data-lucide="user-plus" class="w-3.5 h-3.5 text-emerald-400"></i> Leads
+                    </button>
+                    <button onclick="switchTab('conversations')" class="px-3.5 py-2 glow-box rounded-xl text-slate-300 flex items-center gap-2 hover:text-cyan-400 transition">
+                        <i data-lucide="message-square" class="w-3.5 h-3.5 text-blue-400"></i> Transcripts
+                    </button>
+                    <button onclick="switchTab('insights')" class="px-3.5 py-2 glow-box rounded-xl text-slate-300 flex items-center gap-2 hover:text-amber-400 transition">
+                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i> Insights
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB BAR -->
+            <div class="flex gap-6 border-b border-blue-500/20 font-semibold text-slate-400 overflow-x-auto">
+                <button onclick="switchTab('appearance')" id="tab-appearance" class="tab-btn active pb-3 flex items-center gap-2"><i data-lucide="palette" class="w-4 h-4"></i> Appearance</button>
+                <button onclick="switchTab('knowledge')" id="tab-knowledge" class="tab-btn pb-3 flex items-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> Knowledge</button>
+                <button onclick="switchTab('test')" id="tab-test" class="tab-btn pb-3 flex items-center gap-2"><i data-lucide="flask-conical" class="w-4 h-4"></i> Test Sandbox</button>
+                <button onclick="switchTab('leads')" id="tab-leads" class="tab-btn pb-3 flex items-center gap-2 text-emerald-400"><i data-lucide="user-plus" class="w-4 h-4"></i> Leads</button>
+                <button onclick="switchTab('insights')" id="tab-insights" class="tab-btn pb-3 flex items-center gap-2 text-amber-400"><i data-lucide="sparkles" class="w-4 h-4"></i> Insights</button>
+                <button onclick="switchTab('conversations')" id="tab-conversations" class="tab-btn pb-3 flex items-center gap-2 text-blue-400"><i data-lucide="message-square" class="w-4 h-4"></i> Conversations</button>
+                <button onclick="switchTab('install')" id="tab-install" class="tab-btn pb-3 flex items-center gap-2"><i data-lucide="code" class="w-4 h-4"></i> Widget Code</button>
+                <button onclick="switchTab('behaviour')" id="tab-behaviour" class="tab-btn pb-3 flex items-center gap-2"><i data-lucide="sliders" class="w-4 h-4"></i> Security</button>
+            </div>
+
+            <!-- TAB 1: APPEARANCE -->
+            <div id="view-appearance" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div class="lg:col-span-7 space-y-6">
+                    <div class="glow-box p-6 rounded-3xl space-y-5">
+                        <div id="saveToast" class="hidden p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-xl text-emerald-400 text-xs flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                            <i data-lucide="check-circle" class="w-4 h-4"></i> Appearance configuration deployed live to widget.
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-bold text-slate-300 block mb-2">Widget Layout Style</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div onclick="selectTemplate('classic')" id="tpl-classic" class="template-card active glow-box p-3.5 rounded-2xl cursor-pointer space-y-2">
+                                    <div class="h-10 bg-blue-600/20 border border-blue-500/30 rounded-xl flex items-center px-2"><div class="w-3 h-3 bg-cyan-400 rounded-full shadow-[0_0_10px_#22d3ee]"></div></div>
+                                    <div class="font-bold text-white text-xs">Cosmic Classic</div>
+                                    <p class="text-[10px] text-slate-400">Gradient header, avatars, quick chips, high contrast.</p>
+                                </div>
+                                <div onclick="selectTemplate('concierge')" id="tpl-concierge" class="template-card glow-box p-3.5 rounded-2xl cursor-pointer space-y-2">
+                                    <div class="h-10 bg-slate-800/60 border border-slate-700 rounded-xl flex items-center px-2"><div class="w-3 h-3 bg-slate-400 rounded-full"></div></div>
+                                    <div class="font-bold text-white text-xs">Concierge AI</div>
+                                    <p class="text-[10px] text-slate-400">Dedicated agent persona with micro badges.</p>
+                                </div>
+                                <div onclick="selectTemplate('minimal')" id="tpl-minimal" class="template-card glow-box p-3.5 rounded-2xl cursor-pointer space-y-2">
+                                    <div class="h-10 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-end px-2"><div class="w-8 h-1.5 bg-cyan-400 rounded"></div></div>
+                                    <div class="font-bold text-white text-xs">Pure Minimal</div>
+                                    <p class="text-[10px] text-slate-400">Frameless conversational flow without chrome.</p>
+                                </div>
+                                <div onclick="selectTemplate('midnight')" id="tpl-midnight" class="template-card glow-box p-3.5 rounded-2xl cursor-pointer space-y-2">
+                                    <div class="h-10 bg-[#05070c] border border-blue-900/40 rounded-xl flex items-center justify-end px-2"><div class="w-8 h-1.5 bg-blue-600 rounded"></div></div>
+                                    <div class="font-bold text-white text-xs">Deep Space</div>
+                                    <p class="text-[10px] text-slate-400">Sharp neon dark aesthetic tailored for tech sites.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-bold text-slate-300 block mb-1">Suggested Starter Questions</label>
+                            <textarea id="editSuggestions" rows="3" class="w-full bg-[#060b17] border border-blue-500/30 rounded-xl p-3 text-xs text-white outline-none focus:border-cyan-400 focus:shadow-[0_0_15px_rgba(6,182,212,0.3)] transition" oninput="updateLivePreview()"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-bold text-slate-300 block mb-2">Neon Accent Glow</label>
+                            <div class="flex items-center gap-2">
+                                <div class="flex gap-2" id="colorPalette"></div>
+                                <input id="editColorHex" class="w-24 bg-[#060b17] border border-blue-500/30 rounded-xl px-2 py-1.5 text-xs text-cyan-400 text-center font-mono uppercase" oninput="setCustomColor(this.value)" />
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-xs font-bold text-slate-300 block mb-1">Agent Name</label>
+                                <input id="editBotName" class="w-full bg-[#060b17] border border-blue-500/30 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-cyan-400 transition" oninput="updateLivePreview()" />
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-300 block mb-1">Launcher Docking</label>
+                                <div class="grid grid-cols-2 gap-2 bg-[#060b17] p-1 border border-blue-500/30 rounded-xl">
+                                    <button onclick="setLauncherPos('left')" id="pos-left" class="py-1.5 rounded-lg text-slate-400 font-medium">Bottom Left</button>
+                                    <button onclick="setLauncherPos('right')" id="pos-right" class="py-1.5 rounded-lg bg-blue-600/30 text-cyan-300 font-bold border border-cyan-400/40">Bottom Right</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-bold text-slate-300 block mb-1">Opening Greeting Line</label>
+                            <textarea id="editGreeting" rows="2" class="w-full bg-[#060b17] border border-blue-500/30 rounded-xl p-3 text-xs text-white outline-none focus:border-cyan-400 transition" oninput="updateLivePreview()"></textarea>
+                        </div>
+
+                        <button onclick="saveAppearanceSettings()" class="w-full glow-btn text-white font-bold py-3.5 rounded-2xl text-xs">
+                            Deploy Appearance Changes
+                        </button>
+                    </div>
+                </div>
+
+                <!-- LIVE PREVIEW -->
+                <div class="lg:col-span-5">
+                    <div class="sticky top-20 space-y-3">
+                        <div class="flex justify-between items-center text-slate-400 text-xs">
+                            <span class="font-bold text-white flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee] animate-pulse"></span>
+                                Live Widget Preview
+                            </span>
+                            <span class="text-[10px] bg-blue-950/80 border border-cyan-500/30 text-cyan-400 px-2 py-0.5 rounded-full font-mono">Interactive</span>
+                        </div>
+
+                        <div class="glow-box rounded-3xl overflow-hidden shadow-2xl h-[520px] flex flex-col justify-between border-blue-500/40">
+                            <div id="prevHeader" class="p-4 bg-gradient-to-r from-blue-600 to-cyan-500 text-white flex items-center gap-3 shadow-md">
+                                <div id="prevAvatar" class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center font-bold text-sm shadow-inner">T</div>
+                                <div>
+                                    <div id="prevBotTitle" class="font-bold text-xs">Agent</div>
+                                    <div class="text-[10px] text-cyan-100 font-medium">⚡ Replies in milliseconds</div>
+                                </div>
+                            </div>
+
+                            <div class="flex-1 p-4 space-y-3 overflow-y-auto" id="prevChatBody">
+                                <div id="prevGreetingMsg" class="bg-blue-950/40 border border-blue-500/20 p-3 rounded-2xl max-w-[85%] text-slate-100 text-xs">Hi! How can I help?</div>
+                                <div id="prevSuggestionsList" class="flex flex-col items-end gap-1.5 pt-1"></div>
+                            </div>
+
+                            <div class="p-3 bg-[#060b17]/90 border-t border-blue-500/20 flex items-center gap-2">
+                                <input id="prevInput" placeholder="Ask preview simulation..." class="flex-1 bg-transparent text-xs text-white outline-none px-2" onkeydown="if(event.key==='Enter') sendPreviewSim()" />
+                                <button onclick="sendPreviewSim()" class="p-2 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-xl text-white shadow-[0_0_10px_rgba(6,182,212,0.5)]"><i data-lucide="send" class="w-3.5 h-3.5"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: KNOWLEDGE -->
+            <div id="view-knowledge" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div class="lg:col-span-8 space-y-6">
+                    <div class="glow-box p-6 rounded-3xl space-y-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h2 class="text-base font-bold text-white">Scrape & Vectorize Website</h2>
+                                <p class="text-[11px] text-slate-400 mt-1 max-w-sm">Deep page scanner parses prose, cleans markup, and indexes embeddings into PostgreSQL.</p>
+                            </div>
+                            <span class="text-[10px] text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-1 rounded-full flex items-center gap-1 font-mono"><i data-lucide="zap" class="w-3 h-3"></i> Ready</span>
+                        </div>
+                        <div class="flex gap-3">
+                            <input id="scrapeUrlInput" placeholder="https://en.wikipedia.org/wiki/Quantum_computing" class="flex-1 bg-[#060b17] border border-blue-500/30 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-cyan-400 font-mono" />
+                            <button onclick="submitScrape()" class="glow-btn text-white font-bold px-6 py-2.5 rounded-xl whitespace-nowrap">Scan & Index</button>
+                        </div>
+                    </div>
+
+                    <div class="glow-box p-6 rounded-3xl space-y-4">
+                        <div>
+                            <h2 class="text-base font-bold text-white">Upload Knowledge Documents</h2>
+                            <p class="text-[11px] text-slate-400 mt-1 max-w-sm">PDF catalogs, spec sheets, price lists, or proprietary whitepapers.</p>
+                        </div>
+                        <div class="flex gap-3 items-center bg-[#060b17] border border-blue-500/30 rounded-xl p-2">
+                            <input type="file" id="fileUploadInput" class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-600/30 file:text-cyan-300 hover:file:bg-blue-600/50 cursor-pointer" />
+                            <button onclick="submitFile()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold px-5 py-2 rounded-xl text-xs whitespace-nowrap transition">Upload</button>
+                        </div>
+                    </div>
+
+                    <div class="glow-box rounded-3xl overflow-hidden">
+                        <button onclick="document.getElementById('manualNoteBox').classList.toggle('hidden')" class="w-full p-4 flex justify-between items-center text-left text-sm font-bold text-white hover:bg-blue-600/10 transition">
+                            <span class="flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4 text-cyan-400"></i> Add Custom Grounding Fact</span>
+                        </button>
+                        <div id="manualNoteBox" class="hidden p-6 pt-0 space-y-3 border-t border-blue-500/20">
+                            <input id="noteTitle" placeholder="Title (e.g. Enterprise Tier Policy)" class="w-full bg-[#060b17] border border-blue-500/30 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-cyan-400" />
+                            <textarea id="noteText" rows="4" placeholder="Type grounding prose..." class="w-full bg-[#060b17] border border-blue-500/30 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-cyan-400"></textarea>
+                            <button onclick="submitNote()" class="glow-btn text-white font-bold px-6 py-2.5 rounded-xl text-xs w-full">Save to Vector Memory</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-4 space-y-6">
+                    <div class="glow-box p-6 rounded-3xl sticky top-20">
+                        <h3 class="text-xs font-bold text-white mb-2">Active Vector Allocation</h3>
+                        <div class="flex items-baseline gap-1 mb-3">
+                            <span id="activeUsedTokens" class="text-3xl font-black text-white">0</span>
+                            <span class="text-xs text-slate-500">/ 60,000 tokens</span>
+                        </div>
+                        <div class="w-full bg-[#060b17] rounded-full h-2 overflow-hidden mb-4 p-0.5 border border-blue-500/20">
+                            <div id="activeTokenBar" class="bg-gradient-to-r from-blue-600 to-cyan-400 h-1.5 rounded-full shadow-[0_0_10px_#22d3ee] transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                        <div class="border-t border-blue-500/20 pt-4">
+                            <h4 class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Indexed Sources</h4>
+                            <div id="activeSourcesList" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: TEST PIPELINE -->
+            <div id="view-test" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 glow-box rounded-3xl p-5 flex flex-col h-[540px]">
+                    <div class="pb-3 border-b border-blue-500/20 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 bg-cyan-400 rounded-full shadow-[0_0_10px_#22d3ee] animate-pulse"></span>
+                            <span class="font-bold text-white text-xs">Grounded RAG Pipeline (Groq Llama 3.1)</span>
+                        </div>
+                        <span class="text-[10px] text-slate-400 font-mono">Dynamic Streaming</span>
+                    </div>
+
+                    <div id="testChatBox" class="flex-1 overflow-y-auto space-y-4 py-4 text-xs"></div>
+
+                    <div class="flex gap-2 pt-3 border-t border-blue-500/20">
+                        <input id="testChatInput" placeholder="Query knowledge base in test sandbox..." class="flex-1 bg-[#060b17] border border-blue-500/30 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-cyan-400" onkeydown="if(event.key==='Enter') sendOwnerTest()" />
+                        <button onclick="sendOwnerTest()" class="glow-btn px-5 py-2.5 rounded-xl text-xs font-bold text-white">Send</button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="glow-box p-5 rounded-3xl sticky top-20 space-y-4">
+                        <h3 class="font-bold text-white text-xs">Retrieval Telemetry</h3>
+                        <div class="flex justify-between text-xs"><span class="text-slate-400">Context Chunks Retrieved</span><span id="testSourceCount" class="font-bold text-cyan-400 font-mono">0</span></div>
+                        <div class="flex justify-between text-xs"><span class="text-slate-400">Tokens Generated</span><span id="testTokensPerMsg" class="font-bold text-white font-mono">0</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: LEADS -->
+            <div id="view-leads" class="hidden space-y-4">
+                <div class="flex justify-between items-center glow-box p-4 rounded-2xl">
+                    <div>
+                        <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i data-lucide="user-plus" class="w-4 h-4 text-emerald-400"></i> Captured Sales Leads
+                        </h2>
+                        <p class="text-[11px] text-slate-400">Visitor contact qualifications captured directly during live widget chats.</p>
+                    </div>
+                    <button onclick="exportLeadsCSV()" class="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 transition shadow-[0_0_20px_rgba(16,185,129,0.35)]">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i> Export CSV
+                    </button>
+                </div>
+                <div id="leadsContainer" class="space-y-3"></div>
+            </div>
+
+            <!-- TAB 5: INSIGHTS & GAPS -->
+            <div id="view-insights" class="hidden space-y-4">
+                <div class="glow-box p-4 rounded-2xl">
+                    <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i> Knowledge Gaps & Unanswered Inquiries
+                    </h2>
+                    <p class="text-[11px] text-slate-400">Queries visitors asked that could not be verified by existing knowledge bases.</p>
+                </div>
+                <div id="insightsContainer" class="space-y-3"></div>
+            </div>
+
+            <!-- TAB 6: CONVERSATIONS -->
+            <div id="view-conversations" class="hidden space-y-4">
+                <div class="glow-box p-4 rounded-2xl">
+                    <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i data-lucide="message-square" class="w-4 h-4 text-blue-400"></i> Full Visitor Transcripts
+                    </h2>
+                    <p class="text-[11px] text-slate-400">Audit raw conversations, latencies, and sentiment across external widget deployments.</p>
+                </div>
+                <div id="convsContainer" class="space-y-3"></div>
+            </div>
+
+            <!-- TAB 7: INSTALL WIDGET -->
+            <div id="view-install" class="hidden max-w-3xl space-y-6">
+                <div class="glow-box p-6 rounded-3xl space-y-4">
+                    <h2 class="text-sm font-bold text-white">Embed Script Tag</h2>
+                    <p class="text-slate-400 text-xs">Paste this single tag into the `<head>` or `<body>` of any website or Shopify store.</p>
+                    <div class="bg-[#060b17] border border-blue-500/30 p-4 rounded-xl flex items-center justify-between">
+                        <code id="installSnippet" class="text-xs text-cyan-400 font-mono select-all"></code>
+                        <button onclick="copySnippet(this)" class="bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded-lg text-white font-bold ml-2 transition">Copy</button>
+                    </div>
+                    <a href="/test-site" target="_blank" class="inline-block glow-btn text-white px-5 py-2.5 rounded-xl font-bold">Open Simulated Client Site</a>
+                </div>
+            </div>
+
+            <!-- TAB 8: BEHAVIOUR -->
+            <div id="view-behaviour" class="hidden max-w-3xl space-y-6">
+                <div class="glow-box p-6 rounded-3xl space-y-4">
+                    <h2 class="text-sm font-bold text-white">Domain Origin Guard</h2>
+                    <p class="text-slate-400 text-xs">Restrict embed execution to authenticated domain origins.</p>
+                    <input id="editAllowedOrigins" value="appdeft.ai, localhost, 127.0.0.1" class="w-full bg-[#060b17] border border-blue-500/30 rounded-xl p-3 text-xs text-white outline-none focus:border-cyan-400" />
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- TEAM MODAL -->
+    <div id="teamModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+        <div class="glow-box rounded-3xl p-6 max-w-2xl w-full shadow-2xl relative border-blue-500/40">
+            <button onclick="closeTeamModal()" class="absolute top-4 right-4 text-slate-500 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <h2 class="text-lg font-bold text-white mb-1">Team Management</h2>
+            <p class="text-xs text-slate-400 mb-6">Manage organization users, administrators, and bot access roles.</p>
+            
+            <div class="flex gap-2 mb-6 p-4 bg-[#060b17] rounded-2xl border border-blue-500/30">
+                <input id="inviteEmailInput" placeholder="colleague@company.com" class="flex-1 bg-transparent border-b border-blue-500/40 focus:border-cyan-400 px-2 py-1 text-xs text-white outline-none" />
+                <select id="inviteRoleSelect" class="bg-[#0f172a] border border-blue-500/30 text-xs text-white rounded-lg px-2 outline-none">
+                    <option value="ADMIN">Admin</option>
+                    <option value="MEMBER">Member</option>
+                </select>
+                <button onclick="sendTeamInvite()" class="glow-btn text-white font-bold px-4 py-1.5 rounded-lg text-xs">Invite Member</button>
+            </div>
+
+            <div class="overflow-hidden rounded-xl border border-blue-500/20">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-[#060b17] text-slate-400 border-b border-blue-500/20">
+                        <tr><th class="p-3">User</th><th class="p-3">Role</th><th class="p-3 text-right">Actions</th></tr>
+                    </thead>
+                    <tbody id="teamMembersList" class="divide-y divide-blue-500/10"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW BOT MODAL -->
+    <div id="newBotModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+        <div class="glow-box rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl border-blue-500/40">
+            <h2 class="text-base font-bold text-white">Deploy New Agent</h2>
+            <div><label class="text-xs text-slate-400 block mb-1">Agent Name</label><input id="newBotName" placeholder="Customer Support AI" class="w-full bg-[#060b17] border border-blue-500/30 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-400" /></div>
+            <div><label class="text-xs text-slate-400 block mb-1">Target Website Domain</label><input id="newBotDomain" placeholder="company.com" class="w-full bg-[#060b17] border border-blue-500/30 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-400" /></div>
+            <div class="flex gap-2 pt-2"><button onclick="closeNewBotModal()" class="flex-1 bg-slate-900 text-slate-400 py-2.5 rounded-xl font-bold">Cancel</button><button onclick="submitNewBot()" class="flex-1 glow-btn text-white py-2.5 rounded-xl font-bold">Create</button></div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT -->
+    <script>
+        const PRESET_COLORS = ["#00c48c", "#2563EB", "#06B6D4", "#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#E11D48"];
+        let token = localStorage.getItem('kiavi_token');
+        let activeBotId = "";
+        let activeBotData = null;
+        let allBotsList = [];
+        let selectedColor = "#00c48c";
+        let selectedTemplateName = "classic";
+        let selectedPos = "right";
+
+        function logout() { localStorage.removeItem('kiavi_token'); window.location.href = '/login'; }
+        function toggleUserDropdown() { document.getElementById('userDropdown').classList.toggle('hidden'); }
+        function openTeamModal() { document.getElementById('userDropdown').classList.add('hidden'); document.getElementById('teamModal').classList.remove('hidden'); loadTeamMembers(); }
+        function closeTeamModal() { document.getElementById('teamModal').classList.add('hidden'); }
+
+        function formatTimeNow() {
+            const d = new Date();
+            let hours = d.getHours();
+            const minutes = d.getMinutes().toString().padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            return `${hours}:${minutes} ${ampm}`;
+        }
+
+        async function init() {
+            if (!token) { window.location.href = '/login'; return; }
+            lucide.createIcons();
+            renderPalette();
+
+            const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (res.status === 401) { logout(); return; }
+            const me = await res.json();
+
+            const nameStr = me.user.name || me.user.email;
+            document.getElementById('userDisplayName').innerText = nameStr;
+            document.getElementById('dropUserName').innerText = nameStr;
+            document.getElementById('dropUserEmail').innerText = me.user.email;
+            document.getElementById('userInitials').innerText = nameStr.substring(0, 2).toUpperCase();
+            document.getElementById('greetingHeading').innerText = `Good morning, ${nameStr}`;
+
+            loadHomeBots();
+        }
+
+        function renderPalette() {
+            document.getElementById('colorPalette').innerHTML = PRESET_COLORS.map(c => `
+                <div onclick="selectColor('${c}')" class="w-6 h-6 rounded-full cursor-pointer transition border border-white/20 hover:scale-125" style="background-color: ${c}; box-shadow: 0 0 10px ${c}88"></div>
+            `).join('');
+        }
+
+        async function loadHomeBots() {
+            const res = await fetch('/api/bots/', { headers: { 'Authorization': 'Bearer ' + token } });
+            const data = await res.json();
+            allBotsList = data.bots;
+
+            document.getElementById('botsCountSubtitle').innerText = `${data.bots.length} active bots deployed.`;
+            document.getElementById('statConvs').innerText = data.metrics.conversations;
+            document.getElementById('statLeads').innerText = data.metrics.leads;
+            document.getElementById('statAnswered').innerText = `${data.metrics.answered_pct}%`;
+            document.getElementById('statTokens').innerText = data.metrics.tokens;
+            document.getElementById('attentionCount').innerText = `${data.metrics.unanswered_count} questions`;
+
+            const grid = document.getElementById('botsGrid');
+            grid.innerHTML = data.bots.map(b => `
+                <div onclick="openBotWorkspace('${b.id}', 'appearance')" class="glow-box p-5 rounded-3xl cursor-pointer transition space-y-4 group">
+                    <div class="flex items-center justify-between">
+                        <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-lg" style="background-color: ${b.accentColor || '#2563eb'}; box-shadow: 0 0 15px ${b.accentColor || '#2563eb'}66">
+                            <i data-lucide="bot" class="w-5 h-5"></i>
+                        </div>
+                        <span class="text-[10px] bg-blue-950/80 border border-blue-500/30 px-2.5 py-0.5 rounded-full text-cyan-300 font-mono capitalize">${b.template || 'Classic'}</span>
+                    </div>
+                    <div>
+                        <div class="font-bold text-white text-sm group-hover:text-cyan-400 transition">${b.name}</div>
+                        <div class="text-[11px] text-slate-400 mt-0.5 font-mono">${b.domain}</div>
+                    </div>
+                    <div class="flex items-center gap-4 text-[11px] text-slate-500 pt-2 border-t border-blue-500/10">
+                        <span class="flex items-center gap-1"><i data-lucide="message-square" class="w-3.5 h-3.5 text-blue-400"></i> ${b.conversations}</span>
+                        <span class="flex items-center gap-1"><i data-lucide="database" class="w-3.5 h-3.5 text-cyan-400"></i> ${b.tokens} tokens</span>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function openFirstBotSection(section) {
+            if (allBotsList && allBotsList.length > 0) {
+                openBotWorkspace(allBotsList[0].id, section);
+            }
+        }
+
+        async function openBotWorkspace(botId, targetTab = 'appearance') {
+            activeBotId = botId;
+            const res = await fetch(`/api/bots/${botId}`, { headers: { 'Authorization': 'Bearer ' + token } });
+            activeBotData = await res.json();
+
+            document.getElementById('homeView').classList.add('hidden');
+            document.getElementById('botWorkspaceView').classList.remove('hidden');
+
+            document.getElementById('activeBotName').innerText = activeBotData.name;
+            document.getElementById('activeBotDomain').innerText = activeBotData.domain;
+            document.getElementById('activeBotConvs').innerText = activeBotData.conversations;
+            document.getElementById('installSnippet').innerText = `<script src="http://127.0.0.1:8000/w.js" data-key="${activeBotData.publicKey}"><\/script>`;
+
+            document.getElementById('editBotName').value = activeBotData.name;
+            document.getElementById('editGreeting').value = activeBotData.greeting;
+            document.getElementById('editSuggestions').value = activeBotData.suggestions;
+            selectedColor = activeBotData.accentColor || "#00c48c";
+            selectedTemplateName = activeBotData.template || "classic";
+            selectedPos = activeBotData.launcherPosition || "right";
+
+            selectTemplate(selectedTemplateName);
+            selectColor(selectedColor);
+            setLauncherPos(selectedPos);
+
+            loadActiveBotSources();
+            updateLivePreview();
+            switchTab(targetTab);
+        }
+
+        function showHomeView() {
+            document.getElementById('botWorkspaceView').classList.add('hidden');
+            document.getElementById('homeView').classList.remove('hidden');
+            loadHomeBots();
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            const btn = document.getElementById('tab-' + tab);
+            if(btn) btn.classList.add('active');
+
+            ['appearance', 'knowledge', 'test', 'install', 'behaviour', 'leads', 'insights', 'conversations'].forEach(v => {
+                const el = document.getElementById('view-' + v);
+                if(el) el.classList.add('hidden');
+            });
+            
+            const activeView = document.getElementById('view-' + tab);
+            if (activeView) activeView.classList.remove('hidden');
+
+            if (tab === 'leads') loadLeads();
+            if (tab === 'insights') loadInsights();
+            if (tab === 'conversations') loadConversations();
+
+            lucide.createIcons();
+        }
+
+        function selectTemplate(name) {
+            selectedTemplateName = name;
+            document.querySelectorAll('.template-card').forEach(c => c.classList.remove('active'));
+            const card = document.getElementById('tpl-' + name);
+            if(card) card.classList.add('active');
+            updateLivePreview();
+        }
+
+        function selectColor(hex) {
+            selectedColor = hex;
+            document.getElementById('editColorHex').value = hex;
+            document.getElementById('botIconBg').style.backgroundColor = hex;
+            updateLivePreview();
+        }
+
+        function setCustomColor(hex) {
+            if(hex.startsWith('#') && (hex.length === 4 || hex.length === 7)) {
+                selectedColor = hex;
+                updateLivePreview();
+            }
+        }
+
+        function setLauncherPos(pos) {
+            selectedPos = pos;
+            document.getElementById('pos-left').className = pos === 'left' ? 'py-1.5 rounded-lg bg-blue-600/30 text-cyan-300 font-bold border border-cyan-400/40' : 'py-1.5 rounded-lg text-slate-400 font-medium';
+            document.getElementById('pos-right').className = pos === 'right' ? 'py-1.5 rounded-lg bg-blue-600/30 text-cyan-300 font-bold border border-cyan-400/40' : 'py-1.5 rounded-lg text-slate-400 font-medium';
+        }
+
+        function updateLivePreview() {
+            const name = document.getElementById('editBotName').value.trim() || 'Agent';
+            const greeting = document.getElementById('editGreeting').value.trim() || 'Hi! How can I help?';
+            const suggestions = document.getElementById('editSuggestions').value.trim().split('\n').filter(s => s.trim());
+
+            document.getElementById('prevBotTitle').innerText = name;
+            document.getElementById('prevAvatar').innerText = name.charAt(0).toUpperCase();
+            document.getElementById('prevGreetingMsg').innerText = greeting;
+            document.getElementById('prevHeader').style.backgroundColor = selectedColor;
+
+            document.getElementById('prevSuggestionsList').innerHTML = suggestions.map(s => `
+                <button onclick="askPrevSuggestion('${s}')" class="bg-white/10 hover:bg-white/20 border border-white/20 px-3 py-1 rounded-full text-[10px] text-white transition">${s}</button>
+            `).join('');
+        }
+
+        function askPrevSuggestion(s) {
+            document.getElementById('prevInput').value = s;
+            sendPreviewSim();
+        }
+
+        function sendPreviewSim() {
+            const inp = document.getElementById('prevInput');
+            const q = inp.value.trim();
+            if(!q) return;
+            const body = document.getElementById('prevChatBody');
+            body.innerHTML += `<div class="text-right"><span class="glow-btn text-white px-3 py-1.5 rounded-2xl inline-block text-xs">${q}</span></div>`;
+            inp.value = "";
+            body.scrollTop = body.scrollHeight;
+
+            setTimeout(() => {
+                body.innerHTML += `<div><span class="bg-blue-950/50 border border-blue-500/30 p-3 rounded-2xl inline-block max-w-[85%] text-slate-100 text-xs shadow-[0_0_10px_rgba(59,130,246,0.2)]">I am actively answering questions grounded from the knowledge base configured for ${document.getElementById('editBotName').value}.</span></div>`;
+                body.scrollTop = body.scrollHeight;
+            }, 300);
+        }
+
+        async function saveAppearanceSettings() {
+            const payload = {
+                name: document.getElementById('editBotName').value.trim(),
+                template: selectedTemplateName,
+                accentColor: selectedColor,
+                greeting: document.getElementById('editGreeting').value.trim(),
+                suggestions: document.getElementById('editSuggestions').value.trim(),
+                launcherPosition: selectedPos
+            };
+
+            const res = await fetch(`/api/bots/${activeBotId}/appearance`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify(payload)
+            });
+            if(res.ok) {
+                const toast = document.getElementById('saveToast');
+                toast.classList.remove('hidden');
+                setTimeout(() => toast.classList.add('hidden'), 3000);
+            }
+        }
+
+        async function loadActiveBotSources() {
+            const res = await fetch(`/api/knowledge/sources/${activeBotId}`, { headers: { 'Authorization': 'Bearer ' + token } });
+            const data = await res.json();
+            document.getElementById('activeUsedTokens').innerText = data.used_tokens.toLocaleString();
+            document.getElementById('activeTokenBar').style.width = Math.min(100, (data.used_tokens / data.max_tokens) * 100) + '%';
+
+            document.getElementById('activeSourcesList').innerHTML = data.sources.map(s => `
+                <div class="p-3 bg-[#060b17] border border-blue-500/20 rounded-xl flex justify-between items-center group hover:border-cyan-500/40 transition">
+                    <div class="flex items-center gap-2.5 overflow-hidden">
+                        <i data-lucide="${s.kind === 'PAGE' ? 'globe' : s.kind === 'FILE' ? 'file-text' : 'pen-tool'}" class="w-3.5 h-3.5 text-cyan-400 shrink-0"></i>
+                        <span class="font-medium text-white text-[11px] truncate">${s.title}</span>
+                    </div>
+                    <button onclick="deleteSource('${s.id}')" class="text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-300 transition ml-2 shrink-0">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        async function submitScrape() {
+            const url = document.getElementById('scrapeUrlInput').value.trim();
+            if(!url) return alert("Please enter a valid URL.");
+            const btn = event.target; btn.innerText = "Indexing..."; btn.disabled = true;
+
+            const form = new FormData();
+            form.append('bot_id', activeBotId);
+            form.append('url', url);
+
+            try {
+                const res = await fetch('/api/knowledge/scrape', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: form });
+                if(res.ok) { document.getElementById('scrapeUrlInput').value = ""; loadActiveBotSources(); alert("Website content extracted & vectorized."); }
+                else { const err = await res.json(); alert("Scraping failed: " + err.detail); }
+            } catch(e) { alert("Error connecting to server."); }
+            finally { btn.innerText = "Scan & Index"; btn.disabled = false; }
+        }
+
+        async function submitFile() {
+            const file = document.getElementById('fileUploadInput').files[0];
+            if(!file) return alert("Please select a file.");
+            const form = new FormData();
+            form.append('bot_id', activeBotId);
+            form.append('file', file);
+            const res = await fetch('/api/knowledge/ingest-mixed', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: form });
+            if(res.ok) { document.getElementById('fileUploadInput').value = ""; loadActiveBotSources(); }
+        }
+
+        async function submitNote() {
+            const title = document.getElementById('noteTitle').value.trim();
+            const text = document.getElementById('noteText').value.trim();
+            if(!text) return alert("Note content cannot be empty.");
+            const form = new FormData();
+            form.append('bot_id', activeBotId);
+            form.append('title', title);
+            form.append('pasted_text', text);
+            const res = await fetch('/api/knowledge/ingest-mixed', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: form });
+            if(res.ok) { document.getElementById('noteTitle').value = ""; document.getElementById('noteText').value = ""; document.getElementById('manualNoteBox').classList.add('hidden'); loadActiveBotSources(); }
+        }
+
+        async function deleteSource(id) {
+            if(confirm("Delete this knowledge source?")) {
+                await fetch(`/api/knowledge/sources/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+                loadActiveBotSources();
+            }
+        }
+
+        async function sendOwnerTest() {
+            const input = document.getElementById('testChatInput');
+            const q = input.value.trim();
+            if (!q) return;
+
+            const box = document.getElementById('testChatBox');
+            const userTime = formatTimeNow();
+            const startTime = performance.now();
+
+            box.innerHTML += `
+                <div class="flex flex-col items-end">
+                    <span class="glow-btn text-white px-4 py-2.5 rounded-2xl inline-block max-w-md shadow-md">${q}</span>
+                    <span class="text-[9px] text-slate-500 mt-1 mr-1 font-mono">${userTime}</span>
+                </div>
+            `;
+            input.value = "";
+            box.scrollTop = box.scrollHeight;
+
+            const msgId = 'stream_' + Date.now();
+            box.innerHTML += `
+                <div class="flex flex-col items-start">
+                    <span id="${msgId}" class="glow-box p-3.5 rounded-2xl inline-block max-w-md text-slate-200 leading-relaxed border-blue-500/30"></span>
+                    <div id="${msgId}_lead"></div>
+                    <div class="flex items-center gap-1.5 text-[9px] text-slate-500 mt-1 ml-1 font-mono">
+                        <span id="${msgId}_time">${userTime}</span>
+                        <span id="${msgId}_latency" class="text-cyan-400 font-bold"></span>
+                    </div>
+                </div>
+            `;
+            const targetSpan = document.getElementById(msgId);
+            const leadContainer = document.getElementById(msgId + '_lead');
+            const latencySpan = document.getElementById(msgId + '_latency');
+
+            const form = new FormData();
+            form.append('bot_id', activeBotId);
+            form.append('question', q);
+
+            try {
+                const res = await fetch('/api/chat/stream', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                    body: form
+                });
+
+                if (!res.ok) { targetSpan.innerText = "Authentication Failed"; return; }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let streamBuffer = "";
+                let fullText = "";
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    streamBuffer += decoder.decode(value, { stream: true });
+                    const lines = streamBuffer.split('\n');
+                    streamBuffer = lines.pop();
+
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (trimmed.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(trimmed.replace('data: ', ''));
+                                if (data.type === 'start') {
+                                    document.getElementById('testSourceCount').innerText = data.confidence >= 0.18 ? "1" : "0";
+                                } else if (data.type === 'token') {
+                                    fullText += data.content;
+                                    targetSpan.innerText = fullText;
+                                    box.scrollTop = box.scrollHeight;
+                                } else if (data.type === 'lead_form') {
+                                    renderInlineLead(leadContainer);
+                                    box.scrollTop = box.scrollHeight;
+                                } else if (data.type === 'done') {
+                                    const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+                                    latencySpan.innerText = `• ⚡ ${elapsed}s latency`;
+                                    document.getElementById('testTokensPerMsg').innerText = Math.round(fullText.length / 4);
+                                }
+                            } catch(e) {}
+                        }
+                    }
+                }
+            } catch (e) { targetSpan.innerText = "Connection lost to server."; }
+        }
+
+        function renderInlineLead(container) {
+            container.innerHTML = `
+                <div class="mt-2.5 p-4 glow-box border-amber-500/40 rounded-2xl space-y-2.5 max-w-xs shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+                    <div class="text-amber-400 font-bold text-[11px] flex items-center gap-1.5"><i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Capture Visitor Contact</div>
+                    <input id="in_name" placeholder="Name" class="w-full bg-[#060b17] border border-blue-500/30 p-2 rounded-xl text-xs text-white outline-none focus:border-cyan-400" />
+                    <input id="in_email" placeholder="Email or phone" class="w-full bg-[#060b17] border border-blue-500/30 p-2 rounded-xl text-xs text-white outline-none focus:border-cyan-400" />
+                    <button onclick="submitTestLead(this)" class="w-full glow-btn text-white font-bold p-2 rounded-xl text-xs">Submit Lead</button>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        async function submitTestLead(btn) {
+            const parent = btn.parentElement;
+            const name = parent.querySelector('#in_name').value.trim();
+            const email = parent.querySelector('#in_email').value.trim();
+            if (!name && !email) return alert("Please enter name or email.");
+
+            const form = new FormData();
+            form.append('bot_id', activeBotId);
+            form.append('name', name);
+            form.append('email', email);
+            form.append('note', 'Captured via Test Sandbox');
+
+            const res = await fetch('/api/public/lead', { method: 'POST', body: form });
+            if (res.ok) {
+                parent.innerHTML = `<div class="p-2 text-emerald-400 font-bold text-center flex items-center justify-center gap-1"><i data-lucide="check" class="w-4 h-4"></i> Lead saved to database!</div>`;
+                loadHomeBots();
+                lucide.createIcons();
+            }
+        }
+
+        async function loadLeads() {
+            const container = document.getElementById('leadsContainer');
+            container.innerHTML = `<div class="text-slate-500 text-xs font-mono">Querying captured leads...</div>`;
+            const res = await fetch(`/api/leads/${activeBotId}`, { headers: { 'Authorization': 'Bearer ' + token } });
+            if (!res.ok) return container.innerHTML = `<div class="text-red-500 text-xs">Failed to load leads.</div>`;
+            const leads = await res.json();
+            if(leads.length === 0) {
+                container.innerHTML = `<div class="p-8 glow-box rounded-3xl text-center text-slate-500 text-xs">No leads captured yet. Submissions from the live web widget will appear here.</div>`;
+                return;
+            }
+            container.innerHTML = leads.map(l => `
+                <div class="p-4 glow-box rounded-2xl flex justify-between items-start">
+                    <div>
+                        <div class="font-bold text-white text-sm flex items-center gap-2">
+                            <span>${l.name}</span>
+                            <span class="text-[10px] bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 px-2 py-0.5 rounded-full font-mono">Verified Lead</span>
+                        </div>
+                        <div class="text-xs text-cyan-400 font-mono mt-1">${l.email} ${l.phone !== '-' ? ' &middot; ' + l.phone : ''}</div>
+                        <div class="text-[11px] text-slate-300 mt-2.5 bg-[#060b17] p-2.5 rounded-xl border border-blue-500/20 font-sans">Context: "${l.note}"</div>
+                    </div>
+                    <div class="text-[10px] text-slate-400 bg-[#060b17] px-3 py-1.5 rounded-xl border border-blue-500/30 font-mono">${l.date}</div>
+                </div>
+            `).join('');
+        }
+
+        async function exportLeadsCSV() {
+            if (!activeBotId) return;
+            const res = await fetch(`/api/leads/${activeBotId}/export`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!res.ok) return alert('Failed to export leads.');
+            
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `leads-${(activeBotData?.name || 'bot').toLowerCase().replace(/\\s+/g, '_')}-${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        }
+
+        async function loadInsights() {
+            const container = document.getElementById('insightsContainer');
+            container.innerHTML = `<div class="text-slate-500 text-xs font-mono">Analyzing knowledge coverage...</div>`;
+            const res = await fetch(`/api/insights/${activeBotId}`, { headers: { 'Authorization': 'Bearer ' + token } });
+            if (!res.ok) return container.innerHTML = `<div class="text-red-500 text-xs">Failed to load insights.</div>`;
+            const data = await res.json();
+            
+            if (!data.gaps || data.gaps.length === 0) {
+                container.innerHTML = `<div class="p-8 glow-box rounded-3xl text-center text-emerald-400 text-xs font-bold">🎉 Zero content gaps detected! All visitor queries were resolved accurately.</div>`;
+                return;
+            }
+
+            container.innerHTML = data.gaps.map(g => `
+                <div class="p-4 glow-box border-amber-500/30 rounded-2xl flex justify-between items-center">
+                    <div class="space-y-1">
+                        <div class="font-bold text-slate-100 text-xs flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></span>
+                            "${g.question}"
+                        </div>
+                        <div class="text-[10px] text-slate-500 font-mono">${g.date}</div>
+                    </div>
+                    <button onclick="fillKnowledgeGap('${g.id}', '${escape(g.question)}')" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3.5 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Answer
+                    </button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function fillKnowledgeGap(msgId, questionEsc) {
+            const question = unescape(questionEsc);
+            switchTab('knowledge');
+            document.getElementById('manualNoteBox').classList.remove('hidden');
+            document.getElementById('noteTitle').value = `Answer for: ${question}`;
+            document.getElementById('noteText').value = `Information regarding ${question}: `;
+            document.getElementById('noteText').focus();
+        }
+
+        async function loadConversations() {
+            const container = document.getElementById('convsContainer');
+            container.innerHTML = `<div class="text-slate-500 text-xs font-mono">Retrieving transcripts...</div>`;
+            const res = await fetch(`/api/chat/history/${activeBotId}`, { headers: { 'Authorization': 'Bearer ' + token } });
+            if (!res.ok) return container.innerHTML = `<div class="text-red-500 text-xs">Failed to load transcripts.</div>`;
+            const convs = await res.json();
+            if(!convs || convs.length === 0) {
+                container.innerHTML = `<div class="p-8 glow-box rounded-3xl text-center text-slate-500 text-xs">No conversations logged yet.</div>`;
+                return;
+            }
+            container.innerHTML = convs.map(c => `
+                <div class="p-5 glow-box rounded-2xl space-y-3">
+                    <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider border-b border-blue-500/10 pb-2.5">
+                        <span class="font-mono">${c.date}</span>
+                        <span class="text-[9px] font-mono px-2 py-0.5 rounded-full ${c.isTest ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'}">${c.isTest ? 'Test Mode' : 'Production Widget'}</span>
+                    </div>
+                    <div class="space-y-2">
+                        ${c.messages.map(m => `
+                            <div class="${m.role === 'USER' ? 'text-cyan-400' : m.unanswered ? 'text-amber-400' : 'text-slate-200'} text-xs flex gap-2">
+                                <strong class="font-mono text-[11px]">${m.role === 'USER' ? 'Visitor' : 'Bot'}:</strong> 
+                                <span>${m.content}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadTeamMembers() {
+            const tbody = document.getElementById('teamMembersList');
+            tbody.innerHTML = `<tr><td colspan="3" class="p-3 text-slate-500 text-center font-mono">Loading team access matrix...</td></tr>`;
+
+            const res = await fetch('/api/auth/team', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (!res.ok) return tbody.innerHTML = `<tr><td colspan="3" class="p-3 text-red-500 text-center">Failed to load team.</td></tr>`;
+            const members = await res.json();
+
+            tbody.innerHTML = members.map(m => `
+                <tr class="hover:bg-blue-600/10 transition">
+                    <td class="p-3.5">
+                        <div class="font-bold text-white">${m.name} ${m.isCurrent ? '<span class="text-cyan-400 text-[10px] font-normal">(You)</span>' : ''}</div>
+                        <div class="text-slate-400 text-[10px] font-mono">${m.email}</div>
+                    </td>
+                    <td class="p-3.5">
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border font-mono ${m.role === 'OWNER' ? 'bg-purple-500/20 text-purple-400 border-purple-500/40' : m.role === 'ADMIN' ? 'bg-blue-500/20 text-blue-400 border-blue-500/40' : 'bg-slate-800 text-slate-300 border-slate-700'}">
+                            ${m.role}
+                        </span>
+                    </td>
+                    <td class="p-3.5 text-right">
+                        ${m.role === 'OWNER' || m.isCurrent ? '<span class="text-slate-600 italic text-[10px]">Protected</span>' : `
+                            <button onclick="removeTeamMember('${m.id}')" class="text-red-400 hover:text-red-300 text-xs font-bold transition">Remove</button>
+                        `}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function sendTeamInvite() {
+            const email = document.getElementById('inviteEmailInput').value.trim();
+            const role = document.getElementById('inviteRoleSelect').value;
+            if (!email) return alert("Please enter email address.");
+
+            const res = await fetch('/api/auth/team/invite', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ email, role })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('inviteEmailInput').value = "";
+                alert(data.message);
+                loadTeamMembers();
+            } else {
+                alert("Invite failed: " + data.detail);
+            }
+        }
+
+        async function removeTeamMember(id) {
+            if (confirm("Revoke access for this team member?")) {
+                const res = await fetch(`/api/auth/team/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (res.ok) loadTeamMembers();
+            }
+        }
+
+        function copySnippet(btn) {
+            const textToCopy = document.getElementById('installSnippet').innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const oldText = btn.innerText;
+                btn.innerText = "Copied!";
+                btn.classList.add("bg-emerald-600");
+                setTimeout(() => { 
+                    btn.innerText = oldText; 
+                    btn.classList.remove("bg-emerald-600"); 
+                }, 2000);
+            });
+        }
+
+        function openNewBotModal() { document.getElementById('newBotModal').classList.remove('hidden'); }
+        function closeNewBotModal() { document.getElementById('newBotModal').classList.add('hidden'); }
+        async function submitNewBot() {
+            const name = document.getElementById('newBotName').value.trim();
+            const domain = document.getElementById('newBotDomain').value.trim() || 'appdeft.ai';
+            if(!name) return alert("Please enter bot name");
+
+            await fetch('/api/bots/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ name, domain })
+            });
+            closeNewBotModal();
+            loadHomeBots();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

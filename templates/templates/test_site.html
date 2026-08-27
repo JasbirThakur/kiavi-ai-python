@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Northwind Commerce - Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 font-sans min-h-screen flex flex-col text-slate-100">
+
+    <nav class="bg-slate-950/80 border-b border-slate-800 px-8 py-4 flex justify-between items-center">
+        <div class="text-xl font-black tracking-tight text-white">NORTHWIND<span class="text-red-500">.</span></div>
+        <div class="flex gap-6 text-sm font-medium text-slate-400">
+            <a href="#" class="hover:text-white">Products</a>
+            <a href="#" class="hover:text-white">Pricing</a>
+            <a href="#" class="hover:text-white">About Us</a>
+            <a href="#" class="text-red-500 font-bold">Contact Sales</a>
+        </div>
+    </nav>
+
+    <main class="flex-1 flex flex-col items-center justify-center p-8 text-center">
+        <div class="max-w-2xl space-y-6">
+            <h1 class="text-5xl font-extrabold text-white tracking-tight leading-tight">Northwind Commerce Co.</h1>
+            <p class="text-sm text-slate-400">This is a simulated external client website with our standalone Kiavi IQ chat bubble embedded at the bottom right.</p>
+            <div class="p-6 bg-slate-950 border border-slate-800 rounded-2xl text-left max-w-md mx-auto space-y-2">
+                <div class="text-xs font-bold text-emerald-400 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Live Floating Widget Active
+                </div>
+                <div class="text-xs text-slate-400">Click the red circular launcher on the bottom-right corner to test the full visitor chat experience.</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Auto Load Bot Script -->
+    <script>
+        async function loadWidget() {
+            const token = localStorage.getItem('kiavi_token');
+            let key = "pk_live_default";
+            if (token) {
+                try {
+                    const res = await fetch('/api/bots/', { headers: { 'Authorization': 'Bearer ' + token } });
+                    const data = await res.json();
+                    if (data.bots && data.bots.length > 0) {
+                        key = data.bots[0].publicKey;
+                    }
+                } catch(e) {}
+            }
+            const script = document.createElement('script');
+            script.src = "http://127.0.0.1:8000/w.js";
+            script.setAttribute('data-key', key);
+            document.body.appendChild(script);
+        }
+        loadWidget();
+    </script>
+</body>
+</html>

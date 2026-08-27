@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiavi IQ - Account</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-[#0b0f17] text-slate-200 min-h-screen font-sans antialiased text-xs">
+
+    <!-- Global Header -->
+    <header class="border-b border-slate-800/80 bg-[#0f1420]/70 backdrop-blur px-6 py-3 flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <a href="/dashboard" class="flex items-center gap-2">
+                <span class="bg-red-600 text-white font-black text-xs px-2 py-0.5 rounded tracking-tighter">K</span>
+                <span class="font-bold text-slate-100 text-sm tracking-tight">Kiavi<span class="text-red-500">IQ</span></span>
+            </a>
+            <span class="text-slate-600">/</span>
+            <span id="navUserName" class="text-xs text-slate-400 font-medium">Test user</span>
+        </div>
+        <a href="/dashboard" class="w-7 h-7 bg-red-600 text-white rounded-full flex items-center justify-center text-[11px] font-bold shadow">
+            <span id="navUserInitials">TU</span>
+        </a>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-6 py-10 space-y-8">
+        <a href="/dashboard" class="text-slate-400 hover:text-white flex items-center gap-1.5 font-medium mb-4">
+            <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> All bots
+        </a>
+
+        <div>
+            <h1 class="text-3xl font-extrabold text-white tracking-tight">Your account</h1>
+            <p class="text-xs text-slate-400 mt-1">Who you are, how you sign in, and how to leave.</p>
+        </div>
+
+        <!-- Section 1: Your Name -->
+        <div class="bg-[#111624] border border-slate-800 p-6 rounded-3xl space-y-4">
+            <div class="flex items-center gap-2 text-white font-bold text-sm">
+                <i data-lucide="user" class="w-4 h-4 text-red-500"></i> Your name
+            </div>
+            <p class="text-slate-400 text-[11px]">What teammates see, and how the bot signs its emails. With Kiavi IQ since August 2026.</p>
+            <div class="flex gap-3">
+                <input id="accFullName" class="flex-1 bg-[#0b0f17] border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-red-500" />
+                <button onclick="saveName()" class="bg-red-600 hover:bg-red-500 text-white font-bold px-6 py-2.5 rounded-xl transition">Save</button>
+            </div>
+        </div>
+
+        <!-- Section 2: Email -->
+        <div class="bg-[#111624] border border-slate-800 p-6 rounded-3xl space-y-4">
+            <div class="flex items-center gap-2 text-white font-bold text-sm">
+                <i data-lucide="at-sign" class="w-4 h-4 text-red-500"></i> Email
+            </div>
+            <p class="text-slate-400 text-[11px]">How you sign in, and where leads land by default. Changing it needs your password.</p>
+            <div>
+                <label class="text-[11px] text-slate-400 block mb-1">New email</label>
+                <input id="accNewEmail" class="w-full bg-[#0b0f17] border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-red-500" />
+            </div>
+            <div>
+                <label class="text-[11px] text-slate-400 block mb-1">Your current password</label>
+                <div class="relative">
+                    <input id="accEmailPass" type="password" placeholder="••••••••••••" class="w-full bg-[#0b0f17] border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-red-500 pr-10" />
+                    <button type="button" onclick="togglePass('accEmailPass', this)" class="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+            <button onclick="saveEmail()" class="bg-red-600 hover:bg-red-500 text-white font-bold px-5 py-2.5 rounded-xl transition">Change email</button>
+        </div>
+
+        <!-- Section 3: Password -->
+        <div class="bg-[#111624] border border-slate-800 p-6 rounded-3xl space-y-4">
+            <div class="flex items-center gap-2 text-white font-bold text-sm">
+                <i data-lucide="key" class="w-4 h-4 text-red-500"></i> Password
+            </div>
+            <p class="text-slate-400 text-[11px]">At least 8 characters. Changing it cancels any password-reset link sitting in your inbox.</p>
+            <div>
+                <label class="text-[11px] text-slate-400 block mb-1">Current password</label>
+                <div class="relative">
+                    <input id="accOldPass" type="password" class="w-full bg-[#0b0f17] border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-red-500 pr-10" />
+                    <button type="button" onclick="togglePass('accOldPass', this)" class="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+            <div>
+                <label class="text-[11px] text-slate-400 block mb-1">New password</label>
+                <div class="relative">
+                    <input id="accNewPass" type="password" class="w-full bg-[#0b0f17] border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-red-500 pr-10" />
+                    <button type="button" onclick="togglePass('accNewPass', this)" class="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+            <div>
+                <label class="text-[11px] text-slate-400 block mb-1">Type it again</label>
+                <div class="relative">
+                    <input id="accConfirmPass" type="password" class="w-full bg-[#0b0f17] border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-red-500 pr-10" />
+                    <button type="button" onclick="togglePass('accConfirmPass', this)" class="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+            <button onclick="savePassword()" class="bg-red-600 hover:bg-red-500 text-white font-bold px-5 py-2.5 rounded-xl transition">Change password</button>
+        </div>
+
+        <!-- Section 4: Workspace -->
+        <div class="bg-[#111624] border border-slate-800 p-6 rounded-3xl space-y-4">
+            <div class="flex items-center gap-2 text-white font-bold text-sm">
+                <i data-lucide="building" class="w-4 h-4 text-red-500"></i> Workspace
+            </div>
+            <p class="text-slate-400 text-[11px]">Your company's name. It appears in the header, on team invitations, and on lead notifications.</p>
+            <div class="flex gap-3">
+                <input id="accWorkspaceName" class="flex-1 bg-[#0b0f17] border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-red-500" />
+                <button onclick="saveWorkspace()" class="bg-red-600 hover:bg-red-500 text-white font-bold px-6 py-2.5 rounded-xl transition">Save</button>
+            </div>
+        </div>
+
+        <!-- Section 5: Delete Account -->
+        <div class="bg-[#111624] border border-red-900/30 p-6 rounded-3xl space-y-4">
+            <div class="flex items-center gap-2 text-red-400 font-bold text-sm">
+                <i data-lucide="trash-2" class="w-4 h-4"></i> Delete your account
+            </div>
+            <p class="text-slate-400 text-[11px]">Your workspace goes with you — every bot, its knowledge, every conversation and every lead. This cannot be undone.</p>
+            <button onclick="deleteAccount()" class="bg-[#19141d] border border-red-900/50 hover:bg-red-950/40 text-red-400 font-bold px-5 py-2.5 rounded-xl transition flex items-center gap-2">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete my account
+            </button>
+        </div>
+    </main>
+
+    <script>
+        const token = localStorage.getItem('kiavi_token');
+        if (!token) window.location.href = '/login';
+
+        function togglePass(inputId, btn) {
+            const inp = document.getElementById(inputId);
+            const isPass = inp.type === 'password';
+            inp.type = isPass ? 'text' : 'password';
+            btn.innerHTML = isPass ? '<i data-lucide="eye-off" class="w-4 h-4 text-red-400"></i>' : '<i data-lucide="eye" class="w-4 h-4"></i>';
+            lucide.createIcons();
+        }
+
+        async function initAccount() {
+            lucide.createIcons();
+            const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (!res.ok) { window.location.href = '/login'; return; }
+            const data = await res.json();
+
+            const name = data.user.name || data.user.email;
+            document.getElementById('navUserName').innerText = name;
+            document.getElementById('navUserInitials').innerText = name.substring(0, 2).toUpperCase();
+            document.getElementById('accFullName').value = data.user.name || '';
+            document.getElementById('accNewEmail').value = data.user.email;
+            document.getElementById('accWorkspaceName').value = data.organization.name;
+        }
+
+        async function saveName() {
+            const name = document.getElementById('accFullName').value.trim();
+            if (!name) return alert('Name cannot be empty.');
+            const res = await fetch('/api/auth/update-name', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ name })
+            });
+            if (res.ok) { alert('Name updated successfully!'); initAccount(); }
+        }
+
+        async function saveEmail() {
+            const new_email = document.getElementById('accNewEmail').value.trim();
+            const current_password = document.getElementById('accEmailPass').value.trim();
+            if (!new_email || !current_password) return alert('Enter new email and current password.');
+            const res = await fetch('/api/auth/update-email', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ new_email, current_password })
+            });
+            const data = await res.json();
+            if (res.ok) { alert('Email updated successfully!'); document.getElementById('accEmailPass').value = ''; initAccount(); }
+            else alert(data.detail || 'Failed to update email.');
+        }
+
+        async function savePassword() {
+            const current_password = document.getElementById('accOldPass').value.trim();
+            const new_password = document.getElementById('accNewPass').value.trim();
+            const confirm = document.getElementById('accConfirmPass').value.trim();
+            if (!current_password || !new_password) return alert('Fill all password fields.');
+            if (new_password !== confirm) return alert('New passwords do not match.');
+
+            const res = await fetch('/api/auth/update-password', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ current_password, new_password })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert('Password changed successfully!');
+                document.getElementById('accOldPass').value = '';
+                document.getElementById('accNewPass').value = '';
+                document.getElementById('accConfirmPass').value = '';
+            } else alert(data.detail || 'Failed to update password.');
+        }
+
+        async function saveWorkspace() {
+            const workspace_name = document.getElementById('accWorkspaceName').value.trim();
+            if (!workspace_name) return alert('Workspace name cannot be empty.');
+            const res = await fetch('/api/auth/update-workspace', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ workspace_name })
+            });
+            if (res.ok) alert('Workspace updated successfully!');
+        }
+
+        async function deleteAccount() {
+            if (confirm('Are you absolutely sure you want to delete your account? All bots and data will be erased.')) {
+                const res = await fetch('/api/auth/delete-account', {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (res.ok) {
+                    localStorage.removeItem('kiavi_token');
+                    window.location.href = '/login';
+                }
+            }
+        }
+
+        window.onload = initAccount;
+    </script>
+</body>
+</html>

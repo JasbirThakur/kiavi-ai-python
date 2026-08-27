@@ -1,80 +1,92 @@
-import enum
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, ForeignKey, Enum, UniqueConstraint
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, String, Text, Boolean, Integer, Float, DateTime, ForeignKey
+from pgvector.sqlalchemy import Vector
 from database import Base
 
-def generate_cuid():
-    return "c_" + uuid.uuid4().hex[:20]
-
-class RoleEnum(enum.Enum):
-    OWNER = "OWNER"
-    ADMIN = "ADMIN"
-    MEMBER = "MEMBER"
-
-# --- CORE TABLES ---
-class User(Base):
-    __tablename__ = "User"
-    id = Column(String, primary_key=True, default=generate_cuid)
-    email = Column(String, unique=True, index=True, nullable=False)
-    passwordHash = Column(String, nullable=False)
-    name = Column(String, nullable=False)
-    createdAt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-
-    organizations = relationship("Organization", back_populates="owner", cascade="all, delete-orphan")
-    memberships = relationship("Membership", back_populates="user", cascade="all, delete-orphan")
+def generate_uuid():
+    return str(uuid.uuid4())
 
 class Organization(Base):
-    __tablename__ = "Organization"
-    id = Column(String, primary_key=True, default=generate_cuid)
-    name = Column(String, nullable=False)
-    ownerId = Column(String, ForeignKey("User.id", ondelete="CASCADE"), nullable=False, index=True)
+    __tablename__ = "organizations"
 
-    owner = relationship("User", back_populates="organizations")
-    members = relationship("Membership", back_populates="org", cascade="all, delete-orphan")
-    bots = relationship("Bot", back_populates="org", cascade="all, delete-orphan")
-
-class Membership(Base):
-    __tablename__ = "Membership"
-    id = Column(String, primary_key=True, default=generate_cuid)
-    orgId = Column(String, ForeignKey("Organization.id", ondelete="CASCADE"), nullable=False)
-    userId = Column(String, ForeignKey("User.id", ondelete="CASCADE"), nullable=False, index=True)
-    role = Column(Enum(RoleEnum), default=RoleEnum.MEMBER)
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    name = Column(String(255), nullable=False)
     createdAt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    org = relationship("Organization", back_populates="members")
-    user = relationship("User", back_populates="memberships")
-    __table_args__ = (UniqueConstraint('orgId', 'userId', name='unique_org_user_membership'),)
+class User(Base):
+    __tablename__ = "users"
 
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    name = Column(String(255), nullable=True)
+    passwordHash = Column(String(255), nullable=True)
+    hashedPassword = Column(String(255), nullable=True)
+    role = Column(String(50), default="MEMBER")
+    orgId = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    createdAt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-# --- AI & KNOWLEDGE TABLES (NEW) ---
 class Bot(Base):
-    __tablename__ = "Bot"
-    id = Column(String, primary_key=True, default=generate_cuid)
-    name = Column(String, nullable=False)
-    systemPrompt = Column(String, nullable=True) 
-    orgId = Column(String, ForeignKey("Organization.id", ondelete="CASCADE"), nullable=False, index=True)
+    __tablename__ = "bots"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    orgId = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False, default="Test Boat")
+    domain = Column(String(255), nullable=False, default="appdeft.ai")
+    publicKey = Column(String(64), unique=True, default=generate_uuid, index=True)
+    template = Column(String(50), default="classic")
+    accentColor = Column(String(20), default="#00c48c")
+    greeting = Column(Text, default="Hi! How can I help?")
+    suggestions = Column(Text, default="What do you offer?\nHow much does it cost?\nHow do I get in touch?")
+    launcherPosition = Column(String(20), default="right")
     createdAt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    org = relationship("Organization", back_populates="bots")
-    knowledgeBases = relationship("KnowledgeBase", back_populates="bot", cascade="all, delete-orphan")
+class BotSource(Base):
+    __tablename__ = "bot_sources"
 
-class KnowledgeBase(Base):
-    __tablename__ = "KnowledgeBase"
-    id = Column(String, primary_key=True, default=generate_cuid)
-    name = Column(String, nullable=False) 
-    botId = Column(String, ForeignKey("Bot.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    botId = Column(String(36), ForeignKey("bots.id", ondelete="CASCADE"), nullable=False)
+    kind = Column(String(50), default="PAGE")
+    title = Column(String(255), nullable=False)
+    url = Column(String(1000), nullable=True)
+    tokenCount = Column(Integer, default=0)
     createdAt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-
-    bot = relationship("Bot", back_populates="knowledgeBases")
-    chunks = relationship("DocumentChunk", back_populates="knowledgeBase", cascade="all, delete-orphan")
 
 class DocumentChunk(Base):
-    __tablename__ = "DocumentChunk"
-    id = Column(String, primary_key=True, default=generate_cuid)
-    content = Column(String, nullable=False) 
-    embedding = Column(String, nullable=True) 
-    knowledgeBaseId = Column(String, ForeignKey("KnowledgeBase.id", ondelete="CASCADE"), nullable=False, index=True)
+    __tablename__ = "document_chunks"
 
-    knowledgeBase = relationship("KnowledgeBase", back_populates="chunks")
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    sourceId = Column(String(36), ForeignKey("bot_sources.id", ondelete="CASCADE"), nullable=False)
+    content = Column(Text, nullable=False)
+    embedding = Column(Vector(384), nullable=False)
+    createdAt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    botId = Column(String(36), ForeignKey("bots.id", ondelete="CASCADE"), nullable=False)
+    sessionId = Column(String(100), nullable=True)
+    isTest = Column(Boolean, default=False)
+    createdAt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    conversationId = Column(String(36), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
+    role = Column(String(50), nullable=False)
+    content = Column(Text, nullable=False)
+    unanswered = Column(Boolean, default=False)
+    createdAt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class Lead(Base):
+    __tablename__ = "leads"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    botId = Column(String(36), ForeignKey("bots.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=True)
+    email = Column(String(255), nullable=True)
+    phone = Column(String(100), nullable=True)
+    note = Column(Text, nullable=True)
+    createdAt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
