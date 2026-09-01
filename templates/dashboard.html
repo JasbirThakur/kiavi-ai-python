@@ -454,24 +454,8 @@
                 </div>
             </div>
 
-            <!-- TAB 4: LEADS & WEBHOOK INTEGRATION -->
-            <div id="view-leads" class="hidden space-y-5">
-                <!-- Instant Webhook Card -->
-                <div class="glow-box p-5 rounded-3xl border border-purple-500/30 bg-gradient-to-r from-purple-950/20 to-blue-950/20 space-y-3">
-                    <div class="flex items-center justify-between flex-wrap gap-2">
-                        <div class="flex items-center gap-2 text-sm font-bold text-purple-300">
-                            <i data-lucide="webhook" class="w-4 h-4 text-purple-400"></i> Instant Lead Webhook (Slack, Discord, Zapier, Make, n8n)
-                        </div>
-                        <span id="webhookStatusMsg" class="text-[11px] font-mono text-purple-300 font-semibold"></span>
-                    </div>
-                    <p class="text-xs text-slate-400">Automatically dispatches newly captured customer leads directly into your team's Slack channel, CRM, or Discord server.</p>
-                    <div class="flex gap-2">
-                        <input id="botWebhookUrl" placeholder="https://hooks.slack.com/services/... or Discord/Zapier Webhook URL" class="flex-1 bg-[#060b17] border border-purple-500/30 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-purple-400 font-mono" />
-                        <button onclick="saveAndTestWebhook()" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition shadow-[0_0_20px_rgba(168,85,247,0.35)] cursor-pointer">
-                            <i data-lucide="send" class="w-3.5 h-3.5"></i> Save & Test
-                        </button>
-                    </div>
-                </div>
+            <!-- TAB 4: LEADS -->
+            <div id="view-leads" class="hidden space-y-4">
 
                 <div class="flex justify-between items-center glow-box p-4 rounded-2xl">
                     <div>
@@ -488,25 +472,96 @@
             </div>
 
             <!-- TAB 5: INSIGHTS & GAPS -->
-            <div id="view-insights" class="hidden space-y-4">
-                <div class="glow-box p-4 rounded-2xl">
-                    <h2 class="text-sm font-bold text-white flex items-center gap-2">
-                        <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i> Knowledge Gaps & Unanswered Inquiries
-                    </h2>
-                    <p class="text-[11px] text-slate-400">Queries visitors asked that could not be verified by existing knowledge bases.</p>
+            <!-- TAB 5: INSIGHTS & GAPS -->
+            <div id="view-insights" class="hidden space-y-5">
+                <!-- Sentiment & Topic Clusters Header -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Sentiment Card -->
+                    <div class="glow-box p-5 rounded-3xl space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                                <i data-lucide="smile" class="w-4 h-4 text-emerald-400"></i> Visitor Sentiment & Trust
+                            </span>
+                            <span id="sentimentBadge" class="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">High Satisfaction</span>
+                        </div>
+                        <div class="space-y-1.5">
+                            <div class="flex justify-between text-xs font-mono">
+                                <span class="text-slate-400">Resolved Queries</span>
+                                <span id="sentimentPosVal" class="text-emerald-400 font-bold">88%</span>
+                            </div>
+                            <div class="w-full bg-[#060b17] h-2 rounded-full overflow-hidden border border-blue-500/20">
+                                <div id="sentimentPosBar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500" style="width: 88%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Top Inquired Topics -->
+                    <div class="glow-box p-5 rounded-3xl space-y-3">
+                        <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <i data-lucide="trending-up" class="w-4 h-4 text-cyan-400"></i> Top Customer Inquiry Topics
+                        </span>
+                        <div id="topTopicsContainer" class="flex flex-wrap gap-2 pt-1">
+                            <span class="text-[11px] bg-blue-950/80 border border-blue-500/30 text-cyan-300 px-3 py-1 rounded-xl">AI Engineering (48%)</span>
+                            <span class="text-[11px] bg-blue-950/80 border border-blue-500/30 text-cyan-300 px-3 py-1 rounded-xl">Pricing & Process (24%)</span>
+                            <span class="text-[11px] bg-blue-950/80 border border-blue-500/30 text-cyan-300 px-3 py-1 rounded-xl">Mars Science (16%)</span>
+                        </div>
+                    </div>
                 </div>
-                <div id="insightsContainer" class="space-y-3"></div>
+
+                <!-- Knowledge Gaps List -->
+                <div class="glow-box p-5 rounded-3xl space-y-4">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                                <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i> Unanswered Questions Bank & Content Gaps
+                            </h2>
+                            <p class="text-[11px] text-slate-400">Specific customer inquiries that need new grounding facts added to the knowledge base.</p>
+                        </div>
+                        <span id="unansweredBadgeCount" class="text-xs font-mono font-bold text-amber-400 bg-amber-950/60 border border-amber-500/30 px-3 py-1 rounded-full">0 Gaps</span>
+                    </div>
+                    <div id="insightsContainer" class="space-y-3"></div>
+                </div>
             </div>
 
-            <!-- TAB 6: CONVERSATIONS -->
-            <div id="view-conversations" class="hidden space-y-4">
-                <div class="glow-box p-4 rounded-2xl">
-                    <h2 class="text-sm font-bold text-white flex items-center gap-2">
-                        <i data-lucide="message-square" class="w-4 h-4 text-blue-400"></i> Full Visitor Transcripts
-                    </h2>
-                    <p class="text-[11px] text-slate-400">Audit raw conversations, latencies, and sentiment across external widget deployments.</p>
+            <!-- TAB 6: CONVERSATIONS & LIVE AGENT TAKEOVER -->
+            <div id="view-conversations" class="hidden space-y-5">
+                <div class="glow-box p-5 rounded-3xl flex justify-between items-center flex-wrap gap-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i data-lucide="message-square" class="w-4 h-4 text-blue-400"></i> Live Visitor Conversations & Agent Hand-off
+                        </h2>
+                        <p class="text-[11px] text-slate-400">Monitor visitor transcripts in real-time. Jump in and chat directly with high-intent leads.</p>
+                    </div>
+                    <button onclick="loadConversations()" class="glow-btn px-4 py-2 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 cursor-pointer">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh Stream
+                    </button>
                 </div>
                 <div id="convsContainer" class="space-y-3"></div>
+            </div>
+
+            <!-- Live Takeover Console Modal / Drawer -->
+            <div id="liveTakeoverModal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+                <div class="bg-[#0b1329] border border-cyan-500/40 rounded-3xl p-6 text-white shadow-2xl max-w-2xl w-full flex flex-col h-[600px] glow-box">
+                    <div class="flex items-center justify-between border-b border-blue-500/20 pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping"></span>
+                            <span class="text-sm font-bold text-white">🔴 Live Agent Takeover Console</span>
+                            <span id="takeoverConvTag" class="text-[10px] bg-blue-950 border border-blue-500/30 px-2 py-0.5 rounded-full text-cyan-300 font-mono">Visitor Session</span>
+                        </div>
+                        <button onclick="closeLiveTakeover()" class="text-slate-400 hover:text-white cursor-pointer"><i data-lucide="x" class="w-5 h-5"></i></button>
+                    </div>
+                    
+                    <!-- Live Transcript Stream -->
+                    <div id="takeoverTranscriptBox" class="flex-1 overflow-y-auto space-y-3 py-4 text-xs font-sans select-text"></div>
+
+                    <!-- Live Reply Input Bar -->
+                    <div class="flex gap-2 pt-3 border-t border-blue-500/20">
+                        <input id="takeoverReplyInput" placeholder="Type direct reply to visitor as Live Agent..." class="flex-1 bg-[#060b17] border border-emerald-500/40 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-emerald-400" onkeydown="if(event.key==='Enter') sendLiveAgentReply()" />
+                        <button onclick="sendLiveAgentReply()" class="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 transition shadow-[0_0_20px_rgba(16,185,129,0.35)] cursor-pointer">
+                            <i data-lucide="send" class="w-3.5 h-3.5"></i> Send Reply
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- TAB 7: INSTALL WIDGET -->
@@ -1044,7 +1099,7 @@
                                 } else if (data.type === 'token') {
                                     if (targetSpan.innerText === "Thinking...") targetSpan.innerText = "";
                                     fullText += data.content;
-                                    targetSpan.innerText = fullText;
+                                    targetSpan.innerHTML = formatMarkdownWithImages(fullText);
                                     box.scrollTop = box.scrollHeight;
                                 } else if (data.type === 'sources' && data.sources && data.sources.length > 0) {
                                     document.getElementById('testSourceCount').innerText = data.sources.length;
@@ -1277,20 +1332,53 @@
             window.URL.revokeObjectURL(url);
         }
 
+        function formatMarkdownWithImages(text) {
+            if (!text) return "";
+            let html = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
+                return `<div class="my-2 rounded-2xl overflow-hidden border border-cyan-500/30 shadow-lg bg-black/40 p-1">
+                    <img src="${url}" alt="${alt}" class="w-full h-auto rounded-xl object-contain max-h-[220px]" loading="lazy" onerror="this.parentElement.style.display='none'" />
+                    ${alt ? `<div class="text-[10px] text-cyan-400 font-mono text-center pt-1">${alt}</div>` : ''}
+                </div>`;
+            });
+            html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/^\s*-\s+(.+)$/gm, '<li class="ml-3">$1</li>');
+            html = html.replace(/\n/g, '<br/>');
+            return html;
+        }
+
         async function loadInsights() {
             const container = document.getElementById('insightsContainer');
-            container.innerHTML = `<div class="text-slate-500 text-xs font-mono">Analyzing knowledge coverage...</div>`;
+            container.innerHTML = `<div class="text-slate-500 text-xs font-mono">Analyzing customer queries and knowledge coverage...</div>`;
             const res = await fetch(`/api/insights/${activeBotId}`, { headers: { 'Authorization': 'Bearer ' + token } });
             if (!res.ok) return container.innerHTML = `<div class="text-red-500 text-xs">Failed to load insights.</div>`;
             const data = await res.json();
             
+            // Update Sentiment Card
+            if (data.sentiment) {
+                document.getElementById('sentimentBadge').innerText = data.sentiment.score_label;
+                document.getElementById('sentimentPosVal').innerText = `${data.sentiment.positive_pct}%`;
+                document.getElementById('sentimentPosBar').style.width = `${data.sentiment.positive_pct}%`;
+            }
+
+            // Update Top Topics
+            if (data.top_topics && data.top_topics.length > 0) {
+                document.getElementById('topTopicsContainer').innerHTML = data.top_topics.map(t => `
+                    <span class="text-[11px] bg-blue-950/80 border border-blue-500/30 text-cyan-300 px-3 py-1 rounded-xl flex items-center gap-1.5 font-medium">
+                        <span>${t.topic}</span>
+                        <span class="bg-cyan-500/20 text-cyan-400 px-1.5 py-0.2 rounded-md font-mono text-[10px]">${t.pct}%</span>
+                    </span>
+                `).join('');
+            }
+
+            document.getElementById('unansweredBadgeCount').innerText = `${data.total_unanswered || 0} Gaps`;
+
             if (!data.gaps || data.gaps.length === 0) {
                 container.innerHTML = `<div class="p-8 glow-box rounded-3xl text-center text-emerald-400 text-xs font-bold">🎉 Zero content gaps detected! All visitor queries were resolved accurately.</div>`;
                 return;
             }
 
             container.innerHTML = data.gaps.map(g => `
-                <div class="p-4 glow-box border-amber-500/30 rounded-2xl flex justify-between items-center">
+                <div class="p-4 glow-box border-amber-500/30 rounded-2xl flex justify-between items-center flex-wrap gap-2">
                     <div class="space-y-1">
                         <div class="font-bold text-slate-100 text-xs flex items-center gap-2">
                             <span class="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></span>
@@ -1298,8 +1386,8 @@
                         </div>
                         <div class="text-[10px] text-slate-500 font-mono">${g.date}</div>
                     </div>
-                    <button onclick="fillKnowledgeGap('${g.id}', '${escape(g.question)}')" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3.5 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
-                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Answer
+                    <button onclick="fillKnowledgeGap('${g.id}', '${escape(g.question)}')" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3.5 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 shadow-[0_0_15px_rgba(245,158,11,0.2)] cursor-pointer">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Grounding Fact
                     </button>
                 </div>
             `).join('');
@@ -1315,6 +1403,9 @@
             document.getElementById('noteText').focus();
         }
 
+        let activeTakeoverConvId = null;
+        let takeoverPollTimer = null;
+
         async function loadConversations() {
             const container = document.getElementById('convsContainer');
             container.innerHTML = `<div class="text-slate-500 text-xs font-mono">Retrieving transcripts...</div>`;
@@ -1325,22 +1416,109 @@
                 container.innerHTML = `<div class="p-8 glow-box rounded-3xl text-center text-slate-500 text-xs">No conversations logged yet.</div>`;
                 return;
             }
-            container.innerHTML = convs.map(c => `
-                <div class="p-5 glow-box rounded-2xl space-y-3">
-                    <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider border-b border-blue-500/10 pb-2.5">
-                        <span class="font-mono">${c.date}</span>
-                        <span class="text-[9px] font-mono px-2 py-0.5 rounded-full ${c.isTest ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'}">${c.isTest ? 'Test Mode' : 'Production Widget'}</span>
+
+            // Check if any active visitor requested live agent takeover
+            const hasLiveRequest = convs.some(c => c.status === 'HUMAN_REQUESTED');
+            let bannerHtml = '';
+            if (hasLiveRequest) {
+                bannerHtml = `
+                    <div class="p-4 rounded-2xl bg-amber-950/60 border border-amber-500/50 flex items-center justify-between shadow-[0_0_30px_rgba(245,158,11,0.3)] animate-pulse">
+                        <div class="flex items-center gap-3">
+                            <span class="text-xl">🔔</span>
+                            <div>
+                                <div class="font-bold text-amber-300 text-xs">High-Intent Visitor Requested Live Agent!</div>
+                                <div class="text-[11px] text-slate-300">Click "Live Takeover" on the conversation below to join the chat in real-time.</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = bannerHtml + convs.map(c => `
+                <div class="p-5 glow-box rounded-2xl space-y-3 ${c.status === 'HUMAN_REQUESTED' ? 'border-amber-500/60 shadow-[0_0_20px_rgba(245,158,11,0.2)]' : ''}">
+                    <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider border-b border-blue-500/10 pb-2.5 flex-wrap gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono">${c.date}</span>
+                            <span class="text-[9px] font-mono px-2 py-0.5 rounded-full ${c.isTest ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'}">${c.isTest ? 'Test Mode' : 'Production Widget'}</span>
+                            ${c.status === 'HUMAN_REQUESTED' ? '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse font-bold">🚨 Live Agent Requested</span>' : c.status === 'HUMAN_TAKEN_OVER' ? '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-bold">👤 Human Agent Active</span>' : '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30">🤖 AI Active</span>'}
+                        </div>
+                        <button onclick="openLiveTakeover('${c.id}')" class="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white px-3 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition shadow-md cursor-pointer">
+                            <i data-lucide="message-circle" class="w-3 h-3"></i> 💬 Live Takeover
+                        </button>
                     </div>
                     <div class="space-y-2">
                         ${c.messages.map(m => `
-                            <div class="${m.role === 'USER' ? 'text-cyan-400' : m.unanswered ? 'text-amber-400' : 'text-slate-200'} text-xs flex gap-2">
-                                <strong class="font-mono text-[11px]">${m.role === 'USER' ? 'Visitor' : 'Bot'}:</strong> 
-                                <span>${m.content}</span>
+                            <div class="${m.role === 'USER' ? 'text-cyan-400' : m.role === 'AGENT' ? 'text-emerald-400 font-semibold' : m.unanswered ? 'text-amber-400' : 'text-slate-200'} text-xs flex gap-2">
+                                <strong class="font-mono text-[11px] shrink-0">${m.role === 'USER' ? 'Visitor' : m.role === 'AGENT' ? '👤 Support Agent' : 'Bot'}:</strong> 
+                                <span>${formatMarkdownWithImages(m.content)}</span>
                             </div>
                         `).join('')}
                     </div>
                 </div>
             `).join('');
+            lucide.createIcons();
+        }
+
+        async function openLiveTakeover(convId) {
+            activeTakeoverConvId = convId;
+            document.getElementById('takeoverConvTag').innerText = `Session ${convId.substring(0,8)}...`;
+            document.getElementById('liveTakeoverModal').classList.remove('hidden');
+            document.getElementById('liveTakeoverModal').classList.add('flex');
+            lucide.createIcons();
+            await refreshTakeoverTranscript();
+            if (takeoverPollTimer) clearInterval(takeoverPollTimer);
+            takeoverPollTimer = setInterval(refreshTakeoverTranscript, 3000);
+        }
+
+        function closeLiveTakeover() {
+            if (takeoverPollTimer) clearInterval(takeoverPollTimer);
+            document.getElementById('liveTakeoverModal').classList.add('hidden');
+            document.getElementById('liveTakeoverModal').classList.remove('flex');
+            loadConversations();
+        }
+
+        async function refreshTakeoverTranscript() {
+            if (!activeTakeoverConvId) return;
+            const res = await fetch(`/api/public/chat/poll/${activeTakeoverConvId}`);
+            const data = await res.json();
+            if (data.status === 'success' && data.messages) {
+                const box = document.getElementById('takeoverTranscriptBox');
+                box.innerHTML = data.messages.map(m => {
+                    const isUser = m.role === 'USER';
+                    const isAgent = m.role === 'AGENT';
+                    const isSystem = m.role === 'SYSTEM';
+                    if (isSystem) {
+                        return `<div class="text-center my-1 text-[10px] text-amber-400 font-mono italic">${m.content}</div>`;
+                    }
+                    return `
+                        <div class="flex flex-col ${isUser ? 'items-start' : 'items-end'}">
+                            <span class="text-[10px] text-slate-400 font-mono mb-0.5">${isUser ? 'Visitor' : isAgent ? '👤 You (Live Agent)' : 'AI Bot'} &middot; ${m.time}</span>
+                            <div class="p-3 rounded-2xl max-w-md ${isUser ? 'bg-[#060b17] border border-blue-500/30 text-cyan-200' : isAgent ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-medium shadow-md' : 'bg-slate-900 border border-slate-700 text-slate-200'}">
+                                ${formatMarkdownWithImages(m.content)}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                box.scrollTop = box.scrollHeight;
+            }
+        }
+
+        async function sendLiveAgentReply() {
+            const input = document.getElementById('takeoverReplyInput');
+            const msg = input.value.trim();
+            if (!msg || !activeTakeoverConvId) return;
+            input.value = "";
+
+            const form = new FormData();
+            form.append('message', msg);
+
+            await fetch(`/api/chat/conversations/${activeTakeoverConvId}/agent-reply`, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token },
+                body: form
+            });
+
+            await refreshTakeoverTranscript();
         }
 
         async function loadTeamMembers() {

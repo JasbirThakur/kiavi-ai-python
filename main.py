@@ -28,8 +28,14 @@ app.include_router(leads.router)
 app.include_router(insights.router)
 app.include_router(widget.router)
 
+from fastapi.staticfiles import StaticFiles
+
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATE_DIR = BASE_DIR / "templates"
+STATIC_DIR = BASE_DIR / "static"
+STATIC_DIR.mkdir(exist_ok=True)
+
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 @app.get("/w.js")
 def serve_widget_script():

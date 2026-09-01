@@ -39,7 +39,6 @@ class Bot(Base):
     greeting = Column(Text, default="Hi! How can I help?")
     suggestions = Column(Text, default="What do you offer?\nHow much does it cost?\nHow do I get in touch?")
     launcherPosition = Column(String(20), default="right")
-    webhookUrl = Column(String(500), nullable=True)
     createdAt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class BotSource(Base):
@@ -69,6 +68,8 @@ class Conversation(Base):
     botId = Column(String(36), ForeignKey("bots.id", ondelete="CASCADE"), nullable=False)
     sessionId = Column(String(100), nullable=True)
     isTest = Column(Boolean, default=False)
+    isHandedOff = Column(Boolean, default=False)
+    status = Column(String(50), default="AI_ACTIVE") # AI_ACTIVE, HUMAN_REQUESTED, HUMAN_TAKEN_OVER
     createdAt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class Message(Base):

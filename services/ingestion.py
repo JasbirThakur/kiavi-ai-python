@@ -44,10 +44,16 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
+import hashlib
+from pathlib import Path
+
+DIAG_DIR = Path(__file__).resolve().parent.parent / "static" / "extracted_diagrams"
+DIAG_DIR.mkdir(parents=True, exist_ok=True)
+
 def extract_text_from_pdf(file_bytes: bytes) -> str:
     extracted_text = []
     
-    # 1. Native Digital PDF Extraction + Embedded Diagram OCR
+    # 1. Native Digital PDF Extraction + Embedded Diagram OCR & Image Persist
     try:
         reader = PdfReader(io.BytesIO(file_bytes))
         for page_idx, page in enumerate(reader.pages):
@@ -57,13 +63,24 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
             if hasattr(page, "images") and page.images:
                 for img_idx, img_obj in enumerate(page.images):
                     try:
-                        if img_idx >= 2: # Keep fast, scan up to 2 major diagrams per page
+                        if img_idx >= 3:
                             break
                         img_bytes = getattr(img_obj, "data", None)
                         if img_bytes and len(img_bytes) > 2048:
+                            # Save diagram image to static folder
+                            img_hash = hashlib.md5(img_bytes).hexdigest()[:12]
+                            diag_filename = f"diag_p{page_idx + 1}_{img_idx + 1}_{img_hash}.png"
+                            diag_path = DIAG_DIR / diag_filename
+                            if not diag_path.exists():
+                                diag_path.write_bytes(img_bytes)
+
                             diag_text = ocr_image_with_vision(img_bytes)
+                            img_url = f"/static/extracted_diagrams/{diag_filename}"
+                            caption = f"Figure {page_idx + 1}.{img_idx + 1}"
                             if diag_text and len(diag_text) > 15:
-                                page_text += f"\n\n[Diagram / Visual Plate {page_idx + 1}.{img_idx + 1} Data]:\n{diag_text}"
+                                page_text += f"\n\n![{caption}]({img_url})\n[Diagram / Visual Plate {page_idx + 1}.{img_idx + 1} Data]:\n{diag_text}"
+                            else:
+                                page_text += f"\n\n![{caption}]({img_url})"
                     except Exception as diag_err:
                         print(f"[Diagram OCR Warning]: {diag_err}")
             
