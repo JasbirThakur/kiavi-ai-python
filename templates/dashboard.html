@@ -311,11 +311,11 @@
                                 <span class="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee] animate-pulse"></span>
                                 Live Widget Preview
                             </span>
-                            <span class="text-[10px] bg-blue-950/80 border border-cyan-500/30 text-cyan-400 px-2 py-0.5 rounded-full font-mono">Interactive</span>
+                            <span id="prevDockBadge" class="text-[10px] bg-blue-950/80 border border-cyan-500/30 text-cyan-400 px-2 py-0.5 rounded-full font-mono">📍 Docked: Bottom Right</span>
                         </div>
 
-                        <div class="glow-box rounded-3xl overflow-hidden shadow-2xl h-[520px] flex flex-col justify-between border-blue-500/40">
-                            <div id="prevHeader" class="p-4 bg-gradient-to-r from-blue-600 to-cyan-500 text-white flex items-center gap-3 shadow-md">
+                        <div id="prevContainer" class="glow-box rounded-3xl overflow-hidden shadow-2xl h-[520px] flex flex-col justify-between border-blue-500/40 transition-all duration-300">
+                            <div id="prevHeader" class="p-4 text-white flex items-center gap-3 shadow-md transition-all duration-300">
                                 <div id="prevAvatar" class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center font-bold text-sm shadow-inner">T</div>
                                 <div>
                                     <div id="prevBotTitle" class="font-bold text-xs">Agent</div>
@@ -323,14 +323,14 @@
                                 </div>
                             </div>
 
-                            <div class="flex-1 p-4 space-y-3 overflow-y-auto" id="prevChatBody">
-                                <div id="prevGreetingMsg" class="bg-blue-950/40 border border-blue-500/20 p-3 rounded-2xl max-w-[85%] text-slate-100 text-xs">Hi! How can I help?</div>
+                            <div class="flex-1 p-4 space-y-3 overflow-y-auto transition-colors duration-300" id="prevChatBody">
+                                <div id="prevGreetingMsg" class="bg-blue-950/40 border border-blue-500/20 p-3 rounded-2xl max-w-[85%] text-slate-100 text-xs transition-colors duration-300">Hi! How can I help?</div>
                                 <div id="prevSuggestionsList" class="flex flex-col items-end gap-1.5 pt-1"></div>
                             </div>
 
                             <div class="p-3 bg-[#060b17]/90 border-t border-blue-500/20 flex items-center gap-2">
                                 <input id="prevInput" placeholder="Ask preview simulation..." class="flex-1 bg-transparent text-xs text-white outline-none px-2" onkeydown="if(event.key==='Enter') sendPreviewSim()" />
-                                <button onclick="sendPreviewSim()" class="p-2 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-xl text-white shadow-[0_0_10px_rgba(6,182,212,0.5)]"><i data-lucide="send" class="w-3.5 h-3.5"></i></button>
+                                <button id="prevSendBtn" onclick="sendPreviewSim()" class="p-2 rounded-xl text-white shadow-md transition-all"><i data-lucide="send" class="w-3.5 h-3.5"></i></button>
                             </div>
                         </div>
                     </div>
@@ -470,7 +470,7 @@
                         <code id="installSnippet" class="text-xs text-cyan-400 font-mono select-all"></code>
                         <button onclick="copySnippet(this)" class="bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded-lg text-white font-bold ml-2 transition">Copy</button>
                     </div>
-                    <a href="/test-site" target="_blank" class="inline-block glow-btn text-white px-5 py-2.5 rounded-xl font-bold">Open Simulated Client Site</a>
+                    <a id="testSiteLink" href="/test-site" target="_blank" class="inline-block glow-btn text-white px-5 py-2.5 rounded-xl font-bold">Open Simulated Client Site</a>
                 </div>
             </div>
 
@@ -571,7 +571,7 @@
 
         function renderPalette() {
             document.getElementById('colorPalette').innerHTML = PRESET_COLORS.map(c => `
-                <div onclick="selectColor('${c}')" class="w-6 h-6 rounded-full cursor-pointer transition border border-white/20 hover:scale-125" style="background-color: ${c}; box-shadow: 0 0 10px ${c}88"></div>
+                <div data-color="${c}" onclick="selectColor('${c}')" class="w-6 h-6 rounded-full cursor-pointer transition border border-white/20 hover:scale-125" style="background-color: ${c}; box-shadow: 0 0 10px ${c}88"></div>
             `).join('');
         }
 
@@ -627,6 +627,9 @@
             document.getElementById('activeBotDomain').innerText = activeBotData.domain;
             document.getElementById('activeBotConvs').innerText = activeBotData.conversations;
             document.getElementById('installSnippet').innerText = `<script src="http://127.0.0.1:8000/w.js" data-key="${activeBotData.publicKey}"><\/script>`;
+            if (document.getElementById('testSiteLink')) {
+                document.getElementById('testSiteLink').href = '/test-site?key=' + activeBotData.publicKey;
+            }
 
             document.getElementById('editBotName').value = activeBotData.name;
             document.getElementById('editGreeting').value = activeBotData.greeting;
@@ -696,6 +699,7 @@
             selectedPos = pos;
             document.getElementById('pos-left').className = pos === 'left' ? 'py-1.5 rounded-lg bg-blue-600/30 text-cyan-300 font-bold border border-cyan-400/40' : 'py-1.5 rounded-lg text-slate-400 font-medium';
             document.getElementById('pos-right').className = pos === 'right' ? 'py-1.5 rounded-lg bg-blue-600/30 text-cyan-300 font-bold border border-cyan-400/40' : 'py-1.5 rounded-lg text-slate-400 font-medium';
+            updateLivePreview();
         }
 
         function updateLivePreview() {
@@ -706,11 +710,102 @@
             document.getElementById('prevBotTitle').innerText = name;
             document.getElementById('prevAvatar').innerText = name.charAt(0).toUpperCase();
             document.getElementById('prevGreetingMsg').innerText = greeting;
-            document.getElementById('prevHeader').style.backgroundColor = selectedColor;
+
+            // Apply selectedColor to Header and Buttons
+            const header = document.getElementById('prevHeader');
+            const container = document.getElementById('prevContainer');
+            const sendBtn = document.getElementById('prevSendBtn');
+            const dockBadge = document.getElementById('prevDockBadge');
+
+            if (dockBadge) {
+                dockBadge.innerText = selectedPos === 'left' ? '📍 Docked: Bottom Left' : '📍 Docked: Bottom Right';
+            }
+
+            if (header) {
+                header.style.backgroundImage = 'none';
+                header.style.background = selectedColor;
+                header.style.boxShadow = `0 4px 20px ${selectedColor}44`;
+            }
+
+            if (sendBtn) {
+                sendBtn.style.backgroundImage = 'none';
+                sendBtn.style.background = selectedColor;
+                sendBtn.style.boxShadow = `0 0 15px ${selectedColor}55`;
+            }
+
+            const iconBg = document.getElementById('botIconBg');
+            if (iconBg) {
+                iconBg.style.backgroundImage = 'none';
+                iconBg.style.background = selectedColor;
+                iconBg.style.boxShadow = `0 0 20px ${selectedColor}66`;
+            }
+
+            // Template theme application
+            const chatBody = document.getElementById('prevChatBody');
+            const greetingMsg = document.getElementById('prevGreetingMsg');
+
+            if (selectedTemplateName === 'midnight') { // Deep Space
+                if (container) {
+                    container.style.backgroundColor = '#05070c';
+                    container.style.borderColor = selectedColor + '88';
+                    container.style.boxShadow = `0 0 30px ${selectedColor}22`;
+                }
+                if (chatBody) chatBody.style.backgroundColor = '#030712';
+                if (greetingMsg) {
+                    greetingMsg.style.backgroundColor = '#0b0f19';
+                    greetingMsg.style.borderColor = selectedColor + '44';
+                    greetingMsg.style.color = '#f8fafc';
+                }
+            } else if (selectedTemplateName === 'minimal') { // Pure Minimal
+                if (container) {
+                    container.style.backgroundColor = '#0b0f19';
+                    container.style.borderColor = '#1e293b';
+                    container.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
+                }
+                if (chatBody) chatBody.style.backgroundColor = '#080c16';
+                if (greetingMsg) {
+                    greetingMsg.style.backgroundColor = '#111827';
+                    greetingMsg.style.borderColor = '#1f2937';
+                    greetingMsg.style.color = '#e2e8f0';
+                }
+            } else if (selectedTemplateName === 'concierge') { // Concierge AI
+                if (container) {
+                    container.style.backgroundColor = '#0f172a';
+                    container.style.borderColor = selectedColor + '55';
+                    container.style.boxShadow = `0 10px 40px ${selectedColor}25`;
+                }
+                if (chatBody) chatBody.style.backgroundColor = '#0b1120';
+                if (greetingMsg) {
+                    greetingMsg.style.backgroundColor = '#1e293b';
+                    greetingMsg.style.borderColor = '#334155';
+                    greetingMsg.style.color = '#f1f5f9';
+                }
+            } else { // Cosmic Classic
+                if (container) {
+                    container.style.backgroundColor = '';
+                    container.style.borderColor = '';
+                    container.style.boxShadow = '';
+                }
+                if (chatBody) chatBody.style.backgroundColor = '';
+                if (greetingMsg) {
+                    greetingMsg.style.backgroundColor = '';
+                    greetingMsg.style.borderColor = '';
+                    greetingMsg.style.color = '';
+                }
+            }
 
             document.getElementById('prevSuggestionsList').innerHTML = suggestions.map(s => `
                 <button onclick="askPrevSuggestion('${s}')" class="bg-white/10 hover:bg-white/20 border border-white/20 px-3 py-1 rounded-full text-[10px] text-white transition">${s}</button>
             `).join('');
+
+            // Highlight chosen color in palette
+            document.querySelectorAll('#colorPalette > div').forEach(el => {
+                if (el.getAttribute('data-color') === selectedColor) {
+                    el.classList.add('ring-2', 'ring-white', 'scale-125');
+                } else {
+                    el.classList.remove('ring-2', 'ring-white', 'scale-125');
+                }
+            });
         }
 
         function askPrevSuggestion(s) {
@@ -1126,13 +1221,43 @@
             const domain = document.getElementById('newBotDomain').value.trim() || 'appdeft.ai';
             if(!name) return alert("Please enter bot name");
 
-            await fetch('/api/bots/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-                body: JSON.stringify({ name, domain })
-            });
-            closeNewBotModal();
-            loadHomeBots();
+            const btn = event.target;
+            const origText = btn ? btn.innerText : '';
+            if (btn) btn.innerText = 'Creating & Indexing...';
+
+            try {
+                const res = await fetch('/api/bots/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ name, domain })
+                });
+                const newBot = await res.json();
+                closeNewBotModal();
+
+                if (newBot && newBot.id) {
+                    // Auto-scrape domain so bot is trained right away
+                    if (domain) {
+                        const scrapeUrl = domain.startsWith('http') ? domain : `https://${domain}`;
+                        const form = new FormData();
+                        form.append('bot_id', newBot.id);
+                        form.append('url', scrapeUrl);
+                        fetch('/api/knowledge/scrape', {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + token },
+                            body: form
+                        }).then(() => {
+                            if (activeBotId === newBot.id) loadActiveBotSources();
+                        }).catch(() => {});
+                    }
+                    openBotWorkspace(newBot.id, 'appearance');
+                } else {
+                    loadHomeBots();
+                }
+            } catch(e) {
+                alert('Error creating agent: ' + e.message);
+            } finally {
+                if (btn) btn.innerText = origText;
+            }
         }
 
         window.onload = init;

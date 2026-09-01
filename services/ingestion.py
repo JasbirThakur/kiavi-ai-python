@@ -90,6 +90,29 @@ def extract_file_text(file_bytes: bytes, filename: str = "") -> str:
             return "\n".join([p.text for p in doc.paragraphs if p.text])
         except Exception as e:
             print(f"[DOCX Parse Error]: {e}")
+    elif name.endswith(".csv"):
+        try:
+            import csv
+            content_str = file_bytes.decode("utf-8", errors="ignore")
+            reader = csv.reader(io.StringIO(content_str))
+            rows = list(reader)
+            if not rows:
+                return ""
+            header = rows[0]
+            formatted_lines = [f"CSV Table: {filename}"]
+            for idx, row in enumerate(rows[1:], 1):
+                row_items = []
+                for col_idx, val in enumerate(row):
+                    col_name = header[col_idx] if col_idx < len(header) else f"Col_{col_idx+1}"
+                    val_str = val.strip()
+                    if val_str:
+                        row_items.append(f"{col_name}: {val_str}")
+                if row_items:
+                    formatted_lines.append(f"Record {idx}: " + ", ".join(row_items))
+            return "\n".join(formatted_lines)
+        except Exception as e:
+            print(f"[CSV Parse Error]: {e}")
+            return file_bytes.decode("utf-8", errors="ignore")
     try:
         return file_bytes.decode("utf-8")
     except UnicodeDecodeError:
