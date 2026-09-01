@@ -42,12 +42,55 @@ def scrape_wikipedia_topic(topic_or_url: str) -> tuple[str, str]:
         
     return f"Wikipedia: {page.title}", page.text
 
-def scrape_url_content(url: str) -> tuple[str, str, str]:
+from urllib.parse import urljoin
+
+def scrape_single_page(url: str, headers: dict) -> tuple[str, str, list[str]]:
+    """Scrapes a single page, preserving footer, contact info, headers, and image alt descriptions."""
+    try:
+        response = requests.get(url, headers=headers, timeout=12)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        title = soup.title.string.strip() if soup.title and soup.title.string else url
+        
+        # Collect internal links before cleaning
+        domain = urlparse(url).netloc
+        internal_links = []
+        for a in soup.find_all('a', href=True):
+            href = a['href']
+            full_url = urljoin(url, href)
+            p = urlparse(full_url)
+            if p.netloc == domain and not any(full_url.endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.svg', '.pdf', '.css', '.js']):
+                clean_link = full_url.split('#')[0].rstrip('/')
+                if clean_link and clean_link not in internal_links and clean_link != url.rstrip('/'):
+                    internal_links.append(clean_link)
+
+        # Convert image alt attributes into readable text so diagram and visual information is indexed
+        for img in soup.find_all('img', alt=True):
+            alt_text = img['alt'].strip()
+            if alt_text and len(alt_text) > 3:
+                img.replace_with(soup.new_string(f" [Visual Plate / Image: {alt_text}] "))
+
+        # Decompose only non-content executable/styling elements (NEVER decompose footer, nav, header, address)
+        for tag in soup(['script', 'style', 'noscript', 'svg', 'iframe']):
+            tag.decompose()
+            
+        text = soup.get_text(separator='\n')
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        clean_text = '\n'.join(lines)
+        
+        return title, clean_text, internal_links
+    except Exception as e:
+        print(f"[Scrape Page Warning] {url}: {e}")
+        return "", "", []
+
+def scrape_url_content(url: str, crawl_depth: int = 6) -> tuple[str, str, str]:
     """
-    Intelligent Web Scraper:
+    Intelligent Deep Web Scraper:
     - Detects Wikipedia links and uses official Wikipedia API
-    - Uses BeautifulSoup for standard web domains
-    - Returns: (Title, Clean Prose Content, Logo URL)
+    - Crawls primary landing page + key subpages (/about, /contact, /services, /case-studies)
+    - Preserves contact details, phone numbers, addresses, footers, and diagrams
+    - Returns: (Title, Combined Prose Knowledge, Logo URL)
     """
     if "wikipedia.org/wiki/" in url:
         title, text = scrape_wikipedia_topic(url)
@@ -65,20 +108,42 @@ def scrape_url_content(url: str) -> tuple[str, str, str]:
     }
     
     try:
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
+        main_title, main_text, found_links = scrape_single_page(url, headers)
+        if not main_text:
+            raise Exception("No readable text found on the target website.")
+
+        collected_pages = [(url, main_title, main_text)]
         
-        soup = BeautifulSoup(response.text, 'html.parser')
-        title = soup.title.string.strip() if soup.title and soup.title.string else domain
-        
-        for tag in soup(['script', 'style', 'nav', 'footer', 'header', 'aside', 'noscript', 'button', 'form']):
-            tag.decompose()
-            
-        text = soup.get_text(separator='\n')
-        lines = [line.strip() for line in text.splitlines() if line.strip()]
-        clean_text = '\n'.join(lines)
-        
-        return title, clean_text, logo_url
+        # Prioritize key business subpages
+        priority_keywords = ['about', 'contact', 'service', 'solution', 'pricing', 'case-stud', 'team', 'company', 'developer']
+        prioritized_links = []
+        for kw in priority_keywords:
+            for l in found_links:
+                if kw in l.lower() and l not in prioritized_links and l != url:
+                    prioritized_links.append(l)
+
+        # Append remaining links
+        for l in found_links:
+            if l not in prioritized_links and l != url:
+                prioritized_links.append(l)
+
+        # Scrape top subpages up to crawl_depth limit
+        crawled_count = 0
+        for sub_url in prioritized_links[:crawl_depth]:
+            s_title, s_text, _ = scrape_single_page(sub_url, headers)
+            if s_text and len(s_text) > 100:
+                collected_pages.append((sub_url, s_title, s_text))
+                crawled_count += 1
+
+        print(f"🕸️ [Web Crawler]: Scraped {len(collected_pages)} pages for domain {domain}")
+
+        # Combine all pages into structured knowledge blocks
+        formatted_sections = []
+        for p_url, p_title, p_content in collected_pages:
+            formatted_sections.append(f"=== Web Page: {p_title} ({p_url}) ===\n{p_content}")
+
+        combined_text = "\n\n" + ("\n" + "="*50 + "\n\n").join(formatted_sections)
+        return main_title, combined_text, logo_url
 
     except Exception as e:
         raise Exception(f"Failed to scrape website: {str(e)}")
