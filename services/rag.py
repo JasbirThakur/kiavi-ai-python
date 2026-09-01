@@ -40,12 +40,20 @@ Knowledge:
 """
 
 def clean_llm_text(text: str) -> str:
-    """Strips <think> tags and reasoning tokens from Nemotron / DeepSeek models"""
+    """Strips <think> tags, reasoning tokens, and scratchpads from LLM responses"""
     if not text:
         return ""
     cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
     cleaned = re.sub(r'<think>.*', '', cleaned, flags=re.DOTALL)
     cleaned = cleaned.replace("</think>", "").replace("<think>", "").strip()
+
+    if "ANSWER:" in cleaned:
+        parts = cleaned.split("ANSWER:")
+        cleaned = parts[-1].strip()
+    elif "Answer:" in cleaned and len(cleaned.split("Answer:")[0]) > 100:
+        parts = cleaned.split("Answer:")
+        cleaned = parts[-1].strip()
+
     return cleaned
 
 def generate_llm_response(messages: list) -> tuple[str, str]:
@@ -64,7 +72,7 @@ def generate_llm_response(messages: list) -> tuple[str, str]:
                     model=nv_model,
                     messages=messages,
                     temperature=0.2,
-                    max_tokens=512
+                    max_tokens=800
                 )
                 raw = resp.choices[0].message.content or ""
                 ans = clean_llm_text(raw)
@@ -83,7 +91,7 @@ def generate_llm_response(messages: list) -> tuple[str, str]:
                     model=groq_model,
                     messages=messages,
                     temperature=0.2,
-                    max_tokens=450
+                    max_tokens=800
                 )
                 raw = resp.choices[0].message.content or ""
                 ans = clean_llm_text(raw)
@@ -99,6 +107,15 @@ async def stream_rag_pipeline(bot_id: str, question: str, db: Session) -> AsyncG
     print(f"\n🔍 [RAG Query]: '{question}'")
     query_vec = get_embedding(question)
 
+    # Extract query keywords for lexical boosting (acronyms, names, technical terms)
+    stopwords = {
+        'what', 'is', 'the', 'a', 'an', 'in', 'of', 'for', 'to', 'and', 'or', 'on', 'with',
+        'about', 'how', 'who', 'where', 'when', 'why', 'can', 'you', 'tell', 'me', 'give',
+        'does', 'do', 'did', 'are', 'was', 'were', 'which', 'kaun', 'kya', 'hai', 'hain', 'me', 'se', 'ke'
+    }
+    words = [w.strip('?,.!\"\'()[]{}') for w in question.lower().split()]
+    keywords = [w for w in words if len(w) > 2 and w not in stopwords]
+
     results = (
         db.query(
             models.DocumentChunk,
@@ -107,7 +124,7 @@ async def stream_rag_pipeline(bot_id: str, question: str, db: Session) -> AsyncG
         .join(models.BotSource)
         .filter(models.BotSource.botId == bot_id)
         .order_by("distance")
-        .limit(TOP_K_CHUNKS)
+        .limit(TOP_K_CHUNKS * 2)
         .all()
     )
 
@@ -117,16 +134,25 @@ async def stream_rag_pipeline(bot_id: str, question: str, db: Session) -> AsyncG
         yield f"data: {json.dumps({'type': 'done', 'full_text': 'No knowledge'})}\n\n"
         return
 
-    scored_chunks = [(1.0 - float(distance), chunk.content) for chunk, distance in results]
-    best_score = round(scored_chunks[0][0], 4)
-    print(f"📊 [RAG Match Confidence]: {best_score}")
+    # Hybrid Scoring: Dense Vector Cosine Similarity + Keyword Match Bonus
+    scored_chunks = []
+    for chunk, distance in results:
+        vec_sim = 1.0 - float(distance)
+        kw_hits = sum(1 for kw in keywords if kw in chunk.content.lower())
+        kw_boost = min(0.40, kw_hits * 0.25) if keywords else 0.0
+        hybrid_score = round(vec_sim + kw_boost, 4)
+        scored_chunks.append((hybrid_score, chunk.content, vec_sim))
+
+    scored_chunks.sort(key=lambda x: x[0], reverse=True)
+    best_score = scored_chunks[0][0]
+    print(f"📊 [RAG Hybrid Confidence]: {best_score} (Top Vec: {scored_chunks[0][2]:.4f})")
 
     passed_chunks = [c[1] for c in scored_chunks if c[0] >= RELEVANCE_FLOOR]
     if not passed_chunks and best_score >= RESCUE_FLOOR:
         passed_chunks = [scored_chunks[0][1]]
 
     nothing_retrieved = len(passed_chunks) == 0
-    knowledge_ctx = "\n\n---\n\n".join(passed_chunks) if passed_chunks else "No relevant content found in knowledge base."
+    knowledge_ctx = "\n\n---\n\n".join(passed_chunks[:TOP_K_CHUNKS]) if passed_chunks else "No relevant content found in knowledge base."
 
     messages = [
         {"role": "system", "content": GROUNDED_SYSTEM_PROMPT.format(knowledge=knowledge_ctx)},
