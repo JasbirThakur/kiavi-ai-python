@@ -18,6 +18,7 @@ class BotAppearanceUpdate(BaseModel):
     greeting: str
     suggestions: str
     launcherPosition: str
+    webhookUrl: str = None
 
 @router.get("/")
 def get_user_bots(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -99,6 +100,7 @@ def get_bot_details(bot_id: str, user: models.User = Depends(get_current_user), 
         "greeting": bot.greeting,
         "suggestions": bot.suggestions,
         "launcherPosition": bot.launcherPosition,
+        "webhookUrl": getattr(bot, "webhookUrl", None) or "",
         "conversations": conv_count
     }
 
@@ -114,6 +116,37 @@ def update_appearance(bot_id: str, req: BotAppearanceUpdate, user: models.User =
     bot.greeting = req.greeting
     bot.suggestions = req.suggestions
     bot.launcherPosition = req.launcherPosition
+    if req.webhookUrl is not None:
+        bot.webhookUrl = req.webhookUrl.strip()
 
     db.commit()
     return {"status": "success", "message": "Appearance saved. It's live on your site now."}
+
+@router.post("/{bot_id}/test-webhook")
+def test_bot_webhook(bot_id: str, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    import requests
+    bot = db.query(models.Bot).filter(models.Bot.id == bot_id, models.Bot.orgId == user.orgId).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+        
+    url = getattr(bot, "webhookUrl", None)
+    if not url:
+        return {"status": "skipped", "message": "No webhook URL configured for this bot."}
+        
+    payload = {
+        "event": "lead.created",
+        "bot": {"id": bot.id, "name": bot.name, "domain": bot.domain},
+        "lead": {
+            "name": "Test Lead (Verification)",
+            "email": "test@lead.ai",
+            "phone": "+1 (555) 019-2834",
+            "note": "Test lead dispatched from Kiavi IQ verification tool."
+        },
+        "text": f"🚀 *[Kiavi IQ Webhook Verification]*: New simulated lead from *{bot.name}* (`test@lead.ai`)."
+    }
+    
+    try:
+        res = requests.post(url, json=payload, timeout=6)
+        return {"status": "success", "http_status": res.status_code, "message": f"Webhook dispatched successfully (HTTP {res.status_code})."}
+    except Exception as e:
+        return {"status": "error", "message": f"Webhook failed: {str(e)}"}

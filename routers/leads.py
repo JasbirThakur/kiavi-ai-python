@@ -112,4 +112,27 @@ def submit_public_lead(
     db.commit()
     db.refresh(new_lead)
 
+    # Asynchronously dispatch webhook notification if configured
+    webhook_url = getattr(bot, "webhookUrl", None)
+    if webhook_url:
+        import threading, requests
+        def send_webhook():
+            try:
+                payload = {
+                    "event": "lead.created",
+                    "bot": {"id": bot.id, "name": bot.name, "domain": bot.domain},
+                    "lead": {
+                        "id": new_lead.id,
+                        "name": new_lead.name,
+                        "email": new_lead.email or "-",
+                        "phone": new_lead.phone or "-",
+                        "note": new_lead.note or ""
+                    },
+                    "text": f"🔥 *New Lead Captured from {bot.name}!*\n• *Name:* {new_lead.name}\n• *Email:* {new_lead.email or '-'}\n• *Phone:* {new_lead.phone or '-'}\n• *Note:* {new_lead.note or '-'}"
+                }
+                requests.post(webhook_url, json=payload, timeout=8)
+            except Exception as err:
+                print(f"[Lead Webhook Error]: {err}")
+        threading.Thread(target=send_webhook, daemon=True).start()
+
     return {"status": "success", "lead_id": new_lead.id}

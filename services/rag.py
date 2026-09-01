@@ -183,6 +183,27 @@ async def stream_rag_pipeline(bot_id: str, question: str, db: Session) -> AsyncG
         if word:
             yield f"data: {json.dumps({'type': 'token', 'content': word + ' '})}\n\n"
 
+    # Format source citations for evidence verification
+    source_citations = []
+    seen_titles = set()
+    if not nothing_retrieved and not lead_form_required:
+        for chunk, _ in results:
+            if chunk.content in passed_chunks:
+                source = getattr(chunk, "source", None)
+                s_title = source.title if source else "Knowledge Document"
+                if s_title not in seen_titles:
+                    seen_titles.add(s_title)
+                    s_clean = chunk.content.replace('\n', ' ')[:280].strip()
+                    source_citations.append({
+                        "title": s_title,
+                        "kind": getattr(source, "kind", "DOC") if source else "DOC",
+                        "url": getattr(source, "url", "") if source else "",
+                        "snippet": s_clean
+                    })
+
+    if source_citations:
+        yield f"data: {json.dumps({'type': 'sources', 'sources': source_citations})}\n\n"
+
     if lead_form_required:
         yield f"data: {json.dumps({'type': 'lead_form'})}\n\n"
 

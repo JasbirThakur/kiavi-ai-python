@@ -17,7 +17,7 @@
     <div id="widgetContainer" class="w-full h-full relative flex flex-col justify-end items-end p-2 box-border transition-all duration-300">
 
         <!-- The Chat Window -->
-        <div id="chatWindow" class="hidden bg-white w-[350px] h-[520px] rounded-3xl shadow-2xl flex-col overflow-hidden mb-3 border border-slate-200">
+        <div id="chatWindow" class="hidden bg-white w-[350px] h-[520px] rounded-3xl shadow-2xl flex-col overflow-hidden mb-3 border border-slate-200 relative">
             <!-- Header -->
             <div id="wHeader" class="p-4 text-white flex items-center justify-between" style="background-color: #00c48c;">
                 <div class="flex items-center gap-3">
@@ -31,18 +31,36 @@
             </div>
 
             <!-- Chat Body -->
-            <div id="wChatBody" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50 text-xs">
+            <div id="wChatBody" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50 text-xs relative">
                 <div class="bg-white border border-slate-100 p-3 rounded-2xl max-w-[85%] text-slate-700 shadow-sm" id="wGreeting">
                     Hi! How can I help?
                 </div>
                 <div id="wSuggestions" class="flex flex-col items-end gap-1.5 pt-1"></div>
             </div>
 
-            <!-- Input Area -->
+            <!-- Evidence Inspector Drawer / Modal -->
+            <div id="evidenceModal" class="hidden absolute inset-0 z-40 bg-black/60 backdrop-blur-xs flex flex-col justify-end p-3 transition-all">
+                <div class="bg-slate-900 border border-cyan-500/30 rounded-2xl p-4 text-white shadow-2xl space-y-2 max-h-[85%] flex flex-col">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <div class="flex items-center gap-1.5 text-xs font-bold text-cyan-400">
+                            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Verified Grounded Source
+                        </div>
+                        <button onclick="closeEvidence()" class="text-slate-400 hover:text-white cursor-pointer"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+                    </div>
+                    <div id="evidenceTitle" class="text-xs font-bold text-slate-100 truncate"></div>
+                    <div id="evidenceSnippet" class="text-[11px] text-slate-300 bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 overflow-y-auto max-h-[200px] leading-relaxed font-mono select-text"></div>
+                    <div class="text-[9px] text-slate-500 text-right">Extracted verbatim from knowledge base</div>
+                </div>
+            </div>
+
+            <!-- Input Area with Mic Button -->
             <div class="p-3 bg-white border-t border-slate-100">
-                <div class="flex items-center gap-2">
-                    <input id="wInput" type="text" placeholder="Type your message..." class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400" onkeydown="if(event.key==='Enter') sendMessage()" />
-                    <button id="wSendBtn" onclick="sendMessage()" class="p-2 rounded-xl text-white transition" style="background-color: #00c48c;">
+                <div class="flex items-center gap-1.5">
+                    <input id="wInput" type="text" placeholder="Type or click mic to speak..." class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400" onkeydown="if(event.key==='Enter') sendMessage()" />
+                    <button id="wMicBtn" onclick="toggleVoiceInput()" title="Voice Input" class="p-2 rounded-xl bg-slate-100 text-slate-500 hover:text-cyan-600 transition cursor-pointer">
+                        <i id="wMicIcon" data-lucide="mic" class="w-4 h-4"></i>
+                    </button>
+                    <button id="wSendBtn" onclick="sendMessage()" class="p-2 rounded-xl text-white transition cursor-pointer" style="background-color: #00c48c;">
                         <i data-lucide="send" class="w-4 h-4"></i>
                     </button>
                 </div>
@@ -158,84 +176,86 @@
             sendMessage();
         }
 
-        async function sendMessage() {
-            const input = document.getElementById('wInput');
-            const q = input.value.trim();
-            if (!q || !botConfig) return;
-            input.value = "";
+        let recognition = null;
+        let isListening = false;
 
-            const body = document.getElementById('wChatBody');
-            const timeStr = formatTime();
+        function toggleVoiceInput() {
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) {
+                alert("Voice recognition is not supported in this browser. Please try Chrome, Edge, or Safari.");
+                return;
+            }
 
-            body.innerHTML += `
-                <div class="flex flex-col items-end">
-                    <span class="text-white px-3.5 py-2 rounded-2xl inline-block shadow-sm" style="background-color: ${botConfig.accentColor}">${q}</span>
-                    <span class="text-[9px] text-slate-400 mt-0.5 mr-1 font-mono">${timeStr}</span>
-                </div>
-            `;
-            
-            const msgId = 'wmsg_' + Date.now();
-            body.innerHTML += `
-                <div class="flex flex-col items-start">
-                    <span id="${msgId}" class="bg-white border border-slate-100 p-3 rounded-2xl inline-block max-w-[85%] text-slate-700 shadow-sm leading-relaxed">Thinking...</span>
-                    <div id="${msgId}_lead"></div>
-                    <span class="text-[9px] text-slate-400 mt-0.5 ml-1 font-mono">${timeStr}</span>
-                </div>
-            `;
-            body.scrollTop = body.scrollHeight;
+            if (!recognition) {
+                recognition = new SpeechRec();
+                recognition.continuous = false;
+                recognition.interimResults = false;
 
-            const form = new FormData();
-            form.append('bot_id', botConfig.botId);
-            form.append('question', q);
+                recognition.onstart = () => {
+                    isListening = true;
+                    document.getElementById('wMicBtn').classList.add('bg-red-500/20', 'text-red-500', 'animate-pulse');
+                    document.getElementById('wInput').placeholder = "🎙️ Listening...";
+                };
 
-            const res = await fetch('/api/public/chat/stream', { method: 'POST', body: form });
-            const reader = res.body.getReader();
-            const decoder = new TextDecoder();
-            const target = document.getElementById(msgId);
-            let fullText = "";
+                recognition.onresult = (event) => {
+                    const speechResult = event.results[0][0].transcript;
+                    document.getElementById('wInput').value = speechResult;
+                    sendMessage();
+                };
 
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                const lines = decoder.decode(value).split('\n');
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.replace('data: ', ''));
-                            if (data.type === 'token') {
-                                if (target.innerText === "Thinking...") target.innerText = "";
-                                fullText += data.content;
-                                target.innerText = fullText;
-                                body.scrollTop = body.scrollHeight;
-                            } else if (data.type === 'lead_form') {
-                                document.getElementById(msgId + '_lead').innerHTML = `
-                                    <div class="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 max-w-[85%]">
-                                        <div class="font-bold text-slate-700 text-[11px]">Leave your details:</div>
-                                        <input id="l_name" placeholder="Name" class="w-full bg-white border border-slate-200 p-1.5 rounded-lg text-xs outline-none" />
-                                        <input id="l_email" placeholder="Email / Phone" class="w-full bg-white border border-slate-200 p-1.5 rounded-lg text-xs outline-none" />
-                                        <button onclick="submitLead('${botConfig.botId}', this)" class="w-full text-white font-bold p-1.5 rounded-lg text-xs transition" style="background-color: ${botConfig.accentColor}">Submit</button>
-                                    </div>
-                                `;
-                                body.scrollTop = body.scrollHeight;
-                            }
-                        } catch(e) {}
-                    }
-                }
+                recognition.onend = () => {
+                    isListening = false;
+                    document.getElementById('wMicBtn').classList.remove('bg-red-500/20', 'text-red-500', 'animate-pulse');
+                    document.getElementById('wInput').placeholder = "Type or click mic to speak...";
+                };
+
+                recognition.onerror = () => {
+                    isListening = false;
+                    document.getElementById('wMicBtn').classList.remove('bg-red-500/20', 'text-red-500', 'animate-pulse');
+                    document.getElementById('wInput').placeholder = "Type or click mic to speak...";
+                };
+            }
+
+            if (isListening) {
+                recognition.stop();
+            } else {
+                recognition.start();
             }
         }
 
-        async function submitLead(botId, btn) {
-            const parent = btn.parentElement;
-            const name = parent.querySelector('#l_name').value;
-            const email = parent.querySelector('#l_email').value;
-            if(!name && !email) return alert("Please enter your name or email.");
-            
-            const f = new FormData();
-            f.append('bot_id', botId);
-            f.append('name', name);
-            f.append('email', email);
-            await fetch('/api/public/lead', { method: 'POST', body: f });
-            parent.innerHTML = `<span class="text-emerald-600 font-bold">✓ Thanks, we'll reach out!</span>`;
+        function speakText(btn, text) {
+            if (!('speechSynthesis' in window)) return;
+            if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+                btn.innerHTML = '<i data-lucide="volume-2" class="w-3.5 h-3.5"></i>';
+                lucide.createIcons();
+                return;
+            }
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.onstart = () => {
+                btn.innerHTML = '<i data-lucide="volume-x" class="w-3.5 h-3.5 text-cyan-400 animate-pulse"></i>';
+                lucide.createIcons();
+            };
+            utterance.onend = utterance.onerror = () => {
+                btn.innerHTML = '<i data-lucide="volume-2" class="w-3.5 h-3.5"></i>';
+                lucide.createIcons();
+            };
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function showEvidence(title, snippet) {
+            document.getElementById('evidenceTitle').innerText = title;
+            document.getElementById('evidenceSnippet').innerText = snippet;
+            document.getElementById('evidenceModal').classList.remove('hidden');
+            document.getElementById('evidenceModal').classList.add('flex');
+            lucide.createIcons();
+        }
+
+        function closeEvidence() {
+            document.getElementById('evidenceModal').classList.add('hidden');
+            document.getElementById('evidenceModal').classList.remove('flex');
         }
 
         window.onload = init;
