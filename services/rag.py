@@ -26,11 +26,12 @@ You are a brilliant, highly intelligent, and helpful AI agent.
 Everything you say must be grounded strictly in the Knowledge section below.
 
 RULES FOR HIGH-INTELLIGENCE RESPONSES:
-1. Smart Synthesis: When asked overview questions (such as "What is [Company] about?", "About Us", "What do you offer?", "Who are you?", or "Overview"), synthesize a comprehensive, elegant, and structured answer using all relevant facts, capabilities, tools, and offerings described across the Knowledge section.
-2. No Meta-Excuses: Never output robotic disclaimers like "the specific about us section has no text" if the organization's description and capabilities are present in the provided knowledge.
-3. Links & Social Media: When asked for links, social channels, or contact info (such as LinkedIn, X/Twitter, Instagram, GitHub, email, or phone), ALWAYS output them as clickable markdown links: [Platform Name](URL).
-4. Diagrams & Figures: If the Knowledge section contains an image tag or diagram (e.g. ![Figure Caption](image_url)), YOU MUST INCLUDE THAT EXACT IMAGE TAG ![Figure Caption](image_url) in your answer so the user can visually see the diagram in the chat.
-5. Truly Missing Information: Only if the Knowledge section genuinely contains zero information related to the question, state politely that you do not have that specific detail in your knowledge base and end your response with [[LEAD_MARKER]].
+1. Direct Customer-Facing Output: Output ONLY the final customer-facing answer directly. NEVER output any internal reasoning, planning steps, or 'Okay, the user is asking...' scratchpad thoughts.
+2. Smart Synthesis: When asked overview questions (such as "What is [Company] about?", "About Us", "What do you offer?", "Who are you?", or "Overview"), synthesize a comprehensive, elegant, and structured answer using all relevant facts, capabilities, tools, and offerings described across the Knowledge section.
+3. No Meta-Excuses: Never output robotic disclaimers like "the specific about us section has no text" if the organization's description and capabilities are present in the provided knowledge.
+4. Links & Social Media: When asked for links, social channels, or contact info (such as LinkedIn, X/Twitter, Instagram, GitHub, email, or phone), ALWAYS output them as clean markdown links: [Platform Name](URL).
+5. Diagrams & Figures: If the Knowledge section contains an image tag or diagram (e.g. ![Figure Caption](image_url)), YOU MUST INCLUDE THAT EXACT IMAGE TAG ![Figure Caption](image_url) in your answer so the user can visually see the diagram in the chat.
+6. Truly Missing Information: Only if the Knowledge section genuinely contains zero information related to the question, state politely that you do not have that specific detail in your knowledge base and end your response with [[LEAD_MARKER]].
 
 Knowledge:
 {knowledge}
@@ -47,9 +48,18 @@ def clean_llm_text(text: str) -> str:
     if "ANSWER:" in cleaned:
         parts = cleaned.split("ANSWER:")
         cleaned = parts[-1].strip()
-    elif "Answer:" in cleaned and len(cleaned.split("Answer:")[0]) > 100:
+    elif "Answer:" in cleaned and len(cleaned.split("Answer:")[0]) > 60:
         parts = cleaned.split("Answer:")
         cleaned = parts[-1].strip()
+
+    # Strip conversational reasoning preambles (e.g. "Okay, the user is asking...")
+    if re.search(r'^(okay|let me|the user is asking|scanning the knowledge|looking through the provided|i need to)', cleaned, re.IGNORECASE):
+        answer_markers = ['Here is', 'Here are', 'To get in touch', 'VedaOne', 'Appdeft', 'You can', 'Contact', 'Reach out', '**', '- ']
+        for marker in answer_markers:
+            if marker in cleaned:
+                pos = cleaned.find(marker)
+                cleaned = cleaned[pos:].strip()
+                break
 
     return cleaned
 
@@ -68,8 +78,8 @@ def generate_llm_response(messages: list) -> tuple[str, str]:
                 resp = nvidia_client.chat.completions.create(
                     model=nv_model,
                     messages=messages,
-                    temperature=0.2,
-                    max_tokens=800
+                    temperature=0.1,
+                    max_tokens=1200
                 )
                 raw = resp.choices[0].message.content or ""
                 ans = clean_llm_text(raw)
@@ -87,8 +97,8 @@ def generate_llm_response(messages: list) -> tuple[str, str]:
                 resp = groq_client.chat.completions.create(
                     model=groq_model,
                     messages=messages,
-                    temperature=0.2,
-                    max_tokens=800
+                    temperature=0.1,
+                    max_tokens=1200
                 )
                 raw = resp.choices[0].message.content or ""
                 ans = clean_llm_text(raw)
@@ -113,6 +123,20 @@ async def stream_rag_pipeline(bot_id: str, question: str, db: Session) -> AsyncG
     words = [w.strip('?,.!\"\'()[]{}') for w in question.lower().split()]
     keywords = [w for w in words if len(w) > 2 and w not in stopwords]
 
+    # Expand common intent synonyms for high-confidence retrieval
+    intent_expansions = {
+        'cost': ['cost', 'price', 'pricing', 'subscription', 'plans', 'free', 'trial', 'tier'],
+        'pricing': ['pricing', 'cost', 'plans', 'subscription', 'free', 'trial'],
+        'price': ['price', 'cost', 'pricing', 'plans', 'subscription'],
+        'offer': ['offer', 'services', 'capabilities', 'features', 'product', 'toolkit', 'solutions'],
+        'touch': ['touch', 'contact', 'email', 'support', 'reach', 'social', 'message'],
+        'contact': ['contact', 'email', 'phone', 'support', 'reach', 'touch', 'social', 'channels']
+    }
+    expanded_keywords = set(keywords)
+    for kw in keywords:
+        if kw in intent_expansions:
+            expanded_keywords.update(intent_expansions[kw])
+
     results = (
         db.query(
             models.DocumentChunk,
@@ -135,8 +159,8 @@ async def stream_rag_pipeline(bot_id: str, question: str, db: Session) -> AsyncG
     scored_chunks = []
     for chunk, distance in results:
         vec_sim = 1.0 - float(distance)
-        kw_hits = sum(1 for kw in keywords if kw in chunk.content.lower())
-        kw_boost = min(0.40, kw_hits * 0.25) if keywords else 0.0
+        kw_hits = sum(1 for kw in expanded_keywords if kw in chunk.content.lower())
+        kw_boost = min(0.40, kw_hits * 0.20) if expanded_keywords else 0.0
         hybrid_score = round(vec_sim + kw_boost, 4)
         scored_chunks.append((hybrid_score, chunk.content, vec_sim))
 
