@@ -44,8 +44,8 @@ def scrape_wikipedia_topic(topic_or_url: str) -> tuple[str, str]:
 
 from urllib.parse import urljoin
 
-def scrape_single_page(url: str, headers: dict) -> tuple[str, str, list[str]]:
-    """Scrapes a single page, preserving footer, contact info, headers, and image alt descriptions."""
+def scrape_single_page(url: str, headers: dict) -> tuple[str, str, list[str], dict]:
+    """Scrapes a single page, preserving social links, contact info, headers, meta tags, and image descriptions."""
     try:
         response = requests.get(url, headers=headers, timeout=12)
         response.raise_for_status()
@@ -53,25 +53,60 @@ def scrape_single_page(url: str, headers: dict) -> tuple[str, str, list[str]]:
         soup = BeautifulSoup(response.text, 'html.parser')
         title = soup.title.string.strip() if soup.title and soup.title.string else url
         
-        # Collect internal links before cleaning
+        # 1. Extract Meta Description and OpenGraph metadata
+        meta_desc = ""
+        desc_tag = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
+        if desc_tag and desc_tag.get('content'):
+            meta_desc = desc_tag['content'].strip()
+
+        # 2. Extract Social Media Channels and Contact Links
         domain = urlparse(url).netloc
+        social_links = {}
         internal_links = []
+
         for a in soup.find_all('a', href=True):
-            href = a['href']
+            href = a['href'].strip()
             full_url = urljoin(url, href)
             p = urlparse(full_url)
-            if p.netloc == domain and not any(full_url.endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.svg', '.pdf', '.css', '.js']):
+            lower_href = full_url.lower()
+
+            # Social channels detection
+            if 'linkedin.com' in lower_href:
+                social_links['LinkedIn'] = full_url
+                a.replace_with(soup.new_string(f" [Social Link: LinkedIn ({full_url})] "))
+            elif 'instagram.com' in lower_href:
+                social_links['Instagram'] = full_url
+                a.replace_with(soup.new_string(f" [Social Link: Instagram ({full_url})] "))
+            elif 'twitter.com' in lower_href or 'x.com' in lower_href:
+                social_links['X/Twitter'] = full_url
+                a.replace_with(soup.new_string(f" [Social Link: X/Twitter ({full_url})] "))
+            elif 'github.com' in lower_href and domain not in lower_href:
+                social_links['GitHub'] = full_url
+                a.replace_with(soup.new_string(f" [Social Link: GitHub ({full_url})] "))
+            elif 'youtube.com' in lower_href:
+                social_links['YouTube'] = full_url
+                a.replace_with(soup.new_string(f" [Social Link: YouTube ({full_url})] "))
+            elif 'facebook.com' in lower_href:
+                social_links['Facebook'] = full_url
+                a.replace_with(soup.new_string(f" [Social Link: Facebook ({full_url})] "))
+            elif href.startswith('mailto:'):
+                email = href.replace('mailto:', '').split('?')[0].strip()
+                a.replace_with(soup.new_string(f" [Contact Email: {email}] "))
+            elif href.startswith('tel:'):
+                phone = href.replace('tel:', '').strip()
+                a.replace_with(soup.new_string(f" [Contact Phone: {phone}] "))
+            elif p.netloc == domain and not any(full_url.endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.svg', '.pdf', '.css', '.js']):
                 clean_link = full_url.split('#')[0].rstrip('/')
                 if clean_link and clean_link not in internal_links and clean_link != url.rstrip('/'):
                     internal_links.append(clean_link)
 
-        # Convert image alt attributes into readable text so diagram and visual information is indexed
+        # 3. Convert image alt attributes into readable text for visual grounding
         for img in soup.find_all('img', alt=True):
             alt_text = img['alt'].strip()
             if alt_text and len(alt_text) > 3:
                 img.replace_with(soup.new_string(f" [Visual Plate / Image: {alt_text}] "))
 
-        # Decompose only non-content executable/styling elements (NEVER decompose footer, nav, header, address)
+        # 4. Decompose non-content executable tags
         for tag in soup(['script', 'style', 'noscript', 'svg', 'iframe']):
             tag.decompose()
             
@@ -79,17 +114,21 @@ def scrape_single_page(url: str, headers: dict) -> tuple[str, str, list[str]]:
         lines = [line.strip() for line in text.splitlines() if line.strip()]
         clean_text = '\n'.join(lines)
         
-        return title, clean_text, internal_links
+        metadata = {
+            'meta_desc': meta_desc,
+            'social_links': social_links
+        }
+        return title, clean_text, internal_links, metadata
     except Exception as e:
         print(f"[Scrape Page Warning] {url}: {e}")
-        return "", "", []
+        return "", "", [], {}
 
 def scrape_url_content(url: str, crawl_depth: int = 6) -> tuple[str, str, str]:
     """
     Intelligent Deep Web Scraper:
-    - Detects Wikipedia links and uses official Wikipedia API
-    - Crawls primary landing page + key subpages (/about, /contact, /services, /case-studies)
-    - Preserves contact details, phone numbers, addresses, footers, and diagrams
+    - Extracts complete metadata, social links (LinkedIn, X/Twitter, Instagram, GitHub), contact channels
+    - Crawls primary landing page + key subpages
+    - Filters out broken/empty stubs
     - Returns: (Title, Combined Prose Knowledge, Logo URL)
     """
     if "wikipedia.org/wiki/" in url:
@@ -108,37 +147,54 @@ def scrape_url_content(url: str, crawl_depth: int = 6) -> tuple[str, str, str]:
     }
     
     try:
-        main_title, main_text, found_links = scrape_single_page(url, headers)
+        main_title, main_text, found_links, main_meta = scrape_single_page(url, headers)
         if not main_text:
             raise Exception("No readable text found on the target website.")
 
         collected_pages = [(url, main_title, main_text)]
+        all_socials = dict(main_meta.get('social_links', {}))
         
         # Prioritize key business subpages
-        priority_keywords = ['about', 'contact', 'service', 'solution', 'pricing', 'case-stud', 'team', 'company', 'developer']
+        priority_keywords = ['about', 'contact', 'service', 'solution', 'pricing', 'case-stud', 'team', 'company', 'developer', 'faq', 'feature']
         prioritized_links = []
         for kw in priority_keywords:
             for l in found_links:
                 if kw in l.lower() and l not in prioritized_links and l != url:
                     prioritized_links.append(l)
 
-        # Append remaining links
         for l in found_links:
             if l not in prioritized_links and l != url:
                 prioritized_links.append(l)
 
         # Scrape top subpages up to crawl_depth limit
-        crawled_count = 0
         for sub_url in prioritized_links[:crawl_depth]:
-            s_title, s_text, _ = scrape_single_page(sub_url, headers)
-            if s_text and len(s_text) > 100:
+            s_title, s_text, _, s_meta = scrape_single_page(sub_url, headers)
+            # Skip empty or stub pages
+            if s_text and len(s_text) > 120 and "no content available at this time" not in s_text.lower():
                 collected_pages.append((sub_url, s_title, s_text))
-                crawled_count += 1
+                if s_meta.get('social_links'):
+                    all_socials.update(s_meta['social_links'])
 
-        print(f"🕸️ [Web Crawler]: Scraped {len(collected_pages)} pages for domain {domain}")
+        print(f"🕸️ [Web Crawler]: Scraped {len(collected_pages)} pages for domain {domain} with {len(all_socials)} social channels.")
+
+        # Structured Knowledge Summary Header
+        overview_lines = [
+            f"=== Organization & Website Profile: {main_title} ===",
+            f"Official Website: {url}",
+            f"Domain: {domain}"
+        ]
+        if main_meta.get('meta_desc'):
+            overview_lines.append(f"Primary Mission & Meta Summary: {main_meta['meta_desc']}")
+        
+        if all_socials:
+            overview_lines.append("Verified Social Media & Follow Links:")
+            for platform, s_url in all_socials.items():
+                overview_lines.append(f"- {platform}: {s_url}")
+
+        overview_block = "\n".join(overview_lines)
 
         # Combine all pages into structured knowledge blocks
-        formatted_sections = []
+        formatted_sections = [overview_block]
         for p_url, p_title, p_content in collected_pages:
             formatted_sections.append(f"=== Web Page: {p_title} ({p_url}) ===\n{p_content}")
 

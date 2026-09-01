@@ -25,16 +25,35 @@
     iframe.style.transition = 'width 0.3s ease, height 0.3s ease';
     iframe.style.colorScheme = 'light';
     
-    document.body.appendChild(iframe);
+    function mountIframe() {
+        if (document.body) {
+            document.body.appendChild(iframe);
+        } else {
+            document.addEventListener('DOMContentLoaded', function() {
+                if (document.body && !document.body.contains(iframe)) {
+                    document.body.appendChild(iframe);
+                }
+            });
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        mountIframe();
+    } else {
+        mountIframe();
+    }
 
     // Listen for messages from the iframe (to resize or move it)
     window.addEventListener('message', function(event) {
-        if (event.origin !== hostUrl) return;
+        // Accept messages from widget host
+        if (event.origin && !event.origin.includes(':8000') && event.origin !== hostUrl) return;
         
         const data = event.data;
+        if (!data || typeof data !== 'object') return;
+
         if (data.type === 'resize') {
-            iframe.style.width = data.width;
-            iframe.style.height = data.height;
+            if (data.width) iframe.style.width = data.width;
+            if (data.height) iframe.style.height = data.height;
         }
         if (data.type === 'position') {
             if (data.pos === 'left') {

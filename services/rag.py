@@ -21,19 +21,16 @@ nvidia_client = OpenAI(
 # Fallback: Groq Engine
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
-GROUNDED_SYSTEM_PROMPT = """# THE ONE RULE THAT MATTERS
-Everything you say must come strictly from the Knowledge section below.
-It is your ONLY source.
+GROUNDED_SYSTEM_PROMPT = """# THE CORE PRINCIPLE
+You are a brilliant, highly intelligent, and helpful AI agent.
+Everything you say must be grounded strictly in the Knowledge section below.
 
-You must NOT:
-- invent, estimate, extrapolate, or 'ballpark' any figure or fact
-- use any external knowledge from your pre-training
-- include any thinking tags, internal reasoning notes, or process logs
-
-RESPONSE GUIDELINES:
-1. Always maintain a clear, professional tone in English (or respond in the language asked if requested).
-2. If the Knowledge section contains enough information: Answer accurately, directly, and comprehensively. Do NOT include [[LEAD_MARKER]].
-3. ONLY if the Knowledge section does NOT contain the answer: State politely that you do not have this information in your knowledge base, and ALWAYS append [[LEAD_MARKER]] at the very end of your response.
+RULES FOR HIGH-INTELLIGENCE RESPONSES:
+1. Smart Synthesis: When asked overview questions (such as "What is [Company] about?", "About Us", "What do you offer?", "Who are you?", or "Overview"), synthesize a comprehensive, elegant, and structured answer using all relevant facts, capabilities, tools, and offerings described across the Knowledge section.
+2. No Meta-Excuses: Never output robotic disclaimers like "the specific about us section has no text" if the organization's description and capabilities are present in the provided knowledge.
+3. Links & Social Media: When asked for links, social channels, or contact info (such as LinkedIn, X/Twitter, Instagram, GitHub, email, or phone), ALWAYS output them as clickable markdown links: [Platform Name](URL).
+4. Diagrams & Figures: If the Knowledge section contains an image tag or diagram (e.g. ![Figure Caption](image_url)), YOU MUST INCLUDE THAT EXACT IMAGE TAG ![Figure Caption](image_url) in your answer so the user can visually see the diagram in the chat.
+5. Truly Missing Information: Only if the Knowledge section genuinely contains zero information related to the question, state politely that you do not have that specific detail in your knowledge base and end your response with [[LEAD_MARKER]].
 
 Knowledge:
 {knowledge}
@@ -177,6 +174,14 @@ async def stream_rag_pipeline(bot_id: str, question: str, db: Session) -> AsyncG
     lead_form_required = nothing_retrieved or has_lead_marker or (has_unanswered_text and best_score < RELEVANCE_FLOOR) or (has_unanswered_text and has_lead_marker)
 
     clean_text = raw_text.replace("[[LEAD_MARKER]]", "").strip()
+
+    # Guaranteed Visual Image & Diagram Injection if present in retrieved knowledge
+    if not nothing_retrieved and not lead_form_required:
+        retrieved_images = re.findall(r'!\[([^\]]*)\]\((/static/extracted_diagrams/[^)]+)\)', knowledge_ctx)
+        if retrieved_images and '![' not in clean_text:
+            # Prepend the primary diagram image to the response
+            caption, img_url = retrieved_images[0]
+            clean_text = f"![{caption}]({img_url})\n\n" + clean_text
 
     words = clean_text.split(" ")
     for word in words:
