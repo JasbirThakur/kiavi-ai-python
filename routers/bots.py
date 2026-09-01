@@ -33,7 +33,7 @@ def get_user_bots(user: models.User = Depends(get_current_user), db: Session = D
         conv_count = db.query(models.Conversation).filter(models.Conversation.botId == b.id).count()
         lead_count = db.query(models.Lead).filter(models.Lead.botId == b.id).count()
         sources = db.query(models.BotSource).filter(models.BotSource.botId == b.id).all()
-        bot_tokens = sum(len(s.content.split()) for s in sources)
+        bot_tokens = sum(s.tokenCount or 0 for s in sources)
         
         msgs = db.query(models.Message).join(models.Conversation).filter(models.Conversation.botId == b.id).all()
         unans = sum(1 for m in msgs if m.unanswered and m.role == "USER")

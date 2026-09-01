@@ -12,14 +12,15 @@ def verify_origin(request: Request, bot: models.Bot):
     origin = request.headers.get("origin") or request.headers.get("referer") or ""
     origin_clean = origin.replace("https://", "").replace("http://", "").split("/")[0].strip()
     
-    allowed = [o.strip() for o in bot.allowedOrigins.split(',')]
+    raw_origins = getattr(bot, "allowedOrigins", None) or bot.domain or ""
+    allowed = [o.strip() for o in raw_origins.split(",") if o.strip()]
     # For testing, we allow localhost/127.0.0.1
     if origin_clean and origin_clean not in allowed and "localhost" not in origin_clean and "127.0.0.1" not in origin_clean:
         raise HTTPException(status_code=403, detail="Origin not allowed")
 
 @router.get("/api/public/config/{public_key}")
 def get_widget_config(public_key: str, request: Request, db: Session = Depends(get_db)):
-    bot = db.query(models.Bot).filter(models.Bot.publicKey == public_key, models.Bot.active == True).first()
+    bot = db.query(models.Bot).filter(models.Bot.publicKey == public_key).first()
     if not bot:
         raise HTTPException(status_code=404, detail="Bot not found or inactive")
         
@@ -28,11 +29,11 @@ def get_widget_config(public_key: str, request: Request, db: Session = Depends(g
     return {
         "botId": bot.id,
         "name": bot.name,
-        "logoUrl": bot.logoUrl,
+        "logoUrl": getattr(bot, "logoUrl", None) or f"https://www.google.com/s2/favicons?domain={bot.domain}&sz=128",
         "template": bot.template,
         "accentColor": bot.accentColor,
         "greeting": bot.greeting,
-        "suggestions": [s.strip() for s in bot.suggestions.split('\n') if s.strip()],
+        "suggestions": [s.strip() for s in (bot.suggestions or "").split('\n') if s.strip()],
         "launcherPosition": bot.launcherPosition
     }
 
@@ -44,7 +45,7 @@ async def public_chat_stream(
     conversation_id: str = Form(None),
     db: Session = Depends(get_db)
 ):
-    bot = db.query(models.Bot).filter(models.Bot.id == bot_id, models.Bot.active == True).first()
+    bot = db.query(models.Bot).filter(models.Bot.id == bot_id).first()
     if not bot:
         raise HTTPException(status_code=404, detail="Bot not found")
         

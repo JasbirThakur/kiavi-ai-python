@@ -17,10 +17,10 @@ def get_sources(bot_id: str, user: models.User = Depends(get_current_user), db: 
         raise HTTPException(status_code=404, detail="Bot not found")
 
     sources = db.query(models.BotSource).filter(models.BotSource.botId == bot_id).order_by(models.BotSource.createdAt.desc()).all()
-    used_tokens = sum(len(s.content.split()) for s in sources)
+    used_tokens = sum(s.tokenCount or 0 for s in sources)
     
     return {
-        "sources": [{"id": s.id, "kind": s.kind, "title": s.title, "tokens": len(s.content.split())} for s in sources],
+        "sources": [{"id": s.id, "kind": s.kind, "title": s.title, "tokens": s.tokenCount or 0} for s in sources],
         "used_tokens": used_tokens,
         "max_tokens": 60000,
     }
@@ -83,7 +83,7 @@ def scrape_site(
         title, text_content, logo_url = scrape_url_content(url)
         
         # Save fetched logo automatically if bot doesn't have one yet
-        if logo_url and not bot.logoUrl:
+        if logo_url and hasattr(bot, "logoUrl") and not bot.logoUrl:
             bot.logoUrl = logo_url
             db.commit()
 
@@ -97,7 +97,14 @@ def process_and_save_source(db: Session, bot_id: str, title: str, content: str, 
         raise HTTPException(status_code=400, detail="No readable text extracted.")
 
     # 1. Save Parent Source
-    source = models.BotSource(botId=bot_id, kind=kind, title=title, content=content)
+    token_count = len(content.split())
+    source = models.BotSource(
+        botId=bot_id,
+        kind=kind,
+        title=title,
+        url=original_url or None,
+        tokenCount=token_count
+    )
     db.add(source)
     db.commit()
     db.refresh(source)

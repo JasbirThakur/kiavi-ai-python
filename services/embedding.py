@@ -1,9 +1,16 @@
+import os
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from config import EMBEDDING_MODEL_NAME
 
 print("Loading Embedding Model...")
-embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+try:
+    embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME, model_kwargs={"local_files_only": True})
+except Exception:
+    embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
 print("Embedding Model Loaded Successfully!")
 
 def get_embedding(text: str) -> list:

@@ -8,8 +8,11 @@ from services.auth import hash_password, verify_password, create_access_token, g
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
+from typing import Optional
+
 class RegisterRequest(BaseModel):
-    name: str
+    name: Optional[str] = None
+    full_name: Optional[str] = None
     email: EmailStr
     password: str
     company_name: str = "AppDeft AI"
@@ -53,9 +56,10 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     db.refresh(org)
 
     hashed = hash_password(req.password.strip())
+    resolved_name = (req.name or req.full_name or email_clean.split("@")[0]).strip()
     user = models.User(
         email=email_clean,
-        name=req.name.strip() or "User",
+        name=resolved_name or "User",
         role="OWNER",
         orgId=org.id
     )
@@ -86,6 +90,7 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     return {
         "status": "success",
         "token": token,
+        "access_token": token,
         "user": {"id": user.id, "name": user.name, "email": user.email},
         "bot": {"id": starter_bot.id, "name": starter_bot.name, "publicKey": starter_bot.publicKey}
     }
@@ -102,6 +107,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     return {
         "status": "success",
         "token": token,
+        "access_token": token,
         "user": {"id": user.id, "name": user.name, "email": user.email},
         "bot": {"id": bot.id, "name": bot.name, "publicKey": bot.publicKey} if bot else None
     }

@@ -7,11 +7,8 @@ import database
 import models
 from routers import auth, bots, knowledge, chat, leads, insights, widget
 
-# 1. Enable pgvector in Postgres
+# 1. Initialize DB and create tables safely
 database.init_db()
-
-# 2. Create tables
-models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(title="Kiavi IQ - Grounded AI Agent")
 
