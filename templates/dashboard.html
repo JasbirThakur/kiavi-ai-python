@@ -619,6 +619,7 @@
             activeBotId = botId;
             const res = await fetch(`/api/bots/${botId}`, { headers: { 'Authorization': 'Bearer ' + token } });
             activeBotData = await res.json();
+            localStorage.setItem('kiavi_active_bot_key', activeBotData.publicKey);
 
             document.getElementById('homeView').classList.add('hidden');
             document.getElementById('botWorkspaceView').classList.remove('hidden');

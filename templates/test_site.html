@@ -90,6 +90,13 @@
                 } catch(e) {}
             }
 
+            const activeStorageKey = localStorage.getItem('kiavi_active_bot_key');
+            if (!selectedKey && activeStorageKey && allBots.some(b => b.publicKey === activeStorageKey)) {
+                selectedKey = activeStorageKey;
+            } else if (!selectedKey && allBots.length > 0) {
+                selectedKey = allBots[0].publicKey;
+            }
+
             const select = document.getElementById('botSelect');
             if (allBots.length > 0) {
                 select.innerHTML = allBots.map(b => `
@@ -97,10 +104,6 @@
                         ${b.name} (${b.domain || 'no domain'})
                     </option>
                 `).join('');
-
-                if (!selectedKey) {
-                    selectedKey = allBots[0].publicKey;
-                }
             } else if (selectedKey) {
                 select.innerHTML = `<option value="${selectedKey}">Active Key (${selectedKey.substring(0,8)}...)</option>`;
             } else {
@@ -137,6 +140,7 @@
 
         function switchBot(key) {
             if (key) {
+                localStorage.setItem('kiavi_active_bot_key', key);
                 window.location.href = `/test-site?key=${key}`;
             }
         }

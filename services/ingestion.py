@@ -1,16 +1,43 @@
 import io
 import re
+import base64
 from typing import List
 from pypdf import PdfReader
 
-try:
-    from PIL import Image
-    import pytesseract
-    from pdf2image import convert_from_bytes
-    OCR_AVAILABLE = True
-except ImportError:
-    OCR_AVAILABLE = False
+def ocr_image_with_vision(image_bytes: bytes, mime_type: str = "image/png") -> str:
+    """Uses NVIDIA NIM Multimodal Vision LLM to perform high-precision OCR on images, charts, and diagrams."""
+    try:
+        from openai import OpenAI
+        from config import NVIDIA_API_KEY, NVIDIA_BASE_URL
+        if not NVIDIA_API_KEY:
+            return ""
 
+        b64 = base64.b64encode(image_bytes).decode("utf-8")
+        client = OpenAI(base_url=NVIDIA_BASE_URL, api_key=NVIDIA_API_KEY)
+        resp = client.chat.completions.create(
+            model="meta/llama-3.2-11b-vision-instruct",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Perform high-precision Optical Character Recognition (OCR). Transcribe all text, numbers, labels, tables, headings, and data from this image or diagram verbatim. Do not summarize; extract the exact content."
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{mime_type};base64,{b64}"}
+                        }
+                    ]
+                }
+            ],
+            max_tokens=600,
+            temperature=0.1
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"[Vision OCR Warning]: {e}")
+        return ""
 
 def clean_text(text: str) -> str:
     text = re.sub(r'\s+', ' ', text)
@@ -20,40 +47,30 @@ def clean_text(text: str) -> str:
 def extract_text_from_pdf(file_bytes: bytes) -> str:
     extracted_text = []
     
-    # 1. Native Digital PDF Extraction
+    # 1. Native Digital PDF Extraction + Embedded Diagram OCR
     try:
         reader = PdfReader(io.BytesIO(file_bytes))
         for page_idx, page in enumerate(reader.pages):
             page_text = page.extract_text() or ""
             
-            # 2. OCR Fallback for Scanned / Image-only Pages
-            if len(page_text.strip()) < 40 and OCR_AVAILABLE:
-                try:
-                    images = convert_from_bytes(
-                        file_bytes,
-                        first_page=page_idx + 1,
-                        last_page=page_idx + 1
-                    )
-                    if images:
-                        ocr_result = pytesseract.image_to_string(images[0])
-                        page_text = ocr_result
-                except Exception as ocr_err:
-                    print(f"[OCR Warning] Page {page_idx + 1} OCR failed: {ocr_err}")
+            # 2. Check for embedded diagrams, figures, or charts on this page
+            if hasattr(page, "images") and page.images:
+                for img_idx, img_obj in enumerate(page.images):
+                    try:
+                        if img_idx >= 2: # Keep fast, scan up to 2 major diagrams per page
+                            break
+                        img_bytes = getattr(img_obj, "data", None)
+                        if img_bytes and len(img_bytes) > 2048:
+                            diag_text = ocr_image_with_vision(img_bytes)
+                            if diag_text and len(diag_text) > 15:
+                                page_text += f"\n\n[Diagram / Visual Plate {page_idx + 1}.{img_idx + 1} Data]:\n{diag_text}"
+                    except Exception as diag_err:
+                        print(f"[Diagram OCR Warning]: {diag_err}")
             
             if page_text.strip():
                 extracted_text.append(page_text.strip())
     except Exception as e:
         print(f"[PDF Parse Error] Direct extraction failed: {e}")
-        # Total OCR Fallback
-        if OCR_AVAILABLE:
-            try:
-                images = convert_from_bytes(file_bytes)
-                for img in images:
-                    ocr_text = pytesseract.image_to_string(img)
-                    if ocr_text.strip():
-                        extracted_text.append(ocr_text.strip())
-            except Exception as ocr_all_err:
-                print(f"[OCR Critical] Total PDF OCR failed: {ocr_all_err}")
 
     return "\n\n".join(extracted_text)
 
@@ -113,6 +130,13 @@ def extract_file_text(file_bytes: bytes, filename: str = "") -> str:
         except Exception as e:
             print(f"[CSV Parse Error]: {e}")
             return file_bytes.decode("utf-8", errors="ignore")
+    elif name.endswith((".png", ".jpg", ".jpeg", ".webp")):
+        mime = "image/png"
+        if name.endswith((".jpg", ".jpeg")):
+            mime = "image/jpeg"
+        elif name.endswith(".webp"):
+            mime = "image/webp"
+        return ocr_image_with_vision(file_bytes, mime)
     try:
         return file_bytes.decode("utf-8")
     except UnicodeDecodeError:
