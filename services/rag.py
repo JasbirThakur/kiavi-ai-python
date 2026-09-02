@@ -14,7 +14,7 @@ import models
 nvidia_client = OpenAI(
     base_url=NVIDIA_BASE_URL, 
     api_key=NVIDIA_API_KEY, 
-    timeout=10.0
+    timeout=30.0
 ) if NVIDIA_API_KEY else None
 
 # Fallback: Groq Engine
@@ -52,15 +52,26 @@ def clean_llm_text(text: str) -> str:
         cleaned = parts[-1].strip()
 
     # Strip conversational reasoning preambles (e.g. "Okay, the user is asking...")
+    if re.search(r'^(okay|let me|the user is asking|scanning the knowledge|looking through the provided|i need to)', cleaned, re.IGNORECASE):
+        answer_markers = ['Here is', 'Here are', 'To get in touch', 'VedaOne', 'Appdeft', 'You can', 'Contact', 'Reach out', '**', '- ']
+        for marker in answer_markers:
+            if marker in cleaned:
+                pos = cleaned.find(marker)
+                cleaned = cleaned[pos:].strip()
+                break
 
     return cleaned
 
 def generate_llm_response(messages: list) -> tuple[str, str]:
     # 1. Tier 1: NVIDIA NIM
-    # Fast 1.5s - 3s Nemotron Engine
+    # Priority 1: nvidia/nemotron-3-embed-1b
+    # Fallback Priority 2: nvidia/nemotron-3.5-lightning-30b-a3b (Fast 1.2s response)
     if nvidia_client:
         models_to_try = [
-            NVIDIA_LLM_MODEL if NVIDIA_LLM_MODEL else "nvidia/nemotron-3-super-120b-a12b"
+            "nvidia/nemotron-3-embed-1b",
+            "nvidia/nemotron-3.5-lightning-30b-a3b",
+            NVIDIA_LLM_MODEL if NVIDIA_LLM_MODEL else "nvidia/nemotron-3-super-120b-a12b",
+            "meta/llama-3.2-11b-vision-instruct"
         ]
         for nv_model in models_to_try:
             try:
@@ -68,9 +79,10 @@ def generate_llm_response(messages: list) -> tuple[str, str]:
                     "model": nv_model,
                     "messages": messages,
                     "temperature": 0.1,
-                    "max_tokens": 800,
-                    "timeout": 20.0
+                    "max_tokens": 1200
                 }
+                if "lightning" in nv_model:
+                    kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
 
                 resp = nvidia_client.chat.completions.create(**kwargs)
                 raw = resp.choices[0].message.content or ""
@@ -79,8 +91,7 @@ def generate_llm_response(messages: list) -> tuple[str, str]:
                     print(f"✅ [LLM Tier 1 Active]: NVIDIA ({nv_model}) delivered response.")
                     return ans, f"NVIDIA ({nv_model})"
             except Exception as e:
-                err_body = getattr(getattr(e, 'response', None), 'text', str(e))
-                print(f"⚠️ [NVIDIA NIM Fallback Triggered]: {nv_model} -> {e} | BODY: {err_body}")
+                print(f"⚠️ [NVIDIA NIM Fallback Triggered]: {nv_model} -> {e}")
                 continue
 
     # 2. Tier 2: Groq Fallback Engine
