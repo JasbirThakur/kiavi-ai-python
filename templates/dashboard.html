@@ -452,9 +452,14 @@
                     <div class="pb-3 border-b border-blue-500/20 flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <span class="w-2.5 h-2.5 bg-cyan-400 rounded-full shadow-[0_0_10px_#22d3ee] animate-pulse"></span>
-                            <span class="font-bold text-white text-xs">Grounded RAG Pipeline (NVIDIA Nemotron 120B Super)</span>
+                            <span class="font-bold text-white text-xs">Grounded RAG Pipeline (NVIDIA Nemotron 3.5 Lightning)</span>
                         </div>
-                        <span class="text-[10px] text-slate-400 font-mono">Dynamic Streaming</span>
+                        <div class="flex items-center gap-2.5">
+                            <span class="text-[10px] text-slate-400 font-mono">⚡ 1s Streaming</span>
+                            <button onclick="clearCurrentBotChat()" class="text-[10px] text-slate-400 hover:text-red-400 border border-slate-700/60 hover:border-red-500/40 bg-slate-900/80 px-2 py-0.5 rounded-lg transition flex items-center gap-1 cursor-pointer" title="Clear chat history for this bot">
+                                <i data-lucide="trash-2" class="w-3 h-3"></i> Clear
+                            </button>
+                        </div>
                     </div>
 
                     <div id="testChatBox" class="flex-1 overflow-y-auto space-y-4 py-4 text-xs"></div>
@@ -774,6 +779,47 @@
             }
         }
 
+        function getBotChatKey(botId) {
+            return 'kiavi_bot_chat_' + (botId || activeBotId);
+        }
+
+        function loadBotChatHistory(botId) {
+            const testBox = document.getElementById('testChatBox');
+            if (!testBox) return;
+            const history = localStorage.getItem(getBotChatKey(botId));
+            if (history && history.trim() && !history.includes('kiavi-empty-placeholder')) {
+                testBox.innerHTML = history;
+            } else {
+                const bName = (activeBotData && activeBotData.name) ? activeBotData.name : 'Bot';
+                testBox.innerHTML = `
+                    <div id="sandboxEmptyPlaceholder" class="text-center py-16 text-slate-500 font-mono text-[11px] flex flex-col items-center justify-center space-y-2 kiavi-empty-placeholder">
+                        <div class="w-10 h-10 rounded-2xl bg-blue-950/40 border border-blue-500/20 flex items-center justify-center text-cyan-400 shadow-md">
+                            <i data-lucide="message-square" class="w-5 h-5"></i>
+                        </div>
+                        <div class="text-slate-300 font-bold text-xs">${bName} Test Sandbox</div>
+                        <div class="text-slate-500 text-[10px] max-w-xs">Ask anything grounded in ${bName}'s knowledge base. Chat is strictly isolated to this bot.</div>
+                    </div>
+                `;
+            }
+            lucide.createIcons();
+            testBox.scrollTop = testBox.scrollHeight;
+        }
+
+        function saveBotChatHistory(botId) {
+            const testBox = document.getElementById('testChatBox');
+            if (!testBox) return;
+            if (testBox.innerHTML.includes('kiavi-empty-placeholder')) return;
+            localStorage.setItem(getBotChatKey(botId), testBox.innerHTML);
+        }
+
+        function clearCurrentBotChat() {
+            if (!activeBotId) return;
+            localStorage.removeItem(getBotChatKey(activeBotId));
+            loadBotChatHistory(activeBotId);
+            if (document.getElementById('testSourceCount')) document.getElementById('testSourceCount').innerText = "0";
+            if (document.getElementById('testTokensPerMsg')) document.getElementById('testTokensPerMsg').innerText = "0";
+        }
+
         async function openBotWorkspace(botId, targetTab = 'appearance') {
             activeBotId = botId;
             const res = await fetch(`/api/bots/${botId}`, { headers: { 'Authorization': 'Bearer ' + token } });
@@ -807,9 +853,8 @@
                 document.getElementById('prevAvatar').innerText = (activeBotData.name || 'A').charAt(0).toUpperCase();
             }
 
-            // Fresh Chat Isolation for Active Bot
-            const testBox = document.getElementById('testChatBox');
-            if (testBox) testBox.innerHTML = '';
+            // Strictly Isolated Per-Bot Chat History
+            loadBotChatHistory(botId);
             const testInput = document.getElementById('testChatInput');
             if (testInput) testInput.value = '';
             if (document.getElementById('testSourceCount')) document.getElementById('testSourceCount').innerText = "0";
@@ -1172,6 +1217,9 @@
             if (!q) return;
 
             const box = document.getElementById('testChatBox');
+            const placeholder = document.getElementById('sandboxEmptyPlaceholder');
+            if (placeholder) placeholder.remove();
+
             const userTime = formatTimeNow();
             const startTime = performance.now();
 
@@ -1256,12 +1304,13 @@
                                     }
                                     fullText += data.content;
                                     targetSpan.innerHTML = formatMarkdownWithImages(fullText);
+                                    lucide.createIcons();
                                     box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
                                 } else if (data.type === 'sources' && data.sources && data.sources.length > 0) {
                                     document.getElementById('testSourceCount').innerText = data.sources.length;
                                     document.getElementById(msgId + '_sources').innerHTML = `
                                         <div class="flex flex-wrap gap-1.5 mt-1 pt-1">
-                                            ${data.sources.map(s => `
+                                             ${data.sources.map(s => `
                                                 <button onclick="showDashboardEvidence('${s.title.replace(/'/g, "\\'")}', '${s.snippet.replace(/'/g, "\\'").replace(/\n/g, " ")}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium transition cursor-pointer">
                                                     <i data-lucide="file-check" class="w-3 h-3"></i>
                                                     <span>${s.title.length > 22 ? s.title.substring(0, 20) + '...' : s.title}</span>
@@ -1278,6 +1327,7 @@
                                     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
                                     latencySpan.innerText = `• ⚡ ${elapsed}s latency`;
                                     document.getElementById('testTokensPerMsg').innerText = Math.round(fullText.length / 4);
+                                    saveBotChatHistory(activeBotId);
                                 }
                             } catch(e) {}
                         }
@@ -1492,24 +1542,34 @@
             if (!text) return "";
             // 1. In-Chat Diagram / Image rendering ![Alt](url)
             let html = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
+                const label = alt || 'Visual Architecture / Diagram';
                 return `
-                    <div class="my-2.5 rounded-2xl overflow-hidden border border-cyan-500/30 shadow-lg bg-black/40 p-1.5">
-                        <a href="${url}" target="_blank" title="Click to view full image">
-                            <img src="${url}" alt="${alt}" class="w-full h-auto rounded-xl object-contain max-h-[260px] hover:scale-[1.02] transition" loading="lazy" onerror="this.parentElement.parentElement.style.display='none'" />
+                    <div class="my-2.5 rounded-2xl overflow-hidden border border-cyan-500/30 shadow-lg bg-[#060b17] p-2.5 text-center">
+                        <a href="${url}" target="_blank" title="Click to view diagram in high-resolution">
+                            <img src="${url}" alt="${label}" class="w-full h-auto rounded-xl object-contain max-h-[260px] hover:scale-[1.02] transition mx-auto" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');" />
+                            <div class="hidden py-4 px-3 flex flex-col items-center justify-center text-cyan-400 bg-blue-950/40 rounded-xl border border-cyan-500/20">
+                                <i data-lucide="image" class="w-5 h-5 mb-1 text-cyan-400"></i>
+                                <span class="font-medium text-xs text-slate-200">${label}</span>
+                                <span class="text-[10px] text-cyan-400 font-mono mt-0.5">Click to open source image ↗</span>
+                            </div>
                         </a>
-                        ${alt ? `<div class="text-[10px] text-cyan-400 font-mono text-center pt-1">${alt}</div>` : ''}
+                        <div class="text-[11px] text-slate-400 font-mono text-center pt-2 flex items-center justify-center gap-1.5"><i data-lucide="eye" class="w-3 h-3 text-cyan-400"></i> ${label}</div>
                     </div>
                 `;
             });
-            // 2. Markdown Links [Text](URL) or [Text] (URL)
+            // 2. Flowchart / Preformatted Code Blocks ```...```
+            html = html.replace(/```([\s\S]*?)```/g, '<pre class="bg-[#040814] p-3 rounded-xl border border-blue-500/30 text-cyan-300 font-mono text-[11px] overflow-x-auto my-2 leading-relaxed">$1</pre>');
+            // 3. Inline code `...`
+            html = html.replace(/`([^`]+)`/g, '<code class="bg-blue-950/60 text-cyan-300 px-1.5 py-0.5 rounded text-[11px] font-mono border border-blue-500/30">$1</code>');
+            // 4. Markdown Links [Text](URL) or [Text] (URL)
             html = html.replace(/\[([^\]]+)\]\s*\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-cyan-400 font-bold underline hover:opacity-80 inline-flex items-center gap-0.5">$1 ↗</a>');
-            // 3. Raw URLs
+            // 5. Raw URLs
             html = html.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="text-cyan-400 font-semibold underline break-all hover:opacity-80">$2</a>');
-            // 4. Bold text
+            // 6. Bold text
             html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-            // 5. Bullet points (-, *, •)
+            // 7. Bullet points (-, *, •)
             html = html.replace(/^\s*[\-\*•]\s+(.+)$/gm, '<li class="ml-3 my-0.5">$1</li>');
-            // 6. Line breaks
+            // 8. Line breaks
             html = html.replace(/\n/g, '<br/>');
             return html;
         }
