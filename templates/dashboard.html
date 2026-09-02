@@ -912,6 +912,9 @@
                 document.getElementById('prevAvatar').innerText = (activeBotData.name || 'A').charAt(0).toUpperCase();
             }
 
+            // Immediately render this bot's strictly isolated chat & greeting
+            renderBotChat(botId);
+
             const testInput = document.getElementById('testChatInput');
             if (testInput) testInput.value = '';
             if (document.getElementById('testSourceCount')) document.getElementById('testSourceCount').innerText = "0";
@@ -998,6 +1001,8 @@
         function showHomeView() {
             localStorage.removeItem('kiavi_active_bot_id');
             localStorage.removeItem('kiavi_active_tab');
+            const testBox = document.getElementById('testChatBox');
+            if (testBox) testBox.innerHTML = '';
             document.getElementById('botWorkspaceView').classList.add('hidden');
             document.getElementById('homeView').classList.remove('hidden');
             loadHomeBots();
