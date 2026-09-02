@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <rect width="100" height="100" rx="50" fill="url(#g3)"/>
+  <circle cx="50" cy="42" r="18" fill="#fde047"/>
+  <path d="M22 84 C24 64 36 58 50 58 C64 58 76 64 78 84 Z" fill="#ffffff"/>
+  <!-- Headset -->
+  <path d="M30 42 A20 20 0 0 1 70 42" stroke="#0284c7" stroke-width="4" fill="none"/>
+  <rect x="26" y="38" width="6" height="12" rx="3" fill="#0369a1"/>
+  <rect x="68" y="38" width="6" height="12" rx="3" fill="#0369a1"/>
+  <path d="M70 46 L70 54 L60 54" stroke="#0284c7" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <circle cx="58" cy="54" r="3" fill="#38bdf8"/>
+  <defs>
+    <linearGradient id="g3" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#10b981"/>
+      <stop offset="1" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+</svg>

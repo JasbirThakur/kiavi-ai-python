@@ -18,6 +18,7 @@ class BotAppearanceUpdate(BaseModel):
     greeting: str
     suggestions: str
     launcherPosition: str
+    logoUrl: str = None
     webhookUrl: str = None
 
 @router.get("/")
@@ -117,6 +118,8 @@ def update_appearance(bot_id: str, req: BotAppearanceUpdate, user: models.User =
     bot.greeting = req.greeting
     bot.suggestions = req.suggestions
     bot.launcherPosition = req.launcherPosition
+    if req.logoUrl is not None:
+        bot.logoUrl = req.logoUrl.strip()
     if req.webhookUrl is not None:
         bot.webhookUrl = req.webhookUrl.strip()
 

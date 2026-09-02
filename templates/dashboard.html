@@ -279,14 +279,54 @@
                         </div>
 
                         <div>
-                            <label class="text-xs font-bold text-slate-300 block mb-1">Bot Avatar & Brand Logo</label>
-                            <div class="flex items-center gap-3 bg-[#060b17] border border-blue-500/30 rounded-xl p-2.5">
-                                <div id="botLogoPreview" class="w-10 h-10 rounded-xl bg-blue-950 border border-blue-500/30 flex items-center justify-center overflow-hidden shrink-0">
-                                    <span class="text-[10px] font-bold text-cyan-400">Logo</span>
-                                </div>
-                                <input type="file" id="botLogoFileInput" accept="image/*" class="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-600/30 file:text-cyan-300 hover:file:bg-blue-600/50 cursor-pointer" onchange="previewSelectedLogo(this)" />
-                                <button onclick="uploadBotLogoFile()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-1.5 rounded-lg text-xs whitespace-nowrap transition cursor-pointer shadow-md">Upload</button>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="text-xs font-bold text-slate-300">Bot Avatar & Brand Logo</label>
+                                <button type="button" onclick="autoFetchBrandLogo()" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-mono flex items-center gap-1 underline cursor-pointer">
+                                    <i data-lucide="globe" class="w-3 h-3"></i> Auto-Fetch from Domain
+                                </button>
                             </div>
+
+                            <!-- Built-in Avatar Presets -->
+                            <div class="mb-3">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block mb-1.5">Choose Built-in Persona</span>
+                                <div class="grid grid-cols-6 gap-2 bg-[#060b17] border border-blue-500/20 rounded-2xl p-2" id="presetAvatarGallery">
+                                    <button type="button" onclick="selectPresetAvatar('/static/avatars/ai_sparkle.svg')" class="avatar-preset-btn p-1 rounded-xl hover:bg-blue-600/20 border border-transparent hover:border-cyan-400/40 transition flex flex-col items-center gap-1 cursor-pointer" title="AI Sparkle">
+                                        <img src="/static/avatars/ai_sparkle.svg" class="w-8 h-8 rounded-full shadow-md" />
+                                        <span class="text-[9px] text-slate-400">Sparkle</span>
+                                    </button>
+                                    <button type="button" onclick="selectPresetAvatar('/static/avatars/robot_cyber.svg')" class="avatar-preset-btn p-1 rounded-xl hover:bg-blue-600/20 border border-transparent hover:border-cyan-400/40 transition flex flex-col items-center gap-1 cursor-pointer" title="Cyber Robot">
+                                        <img src="/static/avatars/robot_cyber.svg" class="w-8 h-8 rounded-full shadow-md" />
+                                        <span class="text-[9px] text-slate-400">Cyber</span>
+                                    </button>
+                                    <button type="button" onclick="selectPresetAvatar('/static/avatars/agent_support.svg')" class="avatar-preset-btn p-1 rounded-xl hover:bg-blue-600/20 border border-transparent hover:border-cyan-400/40 transition flex flex-col items-center gap-1 cursor-pointer" title="Support Specialist">
+                                        <img src="/static/avatars/agent_support.svg" class="w-8 h-8 rounded-full shadow-md" />
+                                        <span class="text-[9px] text-slate-400">Agent</span>
+                                    </button>
+                                    <button type="button" onclick="selectPresetAvatar('/static/avatars/fintech_pulse.svg')" class="avatar-preset-btn p-1 rounded-xl hover:bg-blue-600/20 border border-transparent hover:border-cyan-400/40 transition flex flex-col items-center gap-1 cursor-pointer" title="Fintech Pulse">
+                                        <img src="/static/avatars/fintech_pulse.svg" class="w-8 h-8 rounded-full shadow-md" />
+                                        <span class="text-[9px] text-slate-400">Fintech</span>
+                                    </button>
+                                    <button type="button" onclick="selectPresetAvatar('/static/avatars/rocket_saas.svg')" class="avatar-preset-btn p-1 rounded-xl hover:bg-blue-600/20 border border-transparent hover:border-cyan-400/40 transition flex flex-col items-center gap-1 cursor-pointer" title="Rocket SaaS">
+                                        <img src="/static/avatars/rocket_saas.svg" class="w-8 h-8 rounded-full shadow-md" />
+                                        <span class="text-[9px] text-slate-400">Rocket</span>
+                                    </button>
+                                    <button type="button" onclick="selectPresetAvatar('/static/avatars/brain_neural.svg')" class="avatar-preset-btn p-1 rounded-xl hover:bg-blue-600/20 border border-transparent hover:border-cyan-400/40 transition flex flex-col items-center gap-1 cursor-pointer" title="Neural Brain">
+                                        <img src="/static/avatars/brain_neural.svg" class="w-8 h-8 rounded-full shadow-md" />
+                                        <span class="text-[9px] text-slate-400">Neural</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Optional Custom Upload -->
+                            <details class="group">
+                                <summary class="text-[11px] text-slate-400 hover:text-cyan-300 cursor-pointer font-medium select-none mb-1.5 flex items-center gap-1">
+                                    <span>+ Or Upload Custom Company File (Optional)</span>
+                                </summary>
+                                <div class="flex items-center gap-2 bg-[#060b17] border border-blue-500/30 rounded-xl p-2 mt-1">
+                                    <input type="file" id="botLogoFileInput" accept="image/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-600/30 file:text-cyan-300 hover:file:bg-blue-600/50 cursor-pointer" onchange="previewSelectedLogo(this)" />
+                                    <button type="button" onclick="uploadBotLogoFile()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1 rounded-lg text-xs whitespace-nowrap transition cursor-pointer shadow-md">Upload</button>
+                                </div>
+                            </details>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
@@ -773,12 +813,38 @@
             switchTab(targetTab);
         }
 
+        let selectedLogoUrl = undefined;
+
+        function selectPresetAvatar(avatarUrl) {
+            selectedLogoUrl = avatarUrl;
+            if (activeBotData) activeBotData.logoUrl = avatarUrl;
+            const prevAvatar = document.getElementById('prevAvatar');
+            if (prevAvatar) {
+                prevAvatar.innerHTML = `<img src="${avatarUrl}" class="w-full h-full object-cover rounded-xl" />`;
+            }
+            document.querySelectorAll('.avatar-preset-btn').forEach(b => {
+                b.classList.remove('bg-blue-600/40', 'border-cyan-400');
+            });
+            if (window.event && window.event.currentTarget) {
+                window.event.currentTarget.classList.add('bg-blue-600/40', 'border-cyan-400');
+            }
+        }
+
+        function autoFetchBrandLogo() {
+            if (!activeBotData || !activeBotData.domain) return alert("No domain configured for this bot.");
+            const fetchedUrl = `https://www.google.com/s2/favicons?domain=${activeBotData.domain}&sz=128`;
+            selectPresetAvatar(fetchedUrl);
+            alert(`✓ Auto-fetched brand logo from ${activeBotData.domain}! Click 'Deploy Appearance Changes' to save.`);
+        }
+
         function previewSelectedLogo(input) {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    document.getElementById('botLogoPreview').innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover rounded-xl" />`;
-                    document.getElementById('prevAvatar').innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover rounded-xl" />`;
+                    const prevAvatar = document.getElementById('prevAvatar');
+                    if (prevAvatar) {
+                        prevAvatar.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover rounded-xl" />`;
+                    }
                 };
                 reader.readAsDataURL(input.files[0]);
             }
@@ -802,8 +868,11 @@
             if (res.ok && data.status === 'success') {
                 alert("✓ Custom bot logo uploaded successfully!");
                 activeBotData.logoUrl = data.logoUrl;
-                document.getElementById('botLogoPreview').innerHTML = `<img src="${data.logoUrl}" class="w-full h-full object-cover rounded-xl" />`;
-                document.getElementById('prevAvatar').innerHTML = `<img src="${data.logoUrl}" class="w-full h-full object-cover rounded-xl" />`;
+                selectedLogoUrl = data.logoUrl;
+                const prevAvatar = document.getElementById('prevAvatar');
+                if (prevAvatar) {
+                    prevAvatar.innerHTML = `<img src="${data.logoUrl}" class="w-full h-full object-cover rounded-xl" />`;
+                }
             } else {
                 alert("Upload failed: " + (data.detail || "Error"));
             }
@@ -997,7 +1066,8 @@
                 accentColor: selectedColor,
                 greeting: document.getElementById('editGreeting').value.trim(),
                 suggestions: document.getElementById('editSuggestions').value.trim(),
-                launcherPosition: selectedPos
+                launcherPosition: selectedPos,
+                logoUrl: selectedLogoUrl !== undefined ? selectedLogoUrl : (activeBotData ? (activeBotData.logoUrl || "") : "")
             };
 
             const res = await fetch(`/api/bots/${activeBotId}/appearance`, {

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <rect width="100" height="100" rx="50" fill="url(#g5)"/>
+  <!-- Rocket Body -->
+  <path d="M50 20 C60 35 64 50 62 65 L38 65 C36 50 40 35 50 20 Z" fill="#ffffff"/>
+  <!-- Window -->
+  <circle cx="50" cy="40" r="6" fill="#0284c7" stroke="#38bdf8" stroke-width="2"/>
+  <!-- Wings -->
+  <path d="M38 52 L26 66 L38 64 Z" fill="#ef4444"/>
+  <path d="M62 52 L74 66 L62 64 Z" fill="#ef4444"/>
+  <!-- Flame -->
+  <path d="M44 65 L50 80 L56 65 Z" fill="#f59e0b"/>
+  <defs>
+    <linearGradient id="g5" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#6d28d9"/>
+    </linearGradient>
+  </defs>
+</svg>
