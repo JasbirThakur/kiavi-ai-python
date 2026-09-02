@@ -777,22 +777,41 @@
             if (allBotsList && allBotsList.length > 0) {
                 openBotWorkspace(allBotsList[0].id, section);
             }
+        let currentStreamAbortController = null;
+
+        // Auto-purge any stale or contaminated legacy chat keys from localStorage
+        try {
+            Object.keys(localStorage).forEach(k => {
+                if (k.startsWith('kiavi_bot_chat_')) localStorage.removeItem(k);
+            });
+        } catch(e) {}
+
+        function getBotMessages(botId) {
+            if (!botId) return [];
+            try {
+                const raw = localStorage.getItem('kiavi_bot_msgs_v4_' + botId);
+                return raw ? JSON.parse(raw) : [];
+            } catch(e) {
+                return [];
+            }
         }
 
-        function getBotChatKey(botId) {
-            return 'kiavi_bot_chat_' + (botId || activeBotId);
+        function saveBotMessages(botId, msgs) {
+            if (!botId) return;
+            try {
+                localStorage.setItem('kiavi_bot_msgs_v4_' + botId, JSON.stringify(msgs));
+            } catch(e) {}
         }
 
-        function loadBotChatHistory(botId) {
+        function renderBotChat(botId) {
             const testBox = document.getElementById('testChatBox');
             if (!testBox) return;
-            const history = localStorage.getItem(getBotChatKey(botId));
-            if (history && history.trim() && !history.includes('kiavi-empty-placeholder')) {
-                testBox.innerHTML = history;
-            } else {
-                const bName = (activeBotData && activeBotData.name) ? activeBotData.name : 'Bot';
+            const msgs = getBotMessages(botId);
+            const bName = (activeBotData && activeBotData.name) ? activeBotData.name : 'Bot';
+
+            if (!msgs || msgs.length === 0) {
                 testBox.innerHTML = `
-                    <div id="sandboxEmptyPlaceholder" class="text-center py-16 text-slate-500 font-mono text-[11px] flex flex-col items-center justify-center space-y-2 kiavi-empty-placeholder">
+                    <div class="text-center py-16 text-slate-500 font-mono text-[11px] flex flex-col items-center justify-center space-y-2">
                         <div class="w-10 h-10 rounded-2xl bg-blue-950/40 border border-blue-500/20 flex items-center justify-center text-cyan-400 shadow-md">
                             <i data-lucide="message-square" class="w-5 h-5"></i>
                         </div>
@@ -800,27 +819,62 @@
                         <div class="text-slate-500 text-[10px] max-w-xs">Ask anything grounded in ${bName}'s knowledge base. Chat is strictly isolated to this bot.</div>
                     </div>
                 `;
+            } else {
+                testBox.innerHTML = msgs.map(m => {
+                    if (m.role === 'USER') {
+                        return `
+                            <div class="flex flex-col items-end">
+                                <span class="glow-btn text-white px-4 py-2.5 rounded-2xl inline-block max-w-md shadow-md">${m.content}</span>
+                                <span class="text-[9px] text-slate-500 mt-1 mr-1 font-mono">${m.time}</span>
+                            </div>
+                        `;
+                    } else {
+                        return `
+                            <div class="flex flex-col items-start space-y-1">
+                                <div class="flex items-start gap-2 w-full max-w-md">
+                                    <span class="glow-box p-3.5 rounded-2xl inline-block flex-1 text-slate-200 leading-relaxed border-blue-500/30">
+                                        ${formatMarkdownWithImages(m.content)}
+                                    </span>
+                                    <button onclick="speakDashboardText(this, '${(m.content || '').replace(/'/g, "\\'")}')" class="mt-1 text-slate-400 hover:text-cyan-400 p-1.5 rounded-xl transition cursor-pointer" title="Read Aloud">
+                                        <i data-lucide="volume-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                                ${m.sources && m.sources.length > 0 ? `
+                                    <div class="flex flex-wrap gap-1.5 mt-1 pt-1">
+                                        ${m.sources.map(s => `
+                                            <button onclick="showDashboardEvidence('${s.title.replace(/'/g, "\\'")}', '${s.snippet.replace(/'/g, "\\'").replace(/\n/g, " ")}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium transition cursor-pointer">
+                                                <i data-lucide="file-check" class="w-3 h-3"></i>
+                                                <span>${s.title.length > 22 ? s.title.substring(0, 20) + '...' : s.title}</span>
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                                <div class="flex items-center gap-1.5 text-[9px] text-slate-500 mt-1 ml-1 font-mono">
+                                    <span>${m.time}</span>
+                                    ${m.latency ? `<span class="text-cyan-400 font-bold">• ⚡ ${m.latency} latency</span>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }
+                }).join('');
             }
             lucide.createIcons();
             testBox.scrollTop = testBox.scrollHeight;
         }
 
-        function saveBotChatHistory(botId) {
-            const testBox = document.getElementById('testChatBox');
-            if (!testBox) return;
-            if (testBox.innerHTML.includes('kiavi-empty-placeholder')) return;
-            localStorage.setItem(getBotChatKey(botId), testBox.innerHTML);
-        }
-
         function clearCurrentBotChat() {
             if (!activeBotId) return;
-            localStorage.removeItem(getBotChatKey(activeBotId));
-            loadBotChatHistory(activeBotId);
+            localStorage.removeItem('kiavi_bot_msgs_v4_' + activeBotId);
+            renderBotChat(activeBotId);
             if (document.getElementById('testSourceCount')) document.getElementById('testSourceCount').innerText = "0";
             if (document.getElementById('testTokensPerMsg')) document.getElementById('testTokensPerMsg').innerText = "0";
         }
 
         async function openBotWorkspace(botId, targetTab = 'appearance') {
+            if (currentStreamAbortController) {
+                try { currentStreamAbortController.abort(); } catch(e) {}
+                currentStreamAbortController = null;
+            }
             activeBotId = botId;
             const res = await fetch(`/api/bots/${botId}`, { headers: { 'Authorization': 'Bearer ' + token } });
             activeBotData = await res.json();
@@ -854,10 +908,11 @@
             }
 
             // Strictly Isolated Per-Bot Chat History
-            loadBotChatHistory(botId);
+            renderBotChat(botId);
             const testInput = document.getElementById('testChatInput');
             if (testInput) testInput.value = '';
             if (document.getElementById('testSourceCount')) document.getElementById('testSourceCount').innerText = "0";
+            if (document.getElementById('testTokensPerMsg')) document.getElementById('testTokensPerMsg').innerText = "0";
             if (document.getElementById('testTokensPerMsg')) document.getElementById('testTokensPerMsg').innerText = "0";
 
             selectedColor = activeBotData.accentColor || "#00c48c";
@@ -959,6 +1014,7 @@
             const activeView = document.getElementById('view-' + tab);
             if (activeView) activeView.classList.remove('hidden');
 
+            if (tab === 'test') renderBotChat(activeBotId);
             if (tab === 'knowledge' || tab === 'appearance') loadActiveBotSources();
             if (tab === 'leads') loadLeads();
             if (tab === 'insights') loadInsights();
@@ -1216,22 +1272,20 @@
             const q = input.value.trim();
             if (!q) return;
 
-            const box = document.getElementById('testChatBox');
-            const placeholder = document.getElementById('sandboxEmptyPlaceholder');
-            if (placeholder) placeholder.remove();
-
+            const sendingBotId = activeBotId;
             const userTime = formatTimeNow();
             const startTime = performance.now();
 
-            box.innerHTML += `
-                <div class="flex flex-col items-end">
-                    <span class="glow-btn text-white px-4 py-2.5 rounded-2xl inline-block max-w-md shadow-md">${q}</span>
-                    <span class="text-[9px] text-slate-500 mt-1 mr-1 font-mono">${userTime}</span>
-                </div>
-            `;
-            input.value = "";
-            box.scrollTop = box.scrollHeight;
+            // Save user message to structured store for sendingBotId
+            const curMsgs = getBotMessages(sendingBotId);
+            curMsgs.push({ role: 'USER', content: q, time: userTime });
+            saveBotMessages(sendingBotId, curMsgs);
 
+            // Re-render chat for sendingBotId
+            renderBotChat(sendingBotId);
+            input.value = "";
+
+            const box = document.getElementById('testChatBox');
             const msgId = 'stream_' + Date.now();
             box.innerHTML += `
                 <div class="flex flex-col items-start space-y-1">
@@ -1263,24 +1317,34 @@
             const leadContainer = document.getElementById(msgId + '_lead');
             const latencySpan = document.getElementById(msgId + '_latency');
 
+            if (currentStreamAbortController) {
+                try { currentStreamAbortController.abort(); } catch(e) {}
+            }
+            currentStreamAbortController = new AbortController();
+
             const form = new FormData();
-            form.append('bot_id', activeBotId);
+            form.append('bot_id', sendingBotId);
             form.append('question', q);
 
             try {
                 const res = await fetch('/api/chat/stream', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + token },
-                    body: form
+                    body: form,
+                    signal: currentStreamAbortController.signal
                 });
 
-                if (!res.ok) { targetSpan.innerText = "Authentication Failed"; return; }
+                if (!res.ok) {
+                    if (targetSpan && activeBotId === sendingBotId) targetSpan.innerText = "Authentication Failed";
+                    return;
+                }
 
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
                 let streamBuffer = "";
                 let fullText = "";
                 let receivedFirstToken = false;
+                let capturedSources = [];
 
                 while (true) {
                     const { value, done } = await reader.read();
@@ -1296,44 +1360,69 @@
                             try {
                                 const data = JSON.parse(trimmed.replace('data: ', ''));
                                 if (data.type === 'start') {
-                                    document.getElementById('testSourceCount').innerText = data.confidence >= 0.18 ? "1" : "0";
+                                    if (activeBotId === sendingBotId) {
+                                        document.getElementById('testSourceCount').innerText = data.confidence >= 0.18 ? "1" : "0";
+                                    }
                                 } else if (data.type === 'token') {
                                     if (!receivedFirstToken) {
-                                        targetSpan.innerHTML = "";
+                                        if (targetSpan) targetSpan.innerHTML = "";
                                         receivedFirstToken = true;
                                     }
                                     fullText += data.content;
-                                    targetSpan.innerHTML = formatMarkdownWithImages(fullText);
-                                    lucide.createIcons();
-                                    box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+                                    if (activeBotId === sendingBotId && targetSpan) {
+                                        targetSpan.innerHTML = formatMarkdownWithImages(fullText);
+                                        lucide.createIcons();
+                                        box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+                                    }
                                 } else if (data.type === 'sources' && data.sources && data.sources.length > 0) {
-                                    document.getElementById('testSourceCount').innerText = data.sources.length;
-                                    document.getElementById(msgId + '_sources').innerHTML = `
-                                        <div class="flex flex-wrap gap-1.5 mt-1 pt-1">
-                                             ${data.sources.map(s => `
-                                                <button onclick="showDashboardEvidence('${s.title.replace(/'/g, "\\'")}', '${s.snippet.replace(/'/g, "\\'").replace(/\n/g, " ")}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium transition cursor-pointer">
-                                                    <i data-lucide="file-check" class="w-3 h-3"></i>
-                                                    <span>${s.title.length > 22 ? s.title.substring(0, 20) + '...' : s.title}</span>
-                                                </button>
-                                            `).join('')}
-                                        </div>
-                                    `;
-                                    lucide.createIcons();
-                                    box.scrollTop = box.scrollHeight;
+                                    capturedSources = data.sources;
+                                    if (activeBotId === sendingBotId) {
+                                        document.getElementById('testSourceCount').innerText = data.sources.length;
+                                        document.getElementById(msgId + '_sources').innerHTML = `
+                                            <div class="flex flex-wrap gap-1.5 mt-1 pt-1">
+                                                ${data.sources.map(s => `
+                                                    <button onclick="showDashboardEvidence('${s.title.replace(/'/g, "\\'")}', '${s.snippet.replace(/'/g, "\\'").replace(/\n/g, " ")}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium transition cursor-pointer">
+                                                        <i data-lucide="file-check" class="w-3 h-3"></i>
+                                                        <span>${s.title.length > 22 ? s.title.substring(0, 20) + '...' : s.title}</span>
+                                                    </button>
+                                                `).join('')}
+                                            </div>
+                                        `;
+                                        lucide.createIcons();
+                                        box.scrollTop = box.scrollHeight;
+                                    }
                                 } else if (data.type === 'lead_form') {
-                                    renderInlineLead(leadContainer);
-                                    box.scrollTop = box.scrollHeight;
+                                    if (activeBotId === sendingBotId && leadContainer) {
+                                        renderInlineLead(leadContainer);
+                                        box.scrollTop = box.scrollHeight;
+                                    }
                                 } else if (data.type === 'done') {
                                     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-                                    latencySpan.innerText = `• ⚡ ${elapsed}s latency`;
-                                    document.getElementById('testTokensPerMsg').innerText = Math.round(fullText.length / 4);
-                                    saveBotChatHistory(activeBotId);
+                                    if (activeBotId === sendingBotId && latencySpan) {
+                                        latencySpan.innerText = `• ⚡ ${elapsed}s latency`;
+                                        document.getElementById('testTokensPerMsg').innerText = Math.round(fullText.length / 4);
+                                    }
+
+                                    // Save Bot reply to structured store for sendingBotId ONLY!
+                                    const updatedMsgs = getBotMessages(sendingBotId);
+                                    updatedMsgs.push({
+                                        role: 'BOT',
+                                        content: fullText,
+                                        time: userTime,
+                                        latency: `${elapsed}s`,
+                                        sources: capturedSources
+                                    });
+                                    saveBotMessages(sendingBotId, updatedMsgs);
                                 }
                             } catch(e) {}
                         }
                     }
                 }
-            } catch (e) { targetSpan.innerText = "Connection lost to server."; }
+            } catch (e) {
+                if (e.name !== 'AbortError' && targetSpan && activeBotId === sendingBotId) {
+                    targetSpan.innerText = "Connection lost to server.";
+                }
+            }
         }
 
         let dashRecognition = null;
