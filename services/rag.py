@@ -64,30 +64,35 @@ def clean_llm_text(text: str) -> str:
     return cleaned
 
 def generate_llm_response(messages: list) -> tuple[str, str]:
-    # 1. Tier 1: NVIDIA NIM (Nemotron 3.5 Lightning & Nemotron 3 Super)
+    # 1. Tier 1: NVIDIA NIM
+    # Priority 1: Nemotron 3 Super 120B (Primary)
+    # Priority 2: Nemotron 3.5 Lightning 30B (High-Speed Fallback)
     if nvidia_client:
         models_to_try = [
-            "nvidia/nemotron-3.5-lightning-30b-a3b",
             NVIDIA_LLM_MODEL if NVIDIA_LLM_MODEL else "nvidia/nemotron-3-super-120b-a12b",
-            "nvidia/nemotron-3-super-120b-a12b",
+            "nvidia/nemotron-3.5-lightning-30b-a3b",
             "nvidia/nemotron-3-nano-30b-a3b",
             "meta/llama-3.2-11b-vision-instruct"
         ]
         for nv_model in models_to_try:
             try:
-                resp = nvidia_client.chat.completions.create(
-                    model=nv_model,
-                    messages=messages,
-                    temperature=0.1,
-                    max_tokens=1200
-                )
+                kwargs = {
+                    "model": nv_model,
+                    "messages": messages,
+                    "temperature": 0.1,
+                    "max_tokens": 1200
+                }
+                if "lightning" in nv_model:
+                    kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
+
+                resp = nvidia_client.chat.completions.create(**kwargs)
                 raw = resp.choices[0].message.content or ""
                 ans = clean_llm_text(raw)
                 if ans:
                     print(f"✅ [LLM Tier 1 Active]: NVIDIA ({nv_model}) delivered response.")
                     return ans, f"NVIDIA ({nv_model})"
             except Exception as e:
-                print(f"⚠️ [NVIDIA NIM Warning]: {nv_model} failed: {e}")
+                print(f"⚠️ [NVIDIA NIM Fallback Triggered]: {nv_model} -> {e}")
                 continue
 
     # 2. Tier 2: Groq Fallback Engine
