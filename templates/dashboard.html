@@ -447,16 +447,30 @@
             </div>
 
             <!-- TAB 3: TEST PIPELINE -->
-            <div id="view-test" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 glow-box rounded-3xl p-5 flex flex-col h-[540px]">
+            <div id="view-test" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <!-- 1. ChatGPT-Style Chat Sessions Sidebar -->
+                <div class="lg:col-span-3 glow-box rounded-3xl p-4 flex flex-col h-[540px] space-y-3">
+                    <div class="flex items-center justify-between pb-2.5 border-b border-blue-500/20">
+                        <span class="font-bold text-white text-xs flex items-center gap-1.5">
+                            <i data-lucide="messages-square" class="w-4 h-4 text-cyan-400"></i> Conversations
+                        </span>
+                        <button onclick="createNewChatSession()" class="glow-btn px-2.5 py-1 rounded-xl text-[11px] font-bold text-white flex items-center gap-1 cursor-pointer hover:scale-105 transition" title="Start New Conversation">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> New Chat
+                        </button>
+                    </div>
+                    <div id="testSessionsList" class="flex-1 overflow-y-auto space-y-1.5 pr-1 text-xs"></div>
+                </div>
+
+                <!-- 2. Main Chat Box -->
+                <div class="lg:col-span-6 glow-box rounded-3xl p-5 flex flex-col h-[540px]">
                     <div class="pb-3 border-b border-blue-500/20 flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            <span class="w-2.5 h-2.5 bg-cyan-400 rounded-full shadow-[0_0_10px_#22d3ee] animate-pulse"></span>
-                            <span class="font-bold text-white text-xs">Grounded RAG Pipeline (NVIDIA Nemotron 3-Embed / Lightning Fallback)</span>
+                        <div class="flex items-center gap-2 truncate mr-2">
+                            <span class="w-2.5 h-2.5 bg-cyan-400 rounded-full shadow-[0_0_10px_#22d3ee] animate-pulse shrink-0"></span>
+                            <span class="font-bold text-white text-xs truncate">Grounded RAG Pipeline (NVIDIA Nemotron 3-Embed / Lightning Fallback)</span>
                         </div>
-                        <div class="flex items-center gap-2.5">
+                        <div class="flex items-center gap-2 shrink-0">
                             <span class="text-[10px] text-cyan-400 font-mono bg-blue-950/80 border border-cyan-500/30 px-2 py-0.5 rounded-full">⚡ 1s Streaming</span>
-                            <button onclick="clearCurrentBotChat()" class="text-[10px] text-slate-400 hover:text-red-400 border border-slate-700/60 hover:border-red-500/40 bg-slate-900/80 px-2 py-0.5 rounded-lg transition flex items-center gap-1 cursor-pointer" title="Clear chat history for this bot">
+                            <button onclick="clearCurrentBotChat()" class="text-[10px] text-slate-400 hover:text-red-400 border border-slate-700/60 hover:border-red-500/40 bg-slate-900/80 px-2 py-0.5 rounded-lg transition flex items-center gap-1 cursor-pointer" title="Clear current conversation">
                                 <i data-lucide="trash-2" class="w-3 h-3"></i> Clear
                             </button>
                         </div>
@@ -473,8 +487,8 @@
                     </div>
                 </div>
 
-                <!-- Telemetry & Evidence Inspector -->
-                <div class="space-y-4">
+                <!-- 3. Telemetry & Evidence Inspector -->
+                <div class="lg:col-span-3 space-y-4">
                     <div class="glow-box p-5 rounded-3xl sticky top-20 space-y-4">
                         <h3 class="font-bold text-white text-xs flex items-center gap-1.5">
                             <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i> Retrieval Telemetry
@@ -787,45 +801,136 @@
             });
         } catch(e) {}
 
-        function getBotMessages(botId) {
+        let activeSessionId = null;
+
+        function getBotSessions(botId) {
             if (!botId) return [];
             try {
-                const raw = localStorage.getItem('kiavi_bot_msgs_v4_' + botId);
-                return raw ? JSON.parse(raw) : [];
+                const raw = localStorage.getItem('kiavi_bot_sessions_v5_' + botId);
+                let sessions = raw ? JSON.parse(raw) : [];
+                if (!sessions || sessions.length === 0) {
+                    const bGreeting = (activeBotData && activeBotData.greeting) ? activeBotData.greeting : "Hello! How can I assist you today?";
+                    const newSess = {
+                        id: 'sess_' + Date.now(),
+                        title: 'Conversation 1',
+                        createdAt: formatTimeNow(),
+                        messages: [
+                            { role: 'BOT', content: bGreeting, time: formatTimeNow(), isGreeting: true }
+                        ]
+                    };
+                    sessions = [newSess];
+                    saveBotSessions(botId, sessions);
+                }
+                return sessions;
             } catch(e) {
                 return [];
             }
         }
 
-        function saveBotMessages(botId, msgs) {
+        function saveBotSessions(botId, sessions) {
             if (!botId) return;
             try {
-                localStorage.setItem('kiavi_bot_msgs_v4_' + botId, JSON.stringify(msgs));
+                localStorage.setItem('kiavi_bot_sessions_v5_' + botId, JSON.stringify(sessions));
             } catch(e) {}
+        }
+
+        function createNewChatSession() {
+            if (!activeBotId) return;
+            const sessions = getBotSessions(activeBotId);
+            const bGreeting = (activeBotData && activeBotData.greeting) ? activeBotData.greeting : "Hello! How can I assist you today?";
+            const newSess = {
+                id: 'sess_' + Date.now(),
+                title: 'Conversation ' + (sessions.length + 1),
+                createdAt: formatTimeNow(),
+                messages: [
+                    { role: 'BOT', content: bGreeting, time: formatTimeNow(), isGreeting: true }
+                ]
+            };
+            sessions.unshift(newSess);
+            saveBotSessions(activeBotId, sessions);
+            activeSessionId = newSess.id;
+            renderBotChat(activeBotId);
+            const input = document.getElementById('testChatInput');
+            if (input) input.focus();
+        }
+
+        function selectChatSession(sessId) {
+            activeSessionId = sessId;
+            renderBotChat(activeBotId);
+        }
+
+        function deleteChatSession(e, sessId) {
+            if (e) e.stopPropagation();
+            if (!activeBotId) return;
+            let sessions = getBotSessions(activeBotId);
+            sessions = sessions.filter(s => s.id !== sessId);
+            if (sessions.length === 0) {
+                const bGreeting = (activeBotData && activeBotData.greeting) ? activeBotData.greeting : "Hello! How can I assist you today?";
+                sessions = [{
+                    id: 'sess_' + Date.now(),
+                    title: 'Conversation 1',
+                    createdAt: formatTimeNow(),
+                    messages: [
+                        { role: 'BOT', content: bGreeting, time: formatTimeNow(), isGreeting: true }
+                    ]
+                }];
+            }
+            saveBotSessions(activeBotId, sessions);
+            activeSessionId = sessions[0].id;
+            renderBotChat(activeBotId);
+        }
+
+        function clearCurrentBotChat() {
+            if (!activeBotId) return;
+            const sessions = getBotSessions(activeBotId);
+            let sess = sessions.find(s => s.id === activeSessionId) || sessions[0];
+            const bGreeting = (activeBotData && activeBotData.greeting) ? activeBotData.greeting : "Hello! How can I assist you today?";
+            sess.messages = [
+                { role: 'BOT', content: bGreeting, time: formatTimeNow(), isGreeting: true }
+            ];
+            sess.title = 'Conversation 1';
+            saveBotSessions(activeBotId, sessions);
+            renderBotChat(activeBotId);
+            if (document.getElementById('testSourceCount')) document.getElementById('testSourceCount').innerText = "0";
+            if (document.getElementById('testTokensPerMsg')) document.getElementById('testTokensPerMsg').innerText = "0";
         }
 
         function renderBotChat(botId) {
             const testBox = document.getElementById('testChatBox');
+            const sessList = document.getElementById('testSessionsList');
             if (!testBox) return;
-            const msgs = getBotMessages(botId);
-            const bName = (activeBotData && activeBotData.name) ? activeBotData.name : 'Bot';
-            const greetingText = (activeBotData && activeBotData.greeting) ? activeBotData.greeting : "Hello! How can I assist you today?";
 
-            let allMessagesToRender = [];
-            if (!msgs || msgs.length === 0) {
-                allMessagesToRender = [
-                    {
-                        role: 'BOT',
-                        content: greetingText,
-                        time: formatTimeNow(),
-                        isGreeting: true
-                    }
-                ];
-            } else {
-                allMessagesToRender = msgs;
+            const sessions = getBotSessions(botId);
+            if (!activeSessionId || !sessions.some(s => s.id === activeSessionId)) {
+                activeSessionId = sessions.length > 0 ? sessions[0].id : null;
             }
 
-            testBox.innerHTML = allMessagesToRender.map(m => {
+            // 1. Render ChatGPT-style Conversations Sidebar
+            if (sessList) {
+                sessList.innerHTML = sessions.map(s => {
+                    const isActive = s.id === activeSessionId;
+                    return `
+                        <div onclick="selectChatSession('${s.id}')" class="flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition text-xs group ${isActive ? 'bg-blue-600/25 border border-cyan-400/40 text-cyan-300 font-bold' : 'hover:bg-blue-950/40 text-slate-400 border border-transparent'}">
+                            <div class="flex items-center gap-2 truncate flex-1 mr-1">
+                                <i data-lucide="message-square" class="w-3.5 h-3.5 shrink-0 ${isActive ? 'text-cyan-400' : 'text-slate-500'}"></i>
+                                <span class="truncate">${s.title || 'Conversation'}</span>
+                            </div>
+                            <div class="flex items-center gap-1 shrink-0">
+                                <span class="text-[9px] text-slate-500 font-mono">${s.createdAt || ''}</span>
+                                <button onclick="deleteChatSession(event, '${s.id}')" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 rounded transition cursor-pointer" title="Delete conversation">
+                                    <i data-lucide="trash" class="w-3 h-3"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // 2. Render Active Session Messages
+            const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0];
+            const msgs = (activeSession && activeSession.messages) ? activeSession.messages : [];
+
+            testBox.innerHTML = msgs.map(m => {
                 if (m.role === 'USER') {
                     return `
                         <div class="flex flex-col items-end">
@@ -840,16 +945,16 @@
                                 <span class="glow-box p-3.5 rounded-2xl inline-block flex-1 text-slate-200 leading-relaxed border-blue-500/30">
                                     ${formatMarkdownWithImages(m.content)}
                                 </span>
-                                <button onclick="speakDashboardText(this, '${(m.content || '').replace(/'/g, "\\'")}')" class="mt-1 text-slate-400 hover:text-cyan-400 p-1.5 rounded-xl transition cursor-pointer" title="Read Aloud">
+                                <button onclick="speakDashboardText(this, this.parentElement.innerText)" class="mt-1 text-slate-400 hover:text-cyan-400 p-1.5 rounded-xl transition cursor-pointer" title="Read Aloud">
                                     <i data-lucide="volume-2" class="w-4 h-4"></i>
                                 </button>
                             </div>
                             ${m.sources && m.sources.length > 0 ? `
                                 <div class="flex flex-wrap gap-1.5 mt-1 pt-1">
                                     ${m.sources.map(s => `
-                                        <button onclick="showDashboardEvidence('${s.title.replace(/'/g, "\\'")}', '${s.snippet.replace(/'/g, "\\'").replace(/\n/g, " ")}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium transition cursor-pointer">
+                                        <button onclick="showDashboardEvidence('${(s.title || '').replace(/'/g, "\\'")}', '${(s.snippet || '').replace(/'/g, "\\'").replace(/\n/g, " ")}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium transition cursor-pointer">
                                             <i data-lucide="file-check" class="w-3 h-3"></i>
-                                            <span>${s.title.length > 22 ? s.title.substring(0, 20) + '...' : s.title}</span>
+                                            <span>${(s.title || '').length > 22 ? (s.title || '').substring(0, 20) + '...' : (s.title || 'Source')}</span>
                                         </button>
                                     `).join('')}
                                 </div>
@@ -857,7 +962,7 @@
                             <div class="flex items-center gap-1.5 text-[9px] text-slate-500 mt-1 ml-1 font-mono">
                                 <span>${m.time}</span>
                                 ${m.latency ? `<span class="text-cyan-400 font-bold">• ⚡ ${m.latency} latency</span>` : ''}
-                                ${m.isGreeting ? `<span class="text-cyan-400 font-bold">• Opening Message</span>` : ''}
+                                ${m.isGreeting ? `<span class="text-cyan-400 font-bold">• Opening Greeting</span>` : ''}
                             </div>
                         </div>
                     `;
@@ -867,20 +972,13 @@
             testBox.scrollTop = testBox.scrollHeight;
         }
 
-        function clearCurrentBotChat() {
-            if (!activeBotId) return;
-            localStorage.removeItem('kiavi_bot_msgs_v4_' + activeBotId);
-            renderBotChat(activeBotId);
-            if (document.getElementById('testSourceCount')) document.getElementById('testSourceCount').innerText = "0";
-            if (document.getElementById('testTokensPerMsg')) document.getElementById('testTokensPerMsg').innerText = "0";
-        }
-
         async function openBotWorkspace(botId, targetTab = 'appearance') {
             if (currentStreamAbortController) {
                 try { currentStreamAbortController.abort(); } catch(e) {}
                 currentStreamAbortController = null;
             }
             activeBotId = botId;
+            activeSessionId = null;
             const res = await fetch(`/api/bots/${botId}`, { headers: { 'Authorization': 'Bearer ' + token } });
             activeBotData = await res.json();
             localStorage.setItem('kiavi_active_bot_key', activeBotData.publicKey);
@@ -912,7 +1010,7 @@
                 document.getElementById('prevAvatar').innerText = (activeBotData.name || 'A').charAt(0).toUpperCase();
             }
 
-            // Immediately render this bot's strictly isolated chat & greeting
+            // Pre-load this bot's chat sessions and active conversation
             renderBotChat(botId);
 
             const testInput = document.getElementById('testChatInput');
@@ -930,6 +1028,8 @@
 
             await loadActiveBotSources();
             updateLivePreview();
+
+            // ALWAYS DEFAULT DIRECTLY TO APPEARANCE!
             switchTab('appearance');
         }
 
@@ -1001,8 +1101,11 @@
         function showHomeView() {
             localStorage.removeItem('kiavi_active_bot_id');
             localStorage.removeItem('kiavi_active_tab');
+            activeSessionId = null;
             const testBox = document.getElementById('testChatBox');
             if (testBox) testBox.innerHTML = '';
+            const sessList = document.getElementById('testSessionsList');
+            if (sessList) sessList.innerHTML = '';
             document.getElementById('botWorkspaceView').classList.add('hidden');
             document.getElementById('homeView').classList.remove('hidden');
             loadHomeBots();
@@ -1280,17 +1383,18 @@
             if (!q) return;
 
             const sendingBotId = activeBotId;
+            const sendingSessionId = activeSessionId;
             const userTime = formatTimeNow();
             const startTime = performance.now();
 
-            // Save user message to structured store for sendingBotId
-            const curMsgs = getBotMessages(sendingBotId);
-            if (curMsgs.length === 0) {
-                const greetingText = (activeBotData && activeBotData.greeting) ? activeBotData.greeting : "Hello! How can I assist you today?";
-                curMsgs.push({ role: 'BOT', content: greetingText, time: userTime, isGreeting: true });
+            // Save user message to active session of sendingBotId
+            const sessions = getBotSessions(sendingBotId);
+            let sess = sessions.find(s => s.id === sendingSessionId) || sessions[0];
+            if (sess.title.startsWith('Conversation ') && sess.messages.filter(m => m.role === 'USER').length === 0) {
+                sess.title = q.length > 24 ? q.substring(0, 22) + '...' : q;
             }
-            curMsgs.push({ role: 'USER', content: q, time: userTime });
-            saveBotMessages(sendingBotId, curMsgs);
+            sess.messages.push({ role: 'USER', content: q, time: userTime });
+            saveBotSessions(sendingBotId, sessions);
 
             // Re-render chat for sendingBotId
             renderBotChat(sendingBotId);
@@ -1414,16 +1518,20 @@
                                         document.getElementById('testTokensPerMsg').innerText = Math.round(fullText.length / 4);
                                     }
 
-                                    // Save Bot reply to structured store for sendingBotId ONLY!
-                                    const updatedMsgs = getBotMessages(sendingBotId);
-                                    updatedMsgs.push({
+                                    // Save Bot reply to active session of sendingBotId ONLY!
+                                    const freshSessions = getBotSessions(sendingBotId);
+                                    const targetSess = freshSessions.find(s => s.id === sendingSessionId) || freshSessions[0];
+                                    targetSess.messages.push({
                                         role: 'BOT',
                                         content: fullText,
                                         time: userTime,
                                         latency: `${elapsed}s`,
                                         sources: capturedSources
                                     });
-                                    saveBotMessages(sendingBotId, updatedMsgs);
+                                    saveBotSessions(sendingBotId, freshSessions);
+                                    if (activeBotId === sendingBotId) {
+                                        renderBotChat(sendingBotId);
+                                    }
                                 }
                             } catch(e) {}
                         }
