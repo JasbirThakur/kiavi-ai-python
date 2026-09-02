@@ -885,7 +885,7 @@
             activeBotData = await res.json();
             localStorage.setItem('kiavi_active_bot_key', activeBotData.publicKey);
             localStorage.setItem('kiavi_active_bot_id', botId);
-            localStorage.setItem('kiavi_active_tab', targetTab);
+            localStorage.removeItem('kiavi_active_tab');
 
             document.getElementById('homeView').classList.add('hidden');
             document.getElementById('botWorkspaceView').classList.remove('hidden');
@@ -912,12 +912,9 @@
                 document.getElementById('prevAvatar').innerText = (activeBotData.name || 'A').charAt(0).toUpperCase();
             }
 
-            // Strictly Isolated Per-Bot Chat History
-            renderBotChat(botId);
             const testInput = document.getElementById('testChatInput');
             if (testInput) testInput.value = '';
             if (document.getElementById('testSourceCount')) document.getElementById('testSourceCount').innerText = "0";
-            if (document.getElementById('testTokensPerMsg')) document.getElementById('testTokensPerMsg').innerText = "0";
             if (document.getElementById('testTokensPerMsg')) document.getElementById('testTokensPerMsg').innerText = "0";
 
             selectedColor = activeBotData.accentColor || "#00c48c";
@@ -930,7 +927,7 @@
 
             await loadActiveBotSources();
             updateLivePreview();
-            switchTab(targetTab);
+            switchTab('appearance');
         }
 
         let selectedLogoUrl = undefined;
@@ -1000,14 +997,13 @@
 
         function showHomeView() {
             localStorage.removeItem('kiavi_active_bot_id');
-            localStorage.setItem('kiavi_active_tab', 'appearance');
+            localStorage.removeItem('kiavi_active_tab');
             document.getElementById('botWorkspaceView').classList.add('hidden');
             document.getElementById('homeView').classList.remove('hidden');
             loadHomeBots();
         }
 
         function switchTab(tab) {
-            localStorage.setItem('kiavi_active_tab', tab);
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             const btn = document.getElementById('tab-' + tab);
             if(btn) btn.classList.add('active');
