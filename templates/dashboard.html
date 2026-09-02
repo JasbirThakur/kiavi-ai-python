@@ -13,11 +13,11 @@
         * { font-family: 'Plus Jakarta Sans', sans-serif; }
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
-        
+
         /* Cosmic Deep Space Background */
         body {
             background-color: #030712;
-            background-image: 
+            background-image:
                 radial-gradient(circle at 15% 15%, rgba(37, 99, 235, 0.12) 0%, transparent 40%),
                 radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.1) 0%, transparent 40%),
                 radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.06) 0%, transparent 60%),
@@ -620,7 +620,7 @@
                         </div>
                         <button onclick="closeLiveTakeover()" class="text-slate-400 hover:text-white cursor-pointer"><i data-lucide="x" class="w-5 h-5"></i></button>
                     </div>
-                    
+
                     <!-- Live Transcript Stream -->
                     <div id="takeoverTranscriptBox" class="flex-1 overflow-y-auto space-y-3 py-4 text-xs font-sans select-text"></div>
 
@@ -666,7 +666,7 @@
             <button onclick="closeTeamModal()" class="absolute top-4 right-4 text-slate-500 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
             <h2 class="text-lg font-bold text-white mb-1">Team Management</h2>
             <p class="text-xs text-slate-400 mb-6">Manage organization users, administrators, and bot access roles.</p>
-            
+
             <div class="flex gap-2 mb-6 p-4 bg-[#060b17] rounded-2xl border border-blue-500/30">
                 <input id="inviteEmailInput" placeholder="colleague@company.com" class="flex-1 bg-transparent border-b border-blue-500/40 focus:border-cyan-400 px-2 py-1 text-xs text-white outline-none" />
                 <select id="inviteRoleSelect" class="bg-[#0f172a] border border-blue-500/30 text-xs text-white rounded-lg px-2 outline-none">
@@ -1120,7 +1120,7 @@
                 const el = document.getElementById('view-' + v);
                 if(el) el.classList.add('hidden');
             });
-            
+
             const activeView = document.getElementById('view-' + tab);
             if (activeView) activeView.classList.remove('hidden');
 
@@ -1464,7 +1464,7 @@
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
-                    
+
                     streamBuffer += decoder.decode(value, { stream: true });
                     const lines = streamBuffer.split('\n');
                     streamBuffer = lines.pop();
@@ -1734,7 +1734,7 @@
                 headers: { 'Authorization': 'Bearer ' + token }
             });
             if (!res.ok) return alert('Failed to export leads.');
-            
+
             const blob = await res.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -1788,7 +1788,7 @@
             const res = await fetch(`/api/insights/${activeBotId}`, { headers: { 'Authorization': 'Bearer ' + token } });
             if (!res.ok) return container.innerHTML = `<div class="text-red-500 text-xs">Failed to load insights.</div>`;
             const data = await res.json();
-            
+
             // Update Sentiment Card
             if (data.sentiment) {
                 document.getElementById('sentimentBadge').innerText = data.sentiment.score_label;
@@ -1885,7 +1885,7 @@
                     <div class="space-y-2">
                         ${c.messages.map(m => `
                             <div class="${m.role === 'USER' ? 'text-cyan-400' : m.role === 'AGENT' ? 'text-emerald-400 font-semibold' : m.unanswered ? 'text-amber-400' : 'text-slate-200'} text-xs flex gap-2">
-                                <strong class="font-mono text-[11px] shrink-0">${m.role === 'USER' ? 'Visitor' : m.role === 'AGENT' ? '👤 Support Agent' : 'Bot'}:</strong> 
+                                <strong class="font-mono text-[11px] shrink-0">${m.role === 'USER' ? 'Visitor' : m.role === 'AGENT' ? '👤 Support Agent' : 'Bot'}:</strong>
                                 <span>${formatMarkdownWithImages(m.content)}</span>
                             </div>
                         `).join('')}
@@ -2022,9 +2022,9 @@
                 const oldText = btn.innerText;
                 btn.innerText = "Copied!";
                 btn.classList.add("bg-emerald-600");
-                setTimeout(() => { 
-                    btn.innerText = oldText; 
-                    btn.classList.remove("bg-emerald-600"); 
+                setTimeout(() => {
+                    btn.innerText = oldText;
+                    btn.classList.remove("bg-emerald-600");
                 }, 2000);
             });
         }

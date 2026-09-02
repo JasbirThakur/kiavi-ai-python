@@ -1,0 +1,34 @@
+# See https://pre-commit.com for more information
+# Pre-Commit Hook Configuration for Kiavi IQ
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.sql$'
+      - id: end-of-file-fixer
+        exclude: '\.sql$'
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=5000']
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Project-specific custom quality gates
+  - repo: local
+    hooks:
+      - id: python-syntax-check
+        name: Python Syntax Compilation Check
+        entry: ./venv/bin/python -m py_compile
+        language: system
+        types: [python]
+        description: Ensures all staged Python files compile without syntax errors.
+
+      - id: prevent-secret-leaks
+        name: API Key & Secret Leak Guard
+        entry: bash -c '! grep -E "(nvapi-[A-Za-z0-9_-]{20,}|gsk_[A-Za-z0-9]{20,}|AIzaSy[A-Za-z0-9_-]{33})" "$@"' _
+        language: system
+        types: [text]
+        exclude: '(^backup\.sql$|^\.env\.example$)'
+        description: Blocks commits containing raw unencrypted NVIDIA, Groq, or Google API keys.

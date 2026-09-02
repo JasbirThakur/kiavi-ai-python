@@ -12,8 +12,8 @@ from services.embedding import get_embedding
 import models
 
 nvidia_client = OpenAI(
-    base_url=NVIDIA_BASE_URL, 
-    api_key=NVIDIA_API_KEY, 
+    base_url=NVIDIA_BASE_URL,
+    api_key=NVIDIA_API_KEY,
     timeout=30.0
 ) if NVIDIA_API_KEY else None
 

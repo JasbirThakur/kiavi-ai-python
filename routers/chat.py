@@ -88,7 +88,7 @@ def request_human_agent(
 
     conv.isHandedOff = True
     conv.status = "HUMAN_REQUESTED"
-    
+
     sys_msg = models.Message(
         conversationId=conv.id,
         role="SYSTEM",

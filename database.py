@@ -17,7 +17,7 @@ def init_db():
         with engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
             print("✅ pgvector extension verified.")
-        
+
         import models
         models.Base.metadata.create_all(bind=engine)
         print("✅ Database tables created successfully.")

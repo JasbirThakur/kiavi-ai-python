@@ -37,7 +37,7 @@ class PublicChatRequest(BaseModel):
 # class DocumentChunkCreate(BaseModel):
 #     content: str
 #     knowledgeBaseId: str
-#     # Note: Embedding (AI vectors) hum frontend se nahi lenge, 
+#     # Note: Embedding (AI vectors) hum frontend se nahi lenge,
 #     # wo hum baad mein backend mein hi generate karenge.
 
 # # Frontend jab Bot se koi sawaal puchega

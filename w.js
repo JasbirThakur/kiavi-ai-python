@@ -1,7 +1,7 @@
 (function() {
     const scriptTag = document.currentScript;
     const publicKey = scriptTag.getAttribute('data-key');
-    
+
     if (!publicKey) {
         console.error('Kiavi IQ: Missing data-key attribute on script tag.');
         return;
@@ -9,7 +9,7 @@
 
     // Determine host URL automatically based on script source
     const hostUrl = new URL(scriptTag.src).origin;
-    
+
     // Create Iframe
     const iframe = document.createElement('iframe');
     iframe.src = `${hostUrl}/widget/${publicKey}`;
@@ -24,7 +24,7 @@
     iframe.style.overflow = 'hidden';
     iframe.style.transition = 'width 0.3s ease, height 0.3s ease';
     iframe.style.colorScheme = 'light';
-    
+
     function mountIframe() {
         if (document.body) {
             document.body.appendChild(iframe);
@@ -47,7 +47,7 @@
     window.addEventListener('message', function(event) {
         // Accept messages from widget host
         if (event.origin && !event.origin.includes(':8000') && event.origin !== hostUrl) return;
-        
+
         const data = event.data;
         if (!data || typeof data !== 'object') return;
 

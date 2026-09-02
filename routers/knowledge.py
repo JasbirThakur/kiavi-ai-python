@@ -18,7 +18,7 @@ def get_sources(bot_id: str, user: models.User = Depends(get_current_user), db: 
 
     sources = db.query(models.BotSource).filter(models.BotSource.botId == bot_id).order_by(models.BotSource.createdAt.desc()).all()
     used_tokens = sum(s.tokenCount or 0 for s in sources)
-    
+
     return {
         "sources": [{"id": s.id, "kind": s.kind, "title": s.title, "tokens": s.tokenCount or 0} for s in sources],
         "used_tokens": used_tokens,
@@ -30,7 +30,7 @@ def delete_source(source_id: str, user: models.User = Depends(get_current_user),
     source = db.query(models.BotSource).filter(models.BotSource.id == source_id).first()
     if not source:
         raise HTTPException(status_code=404, detail="Source not found")
-        
+
     # Security: Check if user owns the bot connected to this source
     bot = db.query(models.Bot).filter(models.Bot.id == source.botId, models.Bot.orgId == user.orgId).first()
     if not bot:
@@ -69,9 +69,9 @@ async def ingest_mixed(
 
 @router.post("/scrape")
 def scrape_site(
-    bot_id: str = Form(...), 
-    url: str = Form(...), 
-    user: models.User = Depends(get_current_user), 
+    bot_id: str = Form(...),
+    url: str = Form(...),
+    user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     bot = db.query(models.Bot).filter(models.Bot.id == bot_id, models.Bot.orgId == user.orgId).first()
@@ -81,7 +81,7 @@ def scrape_site(
     try:
         # Scrape data via BeautifulSoup/Wikipedia API
         title, text_content, logo_url = scrape_url_content(url)
-        
+
         # Save fetched logo automatically if bot doesn't have one yet
         if logo_url and hasattr(bot, "logoUrl") and not bot.logoUrl:
             bot.logoUrl = logo_url
@@ -132,10 +132,10 @@ def process_and_save_source(db: Session, bot_id: str, title: str, content: str, 
     for text_chunk in chunks:
         context_title = f"{title} ({original_url})" if original_url else title
         chunk_with_title = f"{context_title}\n{text_chunk}"
-        
+
         # HuggingFace MiniLM Embedding
         vec = get_embedding(chunk_with_title)
-        
+
         # Save to PostgreSQL native vector column
         db.add(models.DocumentChunk(sourceId=source.id, content=chunk_with_title, embedding=vec))
 

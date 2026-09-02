@@ -11,7 +11,7 @@ def verify_origin(request: Request, bot: models.Bot):
     """Security: Check if the request origin is in the bot's allowed list"""
     origin = request.headers.get("origin") or request.headers.get("referer") or ""
     origin_clean = origin.replace("https://", "").replace("http://", "").split("/")[0].strip()
-    
+
     raw_origins = getattr(bot, "allowedOrigins", None) or bot.domain or ""
     allowed = [o.strip() for o in raw_origins.split(",") if o.strip()]
     # For testing, we allow localhost/127.0.0.1
@@ -23,7 +23,7 @@ def get_widget_config(public_key: str, request: Request, db: Session = Depends(g
     bot = db.query(models.Bot).filter(models.Bot.publicKey == public_key).first()
     if not bot:
         raise HTTPException(status_code=404, detail="Bot not found or inactive")
-        
+
     verify_origin(request, bot)
 
     return {
@@ -40,15 +40,15 @@ def get_widget_config(public_key: str, request: Request, db: Session = Depends(g
 @router.post("/api/public/chat/stream")
 async def public_chat_stream(
     request: Request,
-    bot_id: str = Form(...), 
-    question: str = Form(...), 
+    bot_id: str = Form(...),
+    question: str = Form(...),
     conversation_id: str = Form(None),
     db: Session = Depends(get_db)
 ):
     bot = db.query(models.Bot).filter(models.Bot.id == bot_id).first()
     if not bot:
         raise HTTPException(status_code=404, detail="Bot not found")
-        
+
     verify_origin(request, bot)
 
     # Manage Conversation History
@@ -82,7 +82,7 @@ def capture_lead(
     bot = db.query(models.Bot).filter(models.Bot.id == bot_id).first()
     if not bot:
         raise HTTPException(status_code=404, detail="Bot not found")
-        
+
     verify_origin(request, bot)
 
     lead = models.Lead(botId=bot.id, name=name, email=email, phone=phone, note=note)

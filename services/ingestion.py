@@ -52,13 +52,13 @@ DIAG_DIR.mkdir(parents=True, exist_ok=True)
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
     extracted_text = []
-    
+
     # 1. Native Digital PDF Extraction + Embedded Diagram OCR & Image Persist
     try:
         reader = PdfReader(io.BytesIO(file_bytes))
         for page_idx, page in enumerate(reader.pages):
             page_text = page.extract_text() or ""
-            
+
             # 2. Check for embedded diagrams, figures, or charts on this page
             if hasattr(page, "images") and page.images:
                 for img_idx, img_obj in enumerate(page.images):
@@ -83,7 +83,7 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
                                 page_text += f"\n\n![{caption}]({img_url})"
                     except Exception as diag_err:
                         print(f"[Diagram OCR Warning]: {diag_err}")
-            
+
             if page_text.strip():
                 extracted_text.append(page_text.strip())
     except Exception as e:
@@ -96,11 +96,11 @@ def chunk_text(text: str, chunk_size: int = 200, chunk_overlap: int = 50) -> Lis
     cleaned = clean_text(text)
     if not cleaned:
         return []
-    
+
     words = cleaned.split()
     chunks = []
     start = 0
-    
+
     while start < len(words):
         end = start + chunk_size
         chunk = " ".join(words[start:end])
@@ -108,7 +108,7 @@ def chunk_text(text: str, chunk_size: int = 200, chunk_overlap: int = 50) -> Lis
         if end >= len(words):
             break
         start += (chunk_size - chunk_overlap)
-        
+
     return chunks
 
 

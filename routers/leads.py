@@ -64,7 +64,7 @@ def export_leads_csv(
 
     output = io.StringIO()
     writer = csv.writer(output)
-    
+
     # CSV Header Row
     writer.writerow(["Lead ID", "Name", "Email", "Phone", "Context / Note", "Captured At (UTC)"])
 

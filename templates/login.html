@@ -18,7 +18,7 @@
     }
     .cosmic-grid {
       background-size: 36px 36px;
-      background-image: 
+      background-image:
         radial-gradient(circle, rgba(56, 189, 248, 0.08) 1px, transparent 1px);
     }
     .glow-glow {
@@ -48,11 +48,11 @@
 
   <!-- Main Container -->
   <div class="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center relative z-10">
-    
+
     <!-- Left Column: Authentication Form -->
     <div class="lg:col-span-6 flex flex-col justify-center">
       <div class="bg-slate-900/80 backdrop-blur-xl border border-sky-500/20 rounded-2xl p-8 sm:p-10 glow-glow shadow-2xl relative overflow-hidden">
-        
+
         <!-- Header & Logo -->
         <div class="flex items-center gap-3 mb-8">
           <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-sky-500/30">
@@ -86,7 +86,7 @@
 
         <!-- Form -->
         <form id="auth-form" onsubmit="handleAuth(event)" class="space-y-4">
-          
+
           <!-- Full Name (Only for Signup) -->
           <div id="fullname-field" class="hidden">
             <label class="block text-xs font-medium text-slate-300 mb-1.5 uppercase tracking-wider">Full Name</label>
@@ -152,7 +152,7 @@
 
       <!-- Feature Highlight Cards -->
       <div class="space-y-3.5 pt-2">
-        
+
         <!-- Card 1 -->
         <div class="feature-card p-4 rounded-xl flex items-start gap-4">
           <div class="p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 shrink-0">
@@ -230,7 +230,7 @@
       const subtitle = document.getElementById('form-subtitle');
       const btnText = document.getElementById('btn-text');
       const errorBanner = document.getElementById('error-banner');
-      
+
       errorBanner.classList.add('hidden');
 
       if (mode === 'signup') {
@@ -263,7 +263,7 @@
       submitBtn.classList.add('opacity-75');
 
       const endpoint = currentMode === 'login' ? '/api/auth/login' : '/api/auth/register';
-      const payload = currentMode === 'login' 
+      const payload = currentMode === 'login'
         ? { email, password }
         : { email, password, full_name: fullname || 'Administrator' };
 

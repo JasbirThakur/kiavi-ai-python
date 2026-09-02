@@ -36,10 +36,10 @@ def get_user_bots(user: models.User = Depends(get_current_user), db: Session = D
         lead_count = db.query(models.Lead).filter(models.Lead.botId == b.id).count()
         sources = db.query(models.BotSource).filter(models.BotSource.botId == b.id).all()
         bot_tokens = sum(s.tokenCount or 0 for s in sources)
-        
+
         msgs = db.query(models.Message).join(models.Conversation).filter(models.Conversation.botId == b.id).all()
         unans = sum(1 for m in msgs if m.unanswered and m.role == "USER")
-        
+
         total_convs += conv_count
         total_leads += lead_count
         total_messages += len(msgs)
@@ -165,11 +165,11 @@ def test_bot_webhook(bot_id: str, user: models.User = Depends(get_current_user),
     bot = db.query(models.Bot).filter(models.Bot.id == bot_id, models.Bot.orgId == user.orgId).first()
     if not bot:
         raise HTTPException(status_code=404, detail="Bot not found")
-        
+
     url = getattr(bot, "webhookUrl", None)
     if not url:
         return {"status": "skipped", "message": "No webhook URL configured for this bot."}
-        
+
     payload = {
         "event": "lead.created",
         "bot": {"id": bot.id, "name": bot.name, "domain": bot.domain},
@@ -181,7 +181,7 @@ def test_bot_webhook(bot_id: str, user: models.User = Depends(get_current_user),
         },
         "text": f"🚀 *[Kiavi IQ Webhook Verification]*: New simulated lead from *{bot.name}* (`test@lead.ai`)."
     }
-    
+
     try:
         res = requests.post(url, json=payload, timeout=6)
         return {"status": "success", "http_status": res.status_code, "message": f"Webhook dispatched successfully (HTTP {res.status_code})."}

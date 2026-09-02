@@ -14,7 +14,7 @@ wiki = wikipediaapi.Wikipedia(
 def fetch_brand_logo(domain: str) -> str:
     """Fetches high-res brand logo using Brandfetch API with Clearbit fallback"""
     clean_domain = domain.replace("https://", "").replace("http://", "").split("/")[0].strip()
-    
+
     if BRANDFETCH_API_KEY:
         try:
             url = f"https://api.brandfetch.io/v2/brands/{clean_domain}"
@@ -28,7 +28,7 @@ def fetch_brand_logo(domain: str) -> str:
                             return fmt["src"]
         except Exception as e:
             print(f"Brandfetch Error: {e}")
-            
+
     # Free Fallback to Google High-Res Favicon CDN
     return f"https://www.google.com/s2/favicons?domain={clean_domain}&sz=128"
 
@@ -36,10 +36,10 @@ def scrape_wikipedia_topic(topic_or_url: str) -> tuple[str, str]:
     """Extracts rich prose from Wikipedia via API"""
     clean_topic = topic_or_url.split('/wiki/')[-1].replace('_', ' ').strip()
     page = wiki.page(clean_topic)
-    
+
     if not page.exists():
         raise Exception(f"Wikipedia page not found for topic: {clean_topic}")
-        
+
     return f"Wikipedia: {page.title}", page.text
 
 from urllib.parse import urljoin
@@ -82,7 +82,7 @@ def scrape_single_page(url: str, headers: dict) -> tuple[str, str, list[str], di
         raw_html = fetch_html_content(url, headers)
         soup = BeautifulSoup(raw_html, 'html.parser')
         title = soup.title.string.strip() if soup.title and soup.title.string else url
-        
+
         # 1. Extract Meta Description and OpenGraph metadata
         meta_desc = ""
         desc_tag = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
@@ -139,11 +139,11 @@ def scrape_single_page(url: str, headers: dict) -> tuple[str, str, list[str], di
         # 4. Decompose non-content executable tags
         for tag in soup(['script', 'style', 'noscript', 'svg', 'iframe']):
             tag.decompose()
-            
+
         text = soup.get_text(separator='\n')
         lines = [line.strip() for line in text.splitlines() if line.strip()]
         clean_text = '\n'.join(lines)
-        
+
         metadata = {
             'meta_desc': meta_desc,
             'social_links': social_links
@@ -168,14 +168,14 @@ def scrape_url_content(url: str, crawl_depth: int = 6) -> tuple[str, str, str]:
 
     if not url.startswith(('http://', 'https://')):
         url = 'https://' + url
-        
+
     domain = urlparse(url).netloc
     logo_url = fetch_brand_logo(domain)
-    
+
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
-    
+
     try:
         main_title, main_text, found_links, main_meta = scrape_single_page(url, headers)
         if not main_text:
@@ -183,7 +183,7 @@ def scrape_url_content(url: str, crawl_depth: int = 6) -> tuple[str, str, str]:
 
         collected_pages = [(url, main_title, main_text)]
         all_socials = dict(main_meta.get('social_links', {}))
-        
+
         # Prioritize key business subpages
         priority_keywords = ['about', 'contact', 'service', 'solution', 'pricing', 'case-stud', 'team', 'company', 'developer', 'faq', 'feature']
         prioritized_links = []
@@ -215,7 +215,7 @@ def scrape_url_content(url: str, crawl_depth: int = 6) -> tuple[str, str, str]:
         ]
         if main_meta.get('meta_desc'):
             overview_lines.append(f"Primary Mission & Meta Summary: {main_meta['meta_desc']}")
-        
+
         if all_socials:
             overview_lines.append("Verified Social Media & Follow Links:")
             for platform, s_url in all_socials.items():

@@ -7,7 +7,7 @@ try:
     g_client = Groq(api_key=GROQ_API_KEY)
     models_data = g_client.models.list().data
     chat_models = [m.id for m in models_data if "whisper" not in m.id and "guard" not in m.id]
-    
+
     print(f"Found {len(chat_models)} active Groq models.")
     resp = g_client.chat.completions.create(
         model=chat_models[0],
