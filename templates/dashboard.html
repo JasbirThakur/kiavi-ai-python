@@ -452,10 +452,10 @@
                     <div class="pb-3 border-b border-blue-500/20 flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <span class="w-2.5 h-2.5 bg-cyan-400 rounded-full shadow-[0_0_10px_#22d3ee] animate-pulse"></span>
-                            <span class="font-bold text-white text-xs">Grounded RAG Pipeline (NVIDIA Nemotron 3.5 Lightning)</span>
+                            <span class="font-bold text-white text-xs">Grounded RAG Pipeline (NVIDIA Nemotron 3-Embed / Lightning Fallback)</span>
                         </div>
                         <div class="flex items-center gap-2.5">
-                            <span class="text-[10px] text-slate-400 font-mono">⚡ 1s Streaming</span>
+                            <span class="text-[10px] text-cyan-400 font-mono bg-blue-950/80 border border-cyan-500/30 px-2 py-0.5 rounded-full">⚡ 1s Streaming</span>
                             <button onclick="clearCurrentBotChat()" class="text-[10px] text-slate-400 hover:text-red-400 border border-slate-700/60 hover:border-red-500/40 bg-slate-900/80 px-2 py-0.5 rounded-lg transition flex items-center gap-1 cursor-pointer" title="Clear chat history for this bot">
                                 <i data-lucide="trash-2" class="w-3 h-3"></i> Clear
                             </button>
@@ -727,9 +727,8 @@
 
             await loadHomeBots();
             const savedBotId = localStorage.getItem('kiavi_active_bot_id');
-            const savedTab = localStorage.getItem('kiavi_active_tab') || 'appearance';
             if (savedBotId && allBotsList.some(b => b.id === savedBotId)) {
-                await openBotWorkspace(savedBotId, savedTab);
+                await openBotWorkspace(savedBotId, 'appearance');
             }
         }
 
@@ -810,56 +809,60 @@
             if (!testBox) return;
             const msgs = getBotMessages(botId);
             const bName = (activeBotData && activeBotData.name) ? activeBotData.name : 'Bot';
+            const greetingText = (activeBotData && activeBotData.greeting) ? activeBotData.greeting : "Hello! How can I assist you today?";
 
+            let allMessagesToRender = [];
             if (!msgs || msgs.length === 0) {
-                testBox.innerHTML = `
-                    <div class="text-center py-16 text-slate-500 font-mono text-[11px] flex flex-col items-center justify-center space-y-2">
-                        <div class="w-10 h-10 rounded-2xl bg-blue-950/40 border border-blue-500/20 flex items-center justify-center text-cyan-400 shadow-md">
-                            <i data-lucide="message-square" class="w-5 h-5"></i>
-                        </div>
-                        <div class="text-slate-300 font-bold text-xs">${bName} Test Sandbox</div>
-                        <div class="text-slate-500 text-[10px] max-w-xs">Ask anything grounded in ${bName}'s knowledge base. Chat is strictly isolated to this bot.</div>
-                    </div>
-                `;
-            } else {
-                testBox.innerHTML = msgs.map(m => {
-                    if (m.role === 'USER') {
-                        return `
-                            <div class="flex flex-col items-end">
-                                <span class="glow-btn text-white px-4 py-2.5 rounded-2xl inline-block max-w-md shadow-md">${m.content}</span>
-                                <span class="text-[9px] text-slate-500 mt-1 mr-1 font-mono">${m.time}</span>
-                            </div>
-                        `;
-                    } else {
-                        return `
-                            <div class="flex flex-col items-start space-y-1">
-                                <div class="flex items-start gap-2 w-full max-w-md">
-                                    <span class="glow-box p-3.5 rounded-2xl inline-block flex-1 text-slate-200 leading-relaxed border-blue-500/30">
-                                        ${formatMarkdownWithImages(m.content)}
-                                    </span>
-                                    <button onclick="speakDashboardText(this, '${(m.content || '').replace(/'/g, "\\'")}')" class="mt-1 text-slate-400 hover:text-cyan-400 p-1.5 rounded-xl transition cursor-pointer" title="Read Aloud">
-                                        <i data-lucide="volume-2" class="w-4 h-4"></i>
-                                    </button>
-                                </div>
-                                ${m.sources && m.sources.length > 0 ? `
-                                    <div class="flex flex-wrap gap-1.5 mt-1 pt-1">
-                                        ${m.sources.map(s => `
-                                            <button onclick="showDashboardEvidence('${s.title.replace(/'/g, "\\'")}', '${s.snippet.replace(/'/g, "\\'").replace(/\n/g, " ")}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium transition cursor-pointer">
-                                                <i data-lucide="file-check" class="w-3 h-3"></i>
-                                                <span>${s.title.length > 22 ? s.title.substring(0, 20) + '...' : s.title}</span>
-                                            </button>
-                                        `).join('')}
-                                    </div>
-                                ` : ''}
-                                <div class="flex items-center gap-1.5 text-[9px] text-slate-500 mt-1 ml-1 font-mono">
-                                    <span>${m.time}</span>
-                                    ${m.latency ? `<span class="text-cyan-400 font-bold">• ⚡ ${m.latency} latency</span>` : ''}
-                                </div>
-                            </div>
-                        `;
+                allMessagesToRender = [
+                    {
+                        role: 'BOT',
+                        content: greetingText,
+                        time: formatTimeNow(),
+                        isGreeting: true
                     }
-                }).join('');
+                ];
+            } else {
+                allMessagesToRender = msgs;
             }
+
+            testBox.innerHTML = allMessagesToRender.map(m => {
+                if (m.role === 'USER') {
+                    return `
+                        <div class="flex flex-col items-end">
+                            <span class="glow-btn text-white px-4 py-2.5 rounded-2xl inline-block max-w-md shadow-md">${m.content}</span>
+                            <span class="text-[9px] text-slate-500 mt-1 mr-1 font-mono">${m.time}</span>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="flex flex-col items-start space-y-1">
+                            <div class="flex items-start gap-2 w-full max-w-md">
+                                <span class="glow-box p-3.5 rounded-2xl inline-block flex-1 text-slate-200 leading-relaxed border-blue-500/30">
+                                    ${formatMarkdownWithImages(m.content)}
+                                </span>
+                                <button onclick="speakDashboardText(this, '${(m.content || '').replace(/'/g, "\\'")}')" class="mt-1 text-slate-400 hover:text-cyan-400 p-1.5 rounded-xl transition cursor-pointer" title="Read Aloud">
+                                    <i data-lucide="volume-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                            ${m.sources && m.sources.length > 0 ? `
+                                <div class="flex flex-wrap gap-1.5 mt-1 pt-1">
+                                    ${m.sources.map(s => `
+                                        <button onclick="showDashboardEvidence('${s.title.replace(/'/g, "\\'")}', '${s.snippet.replace(/'/g, "\\'").replace(/\n/g, " ")}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium transition cursor-pointer">
+                                            <i data-lucide="file-check" class="w-3 h-3"></i>
+                                            <span>${s.title.length > 22 ? s.title.substring(0, 20) + '...' : s.title}</span>
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                            <div class="flex items-center gap-1.5 text-[9px] text-slate-500 mt-1 ml-1 font-mono">
+                                <span>${m.time}</span>
+                                ${m.latency ? `<span class="text-cyan-400 font-bold">• ⚡ ${m.latency} latency</span>` : ''}
+                                ${m.isGreeting ? `<span class="text-cyan-400 font-bold">• Opening Message</span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+            }).join('');
             lucide.createIcons();
             testBox.scrollTop = testBox.scrollHeight;
         }
@@ -997,6 +1000,7 @@
 
         function showHomeView() {
             localStorage.removeItem('kiavi_active_bot_id');
+            localStorage.setItem('kiavi_active_tab', 'appearance');
             document.getElementById('botWorkspaceView').classList.add('hidden');
             document.getElementById('homeView').classList.remove('hidden');
             loadHomeBots();
@@ -1280,6 +1284,10 @@
 
             // Save user message to structured store for sendingBotId
             const curMsgs = getBotMessages(sendingBotId);
+            if (curMsgs.length === 0) {
+                const greetingText = (activeBotData && activeBotData.greeting) ? activeBotData.greeting : "Hello! How can I assist you today?";
+                curMsgs.push({ role: 'BOT', content: greetingText, time: userTime, isGreeting: true });
+            }
             curMsgs.push({ role: 'USER', content: q, time: userTime });
             saveBotMessages(sendingBotId, curMsgs);
 

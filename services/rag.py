@@ -69,6 +69,7 @@ def generate_llm_response(messages: list) -> tuple[str, str]:
     # Priority 2: Nemotron 3 Super 120B (High-Precision Fallback)
     if nvidia_client:
         models_to_try = [
+            "nvidia/nemotron-3-embed-1b",
             "nvidia/nemotron-3.5-lightning-30b-a3b",
             NVIDIA_LLM_MODEL if NVIDIA_LLM_MODEL else "nvidia/nemotron-3-super-120b-a12b",
             "nvidia/nemotron-3-nano-30b-a3b",
