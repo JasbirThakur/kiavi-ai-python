@@ -15,17 +15,17 @@ if env_path.exists():
                     k, v = line.split("=", 1)
                     os.environ.setdefault(k.strip(), v.strip().strip("'\""))
 
-# Native PostgreSQL Connection URL
+# Native PostgreSQL Connection URL (Port 5433 to avoid local host conflicts)
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://postgres:postgrespassword2026@127.0.0.1:5432/kiavidb"
+    "postgresql://postgres:postgrespassword2026@127.0.0.1:5433/kiavidb"
 )
 if "@db:5432" in DATABASE_URL:
     try:
         import socket
         socket.gethostbyname("db")
     except Exception:
-        DATABASE_URL = DATABASE_URL.replace("@db:5432", "@127.0.0.1:5432")
+        DATABASE_URL = DATABASE_URL.replace("@db:5432", "@127.0.0.1:5433")
 
 # NVIDIA NIM Primary LLM & Embedding Engine
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
