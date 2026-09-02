@@ -39,6 +39,7 @@ class Bot(Base):
     greeting = Column(Text, default="Hi! How can I help?")
     suggestions = Column(Text, default="What do you offer?\nHow much does it cost?\nHow do I get in touch?")
     launcherPosition = Column(String(20), default="right")
+    logoUrl = Column(String(500), nullable=True)
     createdAt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class BotSource(Base):

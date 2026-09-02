@@ -278,6 +278,17 @@
                             </div>
                         </div>
 
+                        <div>
+                            <label class="text-xs font-bold text-slate-300 block mb-1">Bot Avatar & Brand Logo</label>
+                            <div class="flex items-center gap-3 bg-[#060b17] border border-blue-500/30 rounded-xl p-2.5">
+                                <div id="botLogoPreview" class="w-10 h-10 rounded-xl bg-blue-950 border border-blue-500/30 flex items-center justify-center overflow-hidden shrink-0">
+                                    <span class="text-[10px] font-bold text-cyan-400">Logo</span>
+                                </div>
+                                <input type="file" id="botLogoFileInput" accept="image/*" class="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-600/30 file:text-cyan-300 hover:file:bg-blue-600/50 cursor-pointer" onchange="previewSelectedLogo(this)" />
+                                <button onclick="uploadBotLogoFile()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-1.5 rounded-lg text-xs whitespace-nowrap transition cursor-pointer shadow-md">Upload</button>
+                            </div>
+                        </div>
+
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="text-xs font-bold text-slate-300 block mb-1">Agent Name</label>
@@ -741,6 +752,14 @@
             if (document.getElementById('botWebhookUrl')) {
                 document.getElementById('botWebhookUrl').value = activeBotData.webhookUrl || '';
             }
+            if (activeBotData.logoUrl) {
+                document.getElementById('botLogoPreview').innerHTML = `<img src="${activeBotData.logoUrl}" class="w-full h-full object-cover rounded-xl" />`;
+                document.getElementById('prevAvatar').innerHTML = `<img src="${activeBotData.logoUrl}" class="w-full h-full object-cover rounded-xl" />`;
+            } else {
+                document.getElementById('botLogoPreview').innerHTML = `<span class="text-[10px] font-bold text-cyan-400">Logo</span>`;
+                document.getElementById('prevAvatar').innerText = (activeBotData.name || 'A').charAt(0).toUpperCase();
+            }
+
             selectedColor = activeBotData.accentColor || "#00c48c";
             selectedTemplateName = activeBotData.template || "classic";
             selectedPos = activeBotData.launcherPosition || "right";
@@ -752,6 +771,42 @@
             loadActiveBotSources();
             updateLivePreview();
             switchTab(targetTab);
+        }
+
+        function previewSelectedLogo(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('botLogoPreview').innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover rounded-xl" />`;
+                    document.getElementById('prevAvatar').innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover rounded-xl" />`;
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        async function uploadBotLogoFile() {
+            const input = document.getElementById('botLogoFileInput');
+            if (!input.files || !input.files[0]) {
+                return alert("Please choose an image file first.");
+            }
+            const file = input.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const res = await fetch(`/api/bots/${activeBotId}/logo`, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token },
+                body: formData
+            });
+            const data = await res.json();
+            if (res.ok && data.status === 'success') {
+                alert("✓ Custom bot logo uploaded successfully!");
+                activeBotData.logoUrl = data.logoUrl;
+                document.getElementById('botLogoPreview').innerHTML = `<img src="${data.logoUrl}" class="w-full h-full object-cover rounded-xl" />`;
+                document.getElementById('prevAvatar').innerHTML = `<img src="${data.logoUrl}" class="w-full h-full object-cover rounded-xl" />`;
+            } else {
+                alert("Upload failed: " + (data.detail || "Error"));
+            }
         }
 
         function showHomeView() {

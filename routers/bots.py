@@ -100,6 +100,7 @@ def get_bot_details(bot_id: str, user: models.User = Depends(get_current_user), 
         "greeting": bot.greeting,
         "suggestions": bot.suggestions,
         "launcherPosition": bot.launcherPosition,
+        "logoUrl": getattr(bot, "logoUrl", None) or "",
         "webhookUrl": getattr(bot, "webhookUrl", None) or "",
         "conversations": conv_count
     }
@@ -121,6 +122,39 @@ def update_appearance(bot_id: str, req: BotAppearanceUpdate, user: models.User =
 
     db.commit()
     return {"status": "success", "message": "Appearance saved. It's live on your site now."}
+
+from fastapi import UploadFile, File
+from pathlib import Path
+from datetime import datetime
+
+LOGO_DIR = Path(__file__).resolve().parent.parent / "static" / "bot_logos"
+LOGO_DIR.mkdir(parents=True, exist_ok=True)
+
+@router.post("/{bot_id}/logo")
+async def upload_bot_logo(
+    bot_id: str,
+    file: UploadFile = File(...),
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    bot = db.query(models.Bot).filter(models.Bot.id == bot_id, models.Bot.orgId == user.orgId).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+
+    ext = file.filename.split(".")[-1].lower() if "." in file.filename else "png"
+    if ext not in ["png", "jpg", "jpeg", "svg", "webp"]:
+        ext = "png"
+
+    filename = f"logo_{bot.id}_{int(datetime.now().timestamp())}.{ext}"
+    target_path = LOGO_DIR / filename
+    contents = await file.read()
+    target_path.write_bytes(contents)
+
+    logo_url = f"/static/bot_logos/{filename}"
+    bot.logoUrl = logo_url
+    db.commit()
+
+    return {"status": "success", "logoUrl": logo_url}
 
 @router.post("/{bot_id}/test-webhook")
 def test_bot_webhook(bot_id: str, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
