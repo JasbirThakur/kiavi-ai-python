@@ -96,6 +96,24 @@ def process_and_save_source(db: Session, bot_id: str, title: str, content: str, 
     if not content.strip():
         raise HTTPException(status_code=400, detail="No readable text extracted.")
 
+    # Deduplication: If this URL or title was already indexed for this bot, delete the old version cleanly
+    if original_url:
+        old_sources = db.query(models.BotSource).filter(
+            models.BotSource.botId == bot_id,
+            (models.BotSource.url == original_url) | (models.BotSource.title == title)
+        ).all()
+        for old_s in old_sources:
+            db.delete(old_s)
+        db.commit()
+    elif title:
+        old_sources = db.query(models.BotSource).filter(
+            models.BotSource.botId == bot_id,
+            models.BotSource.title == title
+        ).all()
+        for old_s in old_sources:
+            db.delete(old_s)
+        db.commit()
+
     # 1. Save Parent Source
     token_count = len(content.split())
     source = models.BotSource(

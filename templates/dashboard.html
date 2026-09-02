@@ -720,7 +720,12 @@
             document.getElementById('userInitials').innerText = nameStr.substring(0, 2).toUpperCase();
             document.getElementById('greetingHeading').innerText = `Good morning, ${nameStr}`;
 
-            loadHomeBots();
+            await loadHomeBots();
+            const savedBotId = localStorage.getItem('kiavi_active_bot_id');
+            const savedTab = localStorage.getItem('kiavi_active_tab') || 'appearance';
+            if (savedBotId && allBotsList.some(b => b.id === savedBotId)) {
+                await openBotWorkspace(savedBotId, savedTab);
+            }
         }
 
         function renderPalette() {
@@ -774,6 +779,8 @@
             const res = await fetch(`/api/bots/${botId}`, { headers: { 'Authorization': 'Bearer ' + token } });
             activeBotData = await res.json();
             localStorage.setItem('kiavi_active_bot_key', activeBotData.publicKey);
+            localStorage.setItem('kiavi_active_bot_id', botId);
+            localStorage.setItem('kiavi_active_tab', targetTab);
 
             document.getElementById('homeView').classList.add('hidden');
             document.getElementById('botWorkspaceView').classList.remove('hidden');
@@ -816,7 +823,7 @@
             selectColor(selectedColor);
             setLauncherPos(selectedPos);
 
-            loadActiveBotSources();
+            await loadActiveBotSources();
             updateLivePreview();
             switchTab(targetTab);
         }
@@ -887,12 +894,14 @@
         }
 
         function showHomeView() {
+            localStorage.removeItem('kiavi_active_bot_id');
             document.getElementById('botWorkspaceView').classList.add('hidden');
             document.getElementById('homeView').classList.remove('hidden');
             loadHomeBots();
         }
 
         function switchTab(tab) {
+            localStorage.setItem('kiavi_active_tab', tab);
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             const btn = document.getElementById('tab-' + tab);
             if(btn) btn.classList.add('active');
@@ -905,6 +914,7 @@
             const activeView = document.getElementById('view-' + tab);
             if (activeView) activeView.classList.remove('hidden');
 
+            if (tab === 'knowledge' || tab === 'appearance') loadActiveBotSources();
             if (tab === 'leads') loadLeads();
             if (tab === 'insights') loadInsights();
             if (tab === 'conversations') loadConversations();
@@ -1772,20 +1782,6 @@
                 closeNewBotModal();
 
                 if (newBot && newBot.id) {
-                    // Auto-scrape domain so bot is trained right away
-                    if (domain) {
-                        const scrapeUrl = domain.startsWith('http') ? domain : `https://${domain}`;
-                        const form = new FormData();
-                        form.append('bot_id', newBot.id);
-                        form.append('url', scrapeUrl);
-                        fetch('/api/knowledge/scrape', {
-                            method: 'POST',
-                            headers: { 'Authorization': 'Bearer ' + token },
-                            body: form
-                        }).then(() => {
-                            if (activeBotId === newBot.id) loadActiveBotSources();
-                        }).catch(() => {});
-                    }
                     openBotWorkspace(newBot.id, 'appearance');
                 } else {
                     loadHomeBots();

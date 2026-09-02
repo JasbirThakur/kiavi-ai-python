@@ -65,12 +65,12 @@ def clean_llm_text(text: str) -> str:
 
 def generate_llm_response(messages: list) -> tuple[str, str]:
     # 1. Tier 1: NVIDIA NIM
-    # Priority 1: Nemotron 3 Super 120B (Primary)
-    # Priority 2: Nemotron 3.5 Lightning 30B (High-Speed Fallback)
+    # Priority 1: Nemotron 3.5 Lightning 30B (Super-Fast 1.2s Primary)
+    # Priority 2: Nemotron 3 Super 120B (High-Precision Fallback)
     if nvidia_client:
         models_to_try = [
-            NVIDIA_LLM_MODEL if NVIDIA_LLM_MODEL else "nvidia/nemotron-3-super-120b-a12b",
             "nvidia/nemotron-3.5-lightning-30b-a3b",
+            NVIDIA_LLM_MODEL if NVIDIA_LLM_MODEL else "nvidia/nemotron-3-super-120b-a12b",
             "nvidia/nemotron-3-nano-30b-a3b",
             "meta/llama-3.2-11b-vision-instruct"
         ]
