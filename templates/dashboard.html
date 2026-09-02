@@ -800,6 +800,14 @@
                 document.getElementById('prevAvatar').innerText = (activeBotData.name || 'A').charAt(0).toUpperCase();
             }
 
+            // Fresh Chat Isolation for Active Bot
+            const testBox = document.getElementById('testChatBox');
+            if (testBox) testBox.innerHTML = '';
+            const testInput = document.getElementById('testChatInput');
+            if (testInput) testInput.value = '';
+            if (document.getElementById('testSourceCount')) document.getElementById('testSourceCount').innerText = "0";
+            if (document.getElementById('testTokensPerMsg')) document.getElementById('testTokensPerMsg').innerText = "0";
+
             selectedColor = activeBotData.accentColor || "#00c48c";
             selectedTemplateName = activeBotData.template || "classic";
             selectedPos = activeBotData.launcherPosition || "right";
@@ -1170,7 +1178,14 @@
             box.innerHTML += `
                 <div class="flex flex-col items-start space-y-1">
                     <div class="flex items-start gap-2 w-full max-w-md">
-                        <span id="${msgId}" class="glow-box p-3.5 rounded-2xl inline-block flex-1 text-slate-200 leading-relaxed border-blue-500/30">Thinking...</span>
+                        <span id="${msgId}" class="glow-box p-3.5 rounded-2xl inline-block flex-1 text-slate-200 leading-relaxed border-blue-500/30">
+                            <span class="inline-flex items-center gap-1.5 py-0.5 text-cyan-400">
+                                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 0ms"></span>
+                                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 150ms"></span>
+                                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 300ms"></span>
+                                <span class="text-[11px] text-cyan-300 font-mono ml-2">Agent is thinking...</span>
+                            </span>
+                        </span>
                         <button id="${msgId}_tts" onclick="speakDashboardText(this, document.getElementById('${msgId}').innerText)" class="mt-1 text-slate-400 hover:text-cyan-400 p-1.5 rounded-xl transition cursor-pointer" title="Read Aloud">
                             <i data-lucide="volume-2" class="w-4 h-4"></i>
                         </button>
@@ -1184,6 +1199,8 @@
                 </div>
             `;
             lucide.createIcons();
+            box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+
             const targetSpan = document.getElementById(msgId);
             const leadContainer = document.getElementById(msgId + '_lead');
             const latencySpan = document.getElementById(msgId + '_latency');
@@ -1205,6 +1222,7 @@
                 const decoder = new TextDecoder();
                 let streamBuffer = "";
                 let fullText = "";
+                let receivedFirstToken = false;
 
                 while (true) {
                     const { value, done } = await reader.read();
@@ -1222,10 +1240,13 @@
                                 if (data.type === 'start') {
                                     document.getElementById('testSourceCount').innerText = data.confidence >= 0.18 ? "1" : "0";
                                 } else if (data.type === 'token') {
-                                    if (targetSpan.innerText === "Thinking...") targetSpan.innerText = "";
+                                    if (!receivedFirstToken) {
+                                        targetSpan.innerHTML = "";
+                                        receivedFirstToken = true;
+                                    }
                                     fullText += data.content;
                                     targetSpan.innerHTML = formatMarkdownWithImages(fullText);
-                                    box.scrollTop = box.scrollHeight;
+                                    box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
                                 } else if (data.type === 'sources' && data.sources && data.sources.length > 0) {
                                     document.getElementById('testSourceCount').innerText = data.sources.length;
                                     document.getElementById(msgId + '_sources').innerHTML = `

@@ -425,7 +425,13 @@
             body.innerHTML += `
                 <div class="flex flex-col items-start space-y-1">
                     <div class="flex items-start gap-1.5 w-full">
-                        <span id="${msgId}" class="${botBubbleClass}">Thinking...</span>
+                        <span id="${msgId}" class="${botBubbleClass}">
+                            <span class="inline-flex items-center gap-1.5 py-0.5 text-cyan-500">
+                                <span class="w-2 h-2 rounded-full bg-cyan-500 animate-bounce" style="animation-delay: 0ms"></span>
+                                <span class="w-2 h-2 rounded-full bg-cyan-500 animate-bounce" style="animation-delay: 150ms"></span>
+                                <span class="w-2 h-2 rounded-full bg-cyan-500 animate-bounce" style="animation-delay: 300ms"></span>
+                            </span>
+                        </span>
                         <button id="${msgId}_tts" onclick="speakText(this, document.getElementById('${msgId}').innerText)" class="mt-1 text-slate-400 hover:text-cyan-400 p-1 rounded-lg transition" title="Read Aloud">
                             <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
                         </button>
@@ -436,7 +442,7 @@
                 </div>
             `;
             lucide.createIcons();
-            body.scrollTop = body.scrollHeight;
+            body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
 
             // Check if user specifically asks for human
             const qLower = q.toLowerCase();
@@ -453,6 +459,7 @@
             const decoder = new TextDecoder();
             const target = document.getElementById(msgId);
             let fullText = "";
+            let receivedFirstToken = false;
 
             while (true) {
                 const { value, done } = await reader.read();
@@ -463,10 +470,13 @@
                         try {
                             const data = JSON.parse(line.replace('data: ', ''));
                             if (data.type === 'token') {
-                                if (target.innerText === "Thinking...") target.innerText = "";
+                                if (!receivedFirstToken) {
+                                    target.innerHTML = "";
+                                    receivedFirstToken = true;
+                                }
                                 fullText += data.content;
                                 target.innerHTML = formatMarkdownWithImages(fullText);
-                                body.scrollTop = body.scrollHeight;
+                                body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
                             } else if (data.type === 'sources' && data.sources && data.sources.length > 0) {
                                 document.getElementById(msgId + '_sources').innerHTML = `
                                     <div class="flex flex-wrap gap-1.5 mt-1 pt-1">

@@ -43,14 +43,44 @@ def scrape_wikipedia_topic(topic_or_url: str) -> tuple[str, str]:
     return f"Wikipedia: {page.title}", page.text
 
 from urllib.parse import urljoin
+import subprocess
+import shutil
+
+CHROME_BIN = shutil.which("google-chrome") or shutil.which("chromium") or shutil.which("chromium-browser")
+
+def fetch_html_content(url: str, headers: dict) -> str:
+    """
+    Fetches raw or dynamically rendered HTML.
+    If headless Chrome is available, renders client-side JS (SPAs, React, Next.js, Vue).
+    Falls back gracefully to requests.get().
+    """
+    if CHROME_BIN:
+        try:
+            cmd = [
+                CHROME_BIN,
+                "--headless=new",
+                "--disable-gpu",
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--dump-dom",
+                "--timeout=12000",
+                url
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            if result.returncode == 0 and len(result.stdout) > 500:
+                return result.stdout
+        except Exception as e:
+            print(f"⚠️ [Headless Chrome Fallback] {url}: {e}")
+
+    resp = requests.get(url, headers=headers, timeout=12)
+    resp.raise_for_status()
+    return resp.text
 
 def scrape_single_page(url: str, headers: dict) -> tuple[str, str, list[str], dict]:
     """Scrapes a single page, preserving social links, contact info, headers, meta tags, and image descriptions."""
     try:
-        response = requests.get(url, headers=headers, timeout=12)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
+        raw_html = fetch_html_content(url, headers)
+        soup = BeautifulSoup(raw_html, 'html.parser')
         title = soup.title.string.strip() if soup.title and soup.title.string else url
         
         # 1. Extract Meta Description and OpenGraph metadata

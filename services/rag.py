@@ -64,13 +64,13 @@ def clean_llm_text(text: str) -> str:
     return cleaned
 
 def generate_llm_response(messages: list) -> tuple[str, str]:
-    # 1. Tier 1: NVIDIA NIM (Nemotron Primary)
+    # 1. Tier 1: NVIDIA NIM (Nemotron 3.5 Lightning & Nemotron 3 Super)
     if nvidia_client:
         models_to_try = [
+            "nvidia/nemotron-3.5-lightning-30b-a3b",
             NVIDIA_LLM_MODEL if NVIDIA_LLM_MODEL else "nvidia/nemotron-3-super-120b-a12b",
             "nvidia/nemotron-3-super-120b-a12b",
             "nvidia/nemotron-3-nano-30b-a3b",
-            "nvidia/nemotron-3.5-lightning-30b-a3b",
             "meta/llama-3.2-11b-vision-instruct"
         ]
         for nv_model in models_to_try:
@@ -117,20 +117,24 @@ async def stream_rag_pipeline(bot_id: str, question: str, db: Session) -> AsyncG
     # Extract query keywords for lexical boosting (acronyms, names, technical terms)
     stopwords = {
         'what', 'is', 'the', 'a', 'an', 'in', 'of', 'for', 'to', 'and', 'or', 'on', 'with',
-        'about', 'how', 'who', 'where', 'when', 'why', 'can', 'you', 'tell', 'me', 'give',
+        'about', 'how', 'who', 'why', 'can', 'you', 'tell', 'me', 'give',
         'does', 'do', 'did', 'are', 'was', 'were', 'which', 'kaun', 'kya', 'hai', 'hain', 'me', 'se', 'ke'
     }
     words = [w.strip('?,.!\"\'()[]{}') for w in question.lower().split()]
     keywords = [w for w in words if len(w) > 2 and w not in stopwords]
 
-    # Expand common intent synonyms for high-confidence retrieval
+    # Expand common intent synonyms for high-confidence retrieval across any website
     intent_expansions = {
         'cost': ['cost', 'price', 'pricing', 'subscription', 'plans', 'free', 'trial', 'tier'],
         'pricing': ['pricing', 'cost', 'plans', 'subscription', 'free', 'trial'],
         'price': ['price', 'cost', 'pricing', 'plans', 'subscription'],
         'offer': ['offer', 'services', 'capabilities', 'features', 'product', 'toolkit', 'solutions'],
-        'touch': ['touch', 'contact', 'email', 'support', 'reach', 'social', 'message'],
-        'contact': ['contact', 'email', 'phone', 'support', 'reach', 'touch', 'social', 'channels']
+        'touch': ['touch', 'contact', 'email', 'support', 'reach', 'social', 'message', 'phone'],
+        'contact': ['contact', 'email', 'phone', 'support', 'reach', 'touch', 'social', 'channels', 'address'],
+        'address': ['address', 'location', 'office', 'headquarters', 'city', 'state', 'country', 'located', 'floor', 'sector', 'street', 'where'],
+        'adress': ['address', 'location', 'office', 'headquarters', 'located', 'floor', 'sector', 'where', 'punjab', 'india'],
+        'location': ['location', 'address', 'office', 'headquarters', 'city', 'country', 'located', 'where'],
+        'where': ['where', 'location', 'address', 'office', 'headquarters', 'located', 'city']
     }
     expanded_keywords = set(keywords)
     for kw in keywords:
