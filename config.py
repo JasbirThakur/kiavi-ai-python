@@ -30,7 +30,7 @@ if "@db:5432" in DATABASE_URL:
 # NVIDIA NIM Primary LLM & Embedding Engine
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
 NVIDIA_BASE_URL = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
-NVIDIA_LLM_MODEL = os.getenv("NVIDIA_LLM_MODEL", "nvidia/nemotron-3-super-120b-a12b")
+NVIDIA_LLM_MODEL = os.getenv("NVIDIA_LLM_MODEL", "meta/llama-3.2-11b-vision-instruct")
 NVIDIA_EMBED_MODEL = os.getenv("NVIDIA_EMBED_MODEL", "nvidia/nemotron-3-embed-1b")
 
 # Groq Engine Fallback
@@ -50,5 +50,5 @@ EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 # RAG Thresholds & Token Budgets
 RELEVANCE_FLOOR = 0.22
 RESCUE_FLOOR = 0.15
-TOP_K_CHUNKS = 6
+TOP_K_CHUNKS = 3
 MAX_TOKEN_BUDGET = 60000

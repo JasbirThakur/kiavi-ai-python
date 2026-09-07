@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Form, HTTPException
 from sqlalchemy.orm import Session
 from collections import Counter
 import re
@@ -19,17 +19,19 @@ def get_bot_insights(
         seen = set()
         all_user_queries = []
 
-        # 1. Fetch leads captured
+        # 1. Fetch leads captured with specific questions
         leads = db.query(models.Lead).filter(models.Lead.botId == bot_id).order_by(models.Lead.createdAt.desc()).all()
         for l in leads:
-            note_text = l.note or "Pricing / contact query"
-            if note_text not in seen:
-                seen.add(note_text)
-                gaps.append({
-                    "id": str(l.id),
-                    "question": note_text,
-                    "date": l.createdAt.strftime("%b %d, %Y • %I:%M %p") if getattr(l, "createdAt", None) else "Recently"
-                })
+            note_text = (l.note or "").strip()
+            if note_text and not note_text.startswith("[RESOLVED]") and note_text not in ["Website lead", "Captured via widget prompt", "Captured via Test Sandbox", "Pricing / contact query"]:
+                clean_q = note_text.replace("Inquiry: ", "").replace("Inquiry via chat widget", "").strip()
+                if clean_q and clean_q not in seen:
+                    seen.add(clean_q)
+                    gaps.append({
+                        "id": str(l.id),
+                        "question": clean_q,
+                        "date": l.createdAt.strftime("%b %d, %Y • %I:%M %p") if getattr(l, "createdAt", None) else "Recently"
+                    })
 
         # 2. Fetch conversation messages
         conv_ids = [c.id for c in db.query(models.Conversation).filter(models.Conversation.botId == bot_id).all()]
@@ -103,3 +105,46 @@ def get_bot_insights(
             "top_topics": [],
             "sentiment": {"positive_pct": 90, "needs_info_pct": 10, "score_label": "Healthy"}
         }
+
+@router.post("/resolve-gap")
+def resolve_gap(
+    bot_id: str = Form(...),
+    gap_id: str = Form(None),
+    question: str = Form(None),
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        conv_ids = [c.id for c in db.query(models.Conversation).filter(models.Conversation.botId == bot_id).all()]
+        if gap_id:
+            msg = db.query(models.Message).filter(models.Message.id == gap_id).first()
+            if msg:
+                msg.unanswered = False
+            lead = db.query(models.Lead).filter(models.Lead.id == gap_id).first()
+            if lead and not (lead.note or '').startswith("[RESOLVED]"):
+                lead.note = f"[RESOLVED] {lead.note}"
+            db.commit()
+            return {"status": "success", "resolved_id": gap_id}
+
+        if question and conv_ids:
+            clean_q = question.strip('?.,! ')
+            msgs = db.query(models.Message).filter(
+                models.Message.conversationId.in_(conv_ids),
+                models.Message.content.ilike(f"%{clean_q}%")
+            ).all()
+            for m in msgs:
+                m.unanswered = False
+            leads = db.query(models.Lead).filter(
+                models.Lead.botId == bot_id,
+                models.Lead.note.ilike(f"%{clean_q}%")
+            ).all()
+            for ld in leads:
+                if not (ld.note or '').startswith("[RESOLVED]"):
+                    ld.note = f"[RESOLVED] {ld.note}"
+            db.commit()
+            return {"status": "success", "resolved_count": len(msgs)}
+
+        return {"status": "ignored"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

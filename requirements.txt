@@ -24,3 +24,7 @@ Wikipedia-API
 openai
 groq
 pre-commit
+SpeechRecognition
+pydub
+reportlab
+curl_cffi

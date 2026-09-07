@@ -5,7 +5,7 @@ from pathlib import Path
 
 import database
 import models
-from routers import auth, bots, knowledge, chat, leads, insights, widget
+from routers import auth, bots, knowledge, chat, leads, insights, widget, voice
 
 # 1. Initialize DB and create tables safely
 database.init_db()
@@ -27,6 +27,7 @@ app.include_router(chat.router)
 app.include_router(leads.router)
 app.include_router(insights.router)
 app.include_router(widget.router)
+app.include_router(voice.router)
 
 from fastapi.staticfiles import StaticFiles
 

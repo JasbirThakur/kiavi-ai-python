@@ -10,6 +10,8 @@
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+        @keyframes typewriterBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        .typewriter-cursor { display: inline-block; color: #00c48c; font-weight: 700; margin-left: 2px; animation: typewriterBlink 0.8s infinite; }
     </style>
 </head>
 <body class="font-sans antialiased select-none">
@@ -67,6 +69,37 @@
                     <div id="evidenceTitle" class="text-xs font-bold text-slate-100 truncate"></div>
                     <div id="evidenceSnippet" class="text-[11px] text-slate-300 bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 overflow-y-auto max-h-[200px] leading-relaxed font-mono select-text"></div>
                     <div class="text-[9px] text-slate-500 text-right">Extracted verbatim from verified knowledge base</div>
+                </div>
+            </div>
+
+            <!-- PDF Viewer Drawer / Modal (Widget) -->
+            <div id="widgetPdfModal" class="hidden absolute inset-0 z-40 bg-black/80 backdrop-blur-xs flex flex-col justify-end p-2 transition-all">
+                <div class="bg-slate-900 border border-cyan-500/40 rounded-2xl text-white shadow-2xl h-[92%] flex flex-col overflow-hidden">
+                    <div class="flex items-center justify-between border-b border-slate-800 px-3 py-2 bg-slate-950/90 shrink-0">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <div class="w-6 h-6 rounded-lg bg-red-500/20 border border-red-500/40 flex items-center justify-center shrink-0 text-red-400">
+                                <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div id="widgetPdfTitle" class="text-[11px] font-bold text-white truncate">Product Specifications</div>
+                                <div class="text-[9px] text-cyan-400 font-mono">Official Certified PDF</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <a id="widgetPdfNewTab" href="#" target="_blank" rel="noopener noreferrer" title="Open in new tab" class="p-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition">
+                                <i data-lucide="external-link" class="w-3.5 h-3.5 text-cyan-400"></i>
+                            </a>
+                            <a id="widgetPdfDownload" href="#" download title="Download PDF" class="p-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition">
+                                <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-400"></i>
+                            </a>
+                            <button onclick="closeWidgetPdf()" class="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex-1 w-full bg-slate-950 relative">
+                        <iframe id="widgetPdfFrame" src="" class="w-full h-full border-0" title="PDF Document Viewer"></iframe>
+                    </div>
                 </div>
             </div>
 
@@ -131,8 +164,70 @@
             html = html.replace(/```([\s\S]*?)```/g, '<pre class="bg-[#040814] p-3 rounded-xl border border-blue-500/30 text-cyan-300 font-mono text-[11px] overflow-x-auto my-2 leading-relaxed">$1</pre>');
             // 3. Inline code `...`
             html = html.replace(/`([^`]+)`/g, '<code class="bg-blue-950/60 text-cyan-300 px-1.5 py-0.5 rounded text-[11px] font-mono border border-blue-500/30">$1</code>');
-            // 4. Markdown Links [Text](URL) or [Text] (URL) with optional space
-            html = html.replace(/\[([^\]]+)\]\s*\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-cyan-400 font-bold underline hover:opacity-80 inline-flex items-center gap-0.5">$1 ↗</a>');
+            // 4a. Official PDF Action Card [PDF_CARD:topic|Title]
+            html = html.replace(/\[PDF_CARD:([^\|\]]+)\|([^\]]+)\]/g, (match, topic, title) => {
+                const cleanTopic = (topic || "product-catalogue").trim();
+                const cleanTitle = (title || "Product Specifications & Catalogue").trim();
+                const escapedTitle = cleanTitle.replace(/'/g, "\\'");
+                const botId = (botConfig && botConfig.botId) ? botConfig.botId : "";
+                const downloadUrl = `/api/catalogues/pdf?bot_id=${encodeURIComponent(botId)}&topic=${encodeURIComponent(cleanTopic)}&title=${encodeURIComponent(cleanTitle)}&download=1`;
+                return `
+                    <div class="my-2.5 p-3 rounded-2xl bg-gradient-to-r from-slate-900 to-blue-950/90 border border-cyan-500/40 shadow-md text-white space-y-2.5">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <div class="w-8 h-8 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center shrink-0 text-red-400">
+                                <i data-lucide="file-text" class="w-4 h-4"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="text-[11px] font-bold text-white truncate flex items-center gap-1.5">
+                                    <span class="truncate">${cleanTitle}</span>
+                                    <span class="px-1 py-0.2 rounded text-[8px] bg-red-500/20 text-red-300 font-mono border border-red-500/30 shrink-0 font-semibold">PDF SPEC</span>
+                                </div>
+                                <div class="text-[9px] text-cyan-300 font-mono truncate">Official Certified Documentation</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-end gap-2 pt-1 border-t border-slate-800/80">
+                            <button type="button" onclick="openWidgetPdf('${cleanTopic}', '${escapedTitle}')" class="px-2.5 py-1.2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-[10px] font-semibold flex items-center gap-1 transition cursor-pointer">
+                                <i data-lucide="eye" class="w-3 h-3"></i>
+                                <span>View PDF</span>
+                            </button>
+                            <a href="${downloadUrl}" download="${cleanTopic}-catalogue.pdf" class="px-2.5 py-1.2 rounded-lg text-black text-[10px] font-bold flex items-center gap-1 shadow-sm transition cursor-pointer" style="background-color: ${botConfig ? botConfig.accentColor : '#00c48c'};">
+                                <i data-lucide="download" class="w-3 h-3"></i>
+                                <span>Download PDF</span>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            });
+            // 4b. Interactive PDF Document Card
+            html = html.replace(/\[([^\]]*?(?:PDF|Catalogue|Catalog|Document|Download|Sheet)[^\]]*?)\]\s*\(((?:https?:\/\/|\/)[^\s)]+\.pdf(?:\?[^\s)]*)?)\)/gi, (match, title, url) => {
+                const cleanTitle = title.replace(/^[📄📑📁\s]+/, '').trim() || "Official Product Catalogue (PDF)";
+                const escapedTitle = cleanTitle.replace(/'/g, "\\'");
+                return `
+                    <div class="my-2.5 p-2.5 rounded-2xl bg-slate-900 border border-cyan-500/40 shadow-md flex items-center justify-between gap-2 text-white">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <div class="w-8 h-8 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center shrink-0 text-red-400">
+                                <i data-lucide="file-text" class="w-4 h-4"></i>
+                            </div>
+                            <div class="truncate">
+                                <div class="text-[11px] font-bold text-white truncate">${cleanTitle}</div>
+                                <div class="text-[9px] text-cyan-300 font-mono">Official PDF Document</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <button type="button" onclick="openWidgetPdf('${url}', '${escapedTitle}')" class="px-2 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 text-[10px] font-semibold flex items-center gap-1 transition cursor-pointer">
+                                <i data-lucide="eye" class="w-3 h-3"></i>
+                                <span>View</span>
+                            </button>
+                            <a href="${url}" download class="px-2.5 py-1 rounded-lg text-black text-[10px] font-bold flex items-center gap-1 shadow-sm transition" style="background-color: ${botConfig ? botConfig.accentColor : '#00c48c'};">
+                                <i data-lucide="download" class="w-3 h-3"></i>
+                                <span>Get</span>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            });
+            // 4c. Markdown Links [Text](URL) or [Text] (URL) with optional space
+            html = html.replace(/\[([^\]]+)\]\s*\(((?:https?:\/\/|\/)[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-cyan-400 font-bold underline hover:opacity-80 inline-flex items-center gap-0.5">$1 ↗</a>');
             // 5. Raw URLs that are not part of an existing href tag
             html = html.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-cyan-400 font-semibold underline break-all hover:opacity-80">$2</a>');
             // 6. Bold text
@@ -181,10 +276,14 @@
                     avatarEl.innerText = (botConfig.name || 'A').charAt(0).toUpperCase();
                 }
 
-                // 4. Greeting
-                if (botConfig.greeting) {
-                    document.getElementById('wGreeting').innerText = botConfig.greeting;
+                // 4. Dynamic Typewriter Greeting
+                const bName = botConfig.name || 'Kiavi IQ';
+                let bDomain = 'our official products & services';
+                if (botConfig.domain) {
+                    bDomain = botConfig.domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
                 }
+                const dynamicGreeting = `I am ${bName}, your AI assistant for ${bDomain}. I can assist you with official documentation, services, pricing, and contact information. How can I help you today?`;
+                runWidgetTypewriter('wGreeting', dynamicGreeting, 18);
 
                 // 5. Template Theming (Midnight Theme Support)
                 if (botConfig.template === 'midnight') {
@@ -198,15 +297,16 @@
                 }
 
                 // 6. Suggestions
-                if (botConfig.suggestions && botConfig.suggestions.length > 0) {
-                    const isDark = botConfig.template === 'midnight';
-                    const btnClass = isDark
-                        ? "bg-[#0b0f19] hover:bg-[#111827] border border-slate-800 px-3 py-1.5 rounded-full text-[11px] text-slate-200 shadow-sm transition cursor-pointer"
-                        : "bg-white hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-full text-[11px] text-slate-600 shadow-sm transition cursor-pointer";
-                    document.getElementById('wSuggestions').innerHTML = botConfig.suggestions.map(s => `
-                        <button onclick="sendSuggestion('${s}')" class="${btnClass}">${s}</button>
-                    `).join('');
-                }
+                const defaultSuggestions = (botConfig.suggestions && botConfig.suggestions.length > 0)
+                    ? botConfig.suggestions
+                    : ["Explore Product Catalogue 📁", "Company Services & Products", "Pricing & Details", "Official Address & Contact"];
+                const isDark = botConfig.template === 'midnight';
+                const btnClass = isDark
+                    ? "bg-[#0b0f19] hover:bg-[#111827] border border-slate-800 px-3 py-1.5 rounded-full text-[11px] text-slate-200 shadow-sm transition cursor-pointer"
+                    : "bg-white hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-full text-[11px] text-slate-600 shadow-sm transition cursor-pointer";
+                document.getElementById('wSuggestions').innerHTML = defaultSuggestions.map(s => `
+                    <button onclick="sendSuggestion('${s.replace(/'/g, "\\'")}')" class="${btnClass}">${s}</button>
+                `).join('');
 
                 // 7. Trigger Smart Welcome Bubble after 5 seconds
                 setTimeout(() => {
@@ -254,6 +354,26 @@
             lucide.createIcons();
         }
 
+        function runWidgetTypewriter(elementId, fullText, speed = 18) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            el.innerHTML = '<span class="tw-txt"></span><span class="typewriter-cursor">|</span>';
+            const spanTxt = el.querySelector('.tw-txt');
+            const cursor = el.querySelector('.typewriter-cursor');
+            let idx = 0;
+            const timer = setInterval(() => {
+                if (idx < fullText.length) {
+                    spanTxt.textContent += fullText.charAt(idx);
+                    idx++;
+                } else {
+                    clearInterval(timer);
+                    if (cursor) cursor.remove();
+                    el.innerHTML = formatMarkdownWithImages(fullText);
+                    lucide.createIcons();
+                }
+            }, speed);
+        }
+
         function sendSuggestion(s) {
             document.getElementById('wInput').value = s;
             sendMessage();
@@ -261,52 +381,179 @@
 
         let recognition = null;
         let isListening = false;
+        let wMediaRecorder = null;
+        let wAudioChunks = [];
+        let wMediaStream = null;
 
-        function toggleVoiceInput() {
-            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRec) {
-                alert("Voice recognition is not supported in this browser. Please try Chrome, Edge, or Safari.");
+        async function toggleVoiceInput() {
+            const micBtn = document.getElementById('wMicBtn');
+            const input = document.getElementById('wInput');
+
+            if (isListening) {
+                if (recognition) {
+                    try { recognition.stop(); } catch(e) {}
+                }
+                if (wMediaRecorder && wMediaRecorder.state === 'recording') {
+                    try { wMediaRecorder.stop(); } catch(e) {}
+                }
+                isListening = false;
+                if (micBtn) micBtn.classList.remove('bg-red-500/20', 'text-red-500', 'animate-pulse');
+                if (input) input.placeholder = "Type or click mic to speak...";
                 return;
             }
 
-            if (!recognition) {
-                recognition = new SpeechRec();
-                recognition.continuous = false;
-                recognition.interimResults = false;
+            // Engine 1: Web Speech API (Chrome / Edge / Safari)
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
 
-                recognition.onstart = () => {
-                    isListening = true;
-                    document.getElementById('wMicBtn').classList.add('bg-red-500/20', 'text-red-500', 'animate-pulse');
-                    document.getElementById('wInput').placeholder = "🎙️ Listening...";
-                };
+            if (SpeechRec && !isFirefox) {
+                try {
+                    if (!recognition) {
+                        recognition = new SpeechRec();
+                        recognition.continuous = false;
+                        recognition.interimResults = false;
+                        recognition.lang = 'en-US';
 
-                recognition.onresult = (event) => {
-                    const speechResult = event.results[0][0].transcript;
-                    document.getElementById('wInput').value = speechResult;
-                    sendMessage();
-                };
+                        recognition.onstart = () => {
+                            isListening = true;
+                            if (micBtn) micBtn.classList.add('bg-red-500/20', 'text-red-500', 'animate-pulse');
+                            if (input) input.placeholder = "🎙️ Listening... (Speak now)";
+                        };
 
-                recognition.onend = () => {
-                    isListening = false;
-                    document.getElementById('wMicBtn').classList.remove('bg-red-500/20', 'text-red-500', 'animate-pulse');
-                    document.getElementById('wInput').placeholder = "Type or click mic to speak...";
-                };
+                        recognition.onresult = (event) => {
+                            const speechResult = event.results[0][0].transcript;
+                            if (speechResult) {
+                                if (input) input.value = speechResult;
+                                sendMessage();
+                            }
+                        };
 
-                recognition.onerror = () => {
-                    isListening = false;
-                    document.getElementById('wMicBtn').classList.remove('bg-red-500/20', 'text-red-500', 'animate-pulse');
-                    document.getElementById('wInput').placeholder = "Type or click mic to speak...";
-                };
+                        recognition.onend = () => {
+                            isListening = false;
+                            if (micBtn) micBtn.classList.remove('bg-red-500/20', 'text-red-500', 'animate-pulse');
+                            if (input) input.placeholder = "Type or click mic to speak...";
+                        };
+
+                        recognition.onerror = (err) => {
+                            console.warn("Native SpeechRecognition error, fallback to audio recorder", err);
+                            isListening = false;
+                            if (micBtn) micBtn.classList.remove('bg-red-500/20', 'text-red-500', 'animate-pulse');
+                            if (input) input.placeholder = "Type or click mic to speak...";
+                            if (err.error !== 'not-allowed') {
+                                startMediaRecorderWidgetVoice();
+                            }
+                        };
+                    }
+                    recognition.start();
+                    return;
+                } catch(e) {
+                    console.warn("Could not start Web Speech, fallback to server transcribe", e);
+                }
             }
 
-            if (isListening) {
-                recognition.stop();
-            } else {
-                recognition.start();
+            // Engine 2: MediaRecorder + Server Transcribe (Firefox, Linux, Mobile fallback)
+            startMediaRecorderWidgetVoice();
+        }
+
+        async function startMediaRecorderWidgetVoice() {
+            const micBtn = document.getElementById('wMicBtn');
+            const input = document.getElementById('wInput');
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert("Microphone recording is not supported in this browser.");
+                return;
+            }
+
+            try {
+                wMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                wAudioChunks = [];
+
+                let mimeType = 'audio/webm';
+                if (window.MediaRecorder) {
+                    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                        mimeType = 'audio/webm;codecs=opus';
+                    } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+                        mimeType = 'audio/ogg;codecs=opus';
+                    } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                        mimeType = 'audio/mp4';
+                    }
+                }
+
+                wMediaRecorder = new MediaRecorder(wMediaStream, mimeType ? { mimeType } : undefined);
+
+                wMediaRecorder.ondataavailable = (e) => {
+                    if (e.data && e.data.size > 0) {
+                        wAudioChunks.push(e.data);
+                    }
+                };
+
+                wMediaRecorder.onstart = () => {
+                    isListening = true;
+                    if (micBtn) micBtn.classList.add('bg-red-500/20', 'text-red-500', 'animate-pulse');
+                    if (input) input.placeholder = "🎙️ Listening... (Click mic when done)";
+                };
+
+                wMediaRecorder.onstop = async () => {
+                    isListening = false;
+                    if (micBtn) micBtn.classList.remove('bg-red-500/20', 'text-red-500', 'animate-pulse');
+                    if (input) input.placeholder = "⚡ Transcribing speech...";
+
+                    if (wMediaStream) {
+                        wMediaStream.getTracks().forEach(track => track.stop());
+                        wMediaStream = null;
+                    }
+
+                    if (wAudioChunks.length === 0) {
+                        if (input) input.placeholder = "Type or click mic to speak...";
+                        return;
+                    }
+
+                    const audioBlob = new Blob(wAudioChunks, { type: mimeType || 'audio/webm' });
+                    const form = new FormData();
+                    form.append('file', audioBlob, 'speech.webm');
+
+                    try {
+                        const res = await fetch('/api/voice/transcribe', {
+                            method: 'POST',
+                            body: form
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.text) {
+                                if (input) {
+                                    input.value = data.text;
+                                    input.placeholder = "Type or click mic to speak...";
+                                }
+                                sendMessage();
+                            } else {
+                                if (input) input.placeholder = "No speech detected. Try again.";
+                            }
+                        } else {
+                            if (input) input.placeholder = "Speech transcription error. Try again.";
+                        }
+                    } catch(err) {
+                        if (input) input.placeholder = "Voice connection error.";
+                    }
+
+                    setTimeout(() => {
+                        if (input && input.placeholder !== "Type or click mic to speak...") {
+                            input.placeholder = "Type or click mic to speak...";
+                        }
+                    }, 3500);
+                };
+
+                wMediaRecorder.start();
+
+            } catch(err) {
+                console.error("Mic access error:", err);
+                isListening = false;
+                if (micBtn) micBtn.classList.remove('bg-red-500/20', 'text-red-500', 'animate-pulse');
+                if (input) input.placeholder = "Type or click mic to speak...";
+                alert("Microphone permission was denied or not available.");
             }
         }
 
-        function speakText(btn, text) {
+        function speakText(btn, rawText) {
             if (!('speechSynthesis' in window)) return;
             if (window.speechSynthesis.speaking) {
                 window.speechSynthesis.cancel();
@@ -314,18 +561,33 @@
                 lucide.createIcons();
                 return;
             }
-            const cleanSpoken = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '').replace(/\[[^\]]+\]/g, '');
-            const utterance = new SpeechSynthesisUtterance(cleanSpoken);
+
+            // Clean markdown syntax, URLs, brackets for natural human speech output
+            let cleanText = (rawText || "")
+                .replace(/https?:\/\/[^\s)]+/g, '')
+                .replace(/\/static\/[^\s)]+/g, '')
+                .replace(/[📄📑📁⚡•\*\#\`\_\[\]\(\)]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            if (!cleanText) return;
+
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.rate = 1.0;
             utterance.pitch = 1.0;
+            utterance.lang = 'en-US';
+
             utterance.onstart = () => {
                 btn.innerHTML = '<i data-lucide="volume-x" class="w-3.5 h-3.5 text-cyan-400 animate-pulse"></i>';
                 lucide.createIcons();
             };
+
             utterance.onend = utterance.onerror = () => {
                 btn.innerHTML = '<i data-lucide="volume-2" class="w-3.5 h-3.5"></i>';
                 lucide.createIcons();
             };
+
             window.speechSynthesis.speak(utterance);
         }
 
@@ -340,6 +602,53 @@
         function closeEvidence() {
             document.getElementById('evidenceModal').classList.add('hidden');
             document.getElementById('evidenceModal').classList.remove('flex');
+        }
+
+        function openWidgetPdf(topicOrUrl, title) {
+            const modal = document.getElementById('widgetPdfModal');
+            const iframe = document.getElementById('widgetPdfFrame');
+            const titleEl = document.getElementById('widgetPdfTitle');
+            const newTabEl = document.getElementById('widgetPdfNewTab');
+            const downloadEl = document.getElementById('widgetPdfDownload');
+            
+            const botId = (botConfig && botConfig.botId) ? botConfig.botId : "";
+            const cleanTitle = title || "Corporate Product Specifications & Catalogue";
+            
+            let viewUrl = "";
+            let downloadUrl = "";
+            
+            if (topicOrUrl && (topicOrUrl.startsWith('http://') || topicOrUrl.startsWith('https://') || topicOrUrl.startsWith('/'))) {
+                viewUrl = topicOrUrl;
+                downloadUrl = topicOrUrl.includes('?') ? (topicOrUrl + '&download=1') : (topicOrUrl + '?download=1');
+            } else {
+                const cleanTopic = topicOrUrl || "product-catalogue";
+                viewUrl = `/api/catalogues/pdf?bot_id=${encodeURIComponent(botId)}&topic=${encodeURIComponent(cleanTopic)}&title=${encodeURIComponent(cleanTitle)}&download=0`;
+                downloadUrl = `/api/catalogues/pdf?bot_id=${encodeURIComponent(botId)}&topic=${encodeURIComponent(cleanTopic)}&title=${encodeURIComponent(cleanTitle)}&download=1`;
+            }
+            
+            if (titleEl) titleEl.innerText = cleanTitle;
+            if (newTabEl) newTabEl.href = viewUrl;
+            if (downloadEl) {
+                downloadEl.href = downloadUrl;
+                downloadEl.setAttribute('download', 'catalogue.pdf');
+            }
+            if (iframe) iframe.src = viewUrl;
+            
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function closeWidgetPdf() {
+            const modal = document.getElementById('widgetPdfModal');
+            const iframe = document.getElementById('widgetPdfFrame');
+            if (iframe) iframe.src = "about:blank";
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
         }
 
         async function requestLiveHuman() {
@@ -410,10 +719,13 @@
             }, 3000);
         }
 
+        let lastUserQuestion = "";
+
         async function sendMessage() {
             const input = document.getElementById('wInput');
             const q = input.value.trim();
             if (!q || !botConfig) return;
+            lastUserQuestion = q;
             input.value = "";
 
             const body = document.getElementById('wChatBody');
@@ -447,6 +759,7 @@
                         </button>
                     </div>
                     <div id="${msgId}_sources" class="w-full"></div>
+                    <div id="${msgId}_followup" class="w-full"></div>
                     <div id="${msgId}_lead"></div>
                     <span class="text-[9px] text-slate-400 ml-1 font-mono">${timeStr}</span>
                 </div>
@@ -500,6 +813,12 @@
                                 `;
                                 lucide.createIcons();
                                 body.scrollTop = body.scrollHeight;
+                            } else if (data.type === 'followup' && data.prompt && data.options) {
+                                const followupContainer = document.getElementById(msgId + '_followup');
+                                if (followupContainer) {
+                                    renderWidgetFollowup(followupContainer, data, msgId);
+                                    body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
+                                }
                             } else if (data.type === 'lead_form') {
                                 document.getElementById(msgId + '_lead').innerHTML = `
                                     <div class="mt-2 p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-2 max-w-[88%] shadow-md">
@@ -510,10 +829,94 @@
                                     </div>
                                 `;
                                 body.scrollTop = body.scrollHeight;
+                            } else if (data.type === 'done') {
+                                if (!fullText.trim()) {
+                                    fullText = (data.full_text && data.full_text.trim()) ? data.full_text : "Here are the verified details from the knowledge base:";
+                                    target.innerHTML = formatMarkdownWithImages(fullText);
+                                    body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
+                                }
                             }
                         } catch(e) {}
                     }
                 }
+            }
+        }
+
+        function renderWidgetFollowup(container, data, msgId) {
+            const isDark = botConfig && botConfig.template === 'midnight';
+            const bgClass = isDark ? "bg-[#0b0f19] border-cyan-500/30 text-slate-100" : "bg-slate-50 border-slate-200 text-slate-700";
+            container.innerHTML = `
+                <div class="mt-2 p-2.5 rounded-2xl border ${bgClass} space-y-2 max-w-[88%] shadow-xs">
+                    <div class="flex items-center gap-1.5 text-[11px] font-semibold text-cyan-600 dark:text-cyan-400">
+                        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                        <span>${data.prompt}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                        ${data.options.map(opt => `
+                            <button type="button" 
+                                    onclick="handleWidgetFollowup(this, '${opt.replace(/'/g, "\\'")}', '${data.prompt.replace(/'/g, "\\'")}')" 
+                                    class="px-2.5 py-1 rounded-xl text-[11px] font-medium border border-cyan-500/30 text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 active:scale-95 transition cursor-pointer flex items-center gap-1">
+                                <span>${opt}</span>
+                                <i data-lucide="arrow-right" class="w-2.5 h-2.5 opacity-60"></i>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function handleWidgetFollowup(btn, optionText, promptContext) {
+            const parentContainer = btn.closest('.flex-wrap');
+            if (parentContainer) {
+                const buttons = parentContainer.querySelectorAll('button');
+                buttons.forEach(b => {
+                    b.disabled = true;
+                    if (b === btn) {
+                        b.className = "px-2.5 py-1 rounded-xl text-[11px] font-bold text-white shadow-xs flex items-center gap-1 cursor-default";
+                        b.style.backgroundColor = botConfig ? botConfig.accentColor : '#00c48c';
+                    } else {
+                        b.className = "px-2.5 py-1 rounded-xl text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-400 border border-transparent cursor-not-allowed opacity-50 flex items-center gap-1";
+                    }
+                });
+            }
+
+            const lowerOpt = optionText.toLowerCase();
+            const isNegative = lowerOpt.includes('no') || lowerOpt.includes('not now') || lowerOpt.includes('skip') || lowerOpt.includes('dismiss') || lowerOpt.includes('ask something else');
+
+            if (isNegative) {
+                const wrap = btn.closest('div.space-y-2');
+                if (wrap) {
+                    const note = document.createElement('div');
+                    note.className = "text-[10px] text-slate-400 italic flex items-center gap-1 pt-1";
+                    note.innerHTML = '<i data-lucide="check" class="w-3 h-3 text-emerald-500"></i> Understood! What would you like to know? Feel free to ask below.';
+                    wrap.appendChild(note);
+                    lucide.createIcons();
+                }
+                const input = document.getElementById('wInput');
+                if (input) input.focus();
+                return;
+            }
+
+            let nextQuery = optionText;
+            if (lowerOpt.startsWith('yes') || lowerOpt.startsWith('tell me more') || lowerOpt.includes('show more')) {
+                if (promptContext) {
+                    let topic = promptContext.replace(/^I also have (?:details|information|information on|details on)\s+/i, '')
+                                             .replace(/^(?:what would you like to explore next|here are related areas you might find interesting)\??:?/i, '')
+                                             .replace(/\.\s*Would you like to (?:explore|check) that\??/i, '')
+                                             .replace(/\?$/, '').trim();
+                    nextQuery = topic ? "Tell me more about " + topic : "Tell me more details about that";
+                } else {
+                    nextQuery = "Tell me more details about that.";
+                }
+            } else if (!lowerOpt.startsWith('what') && !lowerOpt.startsWith('how') && !lowerOpt.startsWith('tell')) {
+                nextQuery = "Tell me about " + optionText;
+            }
+
+            const input = document.getElementById('wInput');
+            if (input) {
+                input.value = nextQuery;
+                sendMessage();
             }
         }
 
@@ -527,6 +930,7 @@
             f.append('bot_id', botId);
             f.append('name', name);
             f.append('email', email);
+            f.append('note', lastUserQuestion ? `Inquiry: ${lastUserQuestion}` : 'Inquiry via chat widget');
             await fetch('/api/public/lead', { method: 'POST', body: f });
             parent.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-bold text-xs">✓ Thanks, we'll reach out!</span>`;
         }

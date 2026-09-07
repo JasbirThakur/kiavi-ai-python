@@ -46,7 +46,9 @@ class BotSource(Base):
     __tablename__ = "bot_sources"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    botId = Column(String(36), ForeignKey("bots.id", ondelete="CASCADE"), nullable=False)
+    botId = Column(String(36), ForeignKey("bots.id", ondelete="CASCADE"), nullable=True)
+    isUniversal = Column(Boolean, default=False, nullable=False)
+    orgId = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True)
     kind = Column(String(50), default="PAGE")
     title = Column(String(255), nullable=False)
     url = Column(String(1000), nullable=True)

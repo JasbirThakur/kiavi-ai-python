@@ -52,6 +52,7 @@ def get_user_bots(user: models.User = Depends(get_current_user), db: Session = D
             "domain": b.domain,
             "template": b.template,
             "accentColor": b.accentColor,
+            "logoUrl": getattr(b, "logoUrl", None) or "",
             "conversations": conv_count,
             "tokens": bot_tokens,
             "publicKey": b.publicKey
@@ -72,17 +73,43 @@ def get_user_bots(user: models.User = Depends(get_current_user), db: Session = D
 
 @router.post("/")
 def create_bot(req: BotCreateRequest, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from services.scraper import fetch_brand_logo
+
+    domain_clean = req.domain.strip() if req.domain else "appdeft.ai"
+    brand_logo = fetch_brand_logo(domain_clean) if domain_clean else ""
+
     bot = models.Bot(
         orgId=user.orgId,
-        name=req.name,
-        domain=req.domain,
-        accentColor="#E30613",
-        template="classic"
+        name=req.name.strip(),
+        domain=domain_clean,
+        accentColor="#00c48c",
+        template="classic",
+        logoUrl=brand_logo
     )
     db.add(bot)
     db.commit()
     db.refresh(bot)
-    return {"id": bot.id, "name": bot.name, "publicKey": bot.publicKey}
+
+    # Automatically scrape and ingest target website if domain provided
+    if domain_clean and "." in domain_clean:
+        try:
+            from services.scraper import scrape_url_content
+            from routers.knowledge import process_and_save_source
+
+            target_url = domain_clean
+            if not target_url.startswith(('http://', 'https://')):
+                target_url = 'https://' + target_url
+
+            title, text_content, logo_url = scrape_url_content(target_url, crawl_depth=20)
+            if logo_url and not bot.logoUrl:
+                bot.logoUrl = logo_url
+                db.commit()
+            if text_content:
+                process_and_save_source(db, bot.id, title, text_content, "PAGE", original_url=target_url)
+        except Exception as e:
+            print(f"⚠️ [Auto-scrape on bot create warning]: {e}")
+
+    return {"id": bot.id, "name": bot.name, "publicKey": bot.publicKey, "logoUrl": bot.logoUrl}
 
 @router.get("/{bot_id}")
 def get_bot_details(bot_id: str, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):

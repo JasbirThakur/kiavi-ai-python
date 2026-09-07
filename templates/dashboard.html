@@ -78,6 +78,18 @@
             box-shadow: 0 0 20px rgba(56, 189, 248, 0.3);
             background: rgba(14, 165, 233, 0.08);
         }
+
+        @keyframes typewriterBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .typewriter-cursor {
+            display: inline-block;
+            color: #00f0ff;
+            font-weight: 700;
+            margin-left: 2px;
+            animation: typewriterBlink 0.8s infinite;
+        }
     </style>
 </head>
 <body class="text-slate-200 min-h-screen antialiased text-xs">
@@ -95,10 +107,17 @@
             <span id="userDisplayName" class="text-xs text-slate-400 font-medium tracking-wide">Workspace</span>
         </div>
 
-        <div class="relative">
-            <button onclick="toggleUserDropdown()" class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white flex items-center justify-center font-bold shadow-[0_0_15px_rgba(37,99,235,0.4)] border border-cyan-400/40 hover:scale-105 transition">
-                <span id="userInitials">US</span>
+        <div class="flex items-center gap-3">
+            <button onclick="showUniversalKnowledgeView()" class="px-3 py-1.5 rounded-xl bg-purple-900/40 hover:bg-purple-900/70 border border-purple-500/40 text-purple-200 hover:text-white text-xs font-bold flex items-center gap-1.5 transition shadow-[0_0_15px_rgba(168,85,247,0.25)] cursor-pointer">
+                <i data-lucide="globe" class="w-3.5 h-3.5 text-purple-400"></i>
+                <span class="hidden sm:inline">Universal Knowledge</span>
+                <span class="sm:hidden">Universal</span>
             </button>
+
+            <div class="relative">
+                <button onclick="toggleUserDropdown()" class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white flex items-center justify-center font-bold shadow-[0_0_15px_rgba(37,99,235,0.4)] border border-cyan-400/40 hover:scale-105 transition">
+                    <span id="userInitials">US</span>
+                </button>
 
             <!-- Dropdown Menu -->
             <div id="userDropdown" class="hidden absolute right-0 mt-2 w-52 glow-box rounded-2xl p-2 shadow-2xl space-y-1 z-50">
@@ -168,6 +187,26 @@
                         <span class="text-[10px] text-slate-500">/ 60K tokens</span>
                     </div>
                 </div>
+            </div>
+
+            <!-- UNIVERSAL KNOWLEDGE CALLOUT BANNER -->
+            <div class="glow-box p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-blue-950/20 to-transparent">
+                <div class="flex items-center gap-3 text-slate-300 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.3)] shrink-0">
+                        <i data-lucide="globe" class="w-4 h-4"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-xs font-bold text-white flex items-center gap-2">
+                            <span>Universal Knowledge Base</span>
+                            <span class="px-2 py-0.5 rounded-full text-[9px] font-mono bg-purple-500/30 text-purple-200 border border-purple-500/40 font-bold shrink-0">Inherited by all bots</span>
+                        </div>
+                        <div class="text-[11px] text-slate-400 truncate sm:whitespace-normal">Centralized catalogues, shared company PDFs, and universal knowledge inherited by all active bots.</div>
+                    </div>
+                </div>
+                <button onclick="showUniversalKnowledgeView()" class="px-3.5 py-2 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-400/40 text-purple-200 hover:text-white text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer shadow-[0_0_15px_rgba(168,85,247,0.2)]">
+                    <span>Manage Universal Base</span>
+                    <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                </button>
             </div>
 
             <!-- ATTENTION BAR (Cosmic Glow Alert) -->
@@ -400,8 +439,12 @@
                             <span class="text-[10px] text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-1 rounded-full flex items-center gap-1 font-mono"><i data-lucide="zap" class="w-3 h-3"></i> Ready</span>
                         </div>
                         <div class="flex gap-3">
-                            <input id="scrapeUrlInput" placeholder="https://en.wikipedia.org/wiki/Quantum_computing" class="flex-1 bg-[#060b17] border border-blue-500/30 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-cyan-400 font-mono" />
+                            <input id="scrapeUrlInput" placeholder="https://appdeft.ai" class="flex-1 bg-[#060b17] border border-blue-500/30 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-cyan-400 font-mono" />
                             <button onclick="submitScrape()" class="glow-btn text-white font-bold px-6 py-2.5 rounded-xl whitespace-nowrap">Scan & Index</button>
+                        </div>
+                        <div id="domainQuickScrapeNotice" class="hidden text-[11px] text-cyan-400/90 flex items-center justify-between bg-blue-950/40 border border-cyan-500/20 px-3 py-1.5 rounded-xl">
+                            <span class="flex items-center gap-1.5"><i data-lucide="globe" class="w-3.5 h-3.5 text-cyan-400"></i> Target Domain: <strong id="quickDomainName" class="text-white font-mono"></strong></span>
+                            <button type="button" onclick="quickScrapeDomain()" class="text-xs text-cyan-300 hover:text-cyan-100 underline font-bold cursor-pointer flex items-center gap-1">⚡ Auto-Index Target Website</button>
                         </div>
                     </div>
 
@@ -409,6 +452,10 @@
                         <div>
                             <h2 class="text-base font-bold text-white">Upload Knowledge Documents</h2>
                             <p class="text-[11px] text-slate-400 mt-1 max-w-sm">PDF catalogs, spec sheets, price lists, or proprietary whitepapers.</p>
+                            <div class="mt-1.5 flex items-center gap-2 text-[10px] text-cyan-400 font-mono">
+                                <span class="px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/30 font-semibold">📦 Limit: 500 MB per file</span>
+                                <span class="text-slate-400">Supports PDF, CSV, DOCX, TXT, ZIP, Images</span>
+                            </div>
                         </div>
                         <div class="flex gap-3 items-center bg-[#060b17] border border-blue-500/30 rounded-xl p-2">
                             <input type="file" id="fileUploadInput" class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-600/30 file:text-cyan-300 hover:file:bg-blue-600/50 cursor-pointer" />
@@ -438,9 +485,28 @@
                         <div class="w-full bg-[#060b17] rounded-full h-2 overflow-hidden mb-4 p-0.5 border border-blue-500/20">
                             <div id="activeTokenBar" class="bg-gradient-to-r from-blue-600 to-cyan-400 h-1.5 rounded-full shadow-[0_0_10px_#22d3ee] transition-all duration-500" style="width: 0%"></div>
                         </div>
-                        <div class="border-t border-blue-500/20 pt-4">
-                            <h4 class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Indexed Sources</h4>
-                            <div id="activeSourcesList" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+                        <div class="border-t border-blue-500/20 pt-4 space-y-4">
+                            <!-- 1. Universal Knowledge (Inherited) -->
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="text-[10px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                                        <i data-lucide="globe" class="w-3.5 h-3.5"></i> Universal Base (Inherited)
+                                    </h4>
+                                    <span id="activeUniversalCount" class="text-[10px] font-mono text-purple-300 bg-purple-950/60 px-2 py-0.5 rounded-full border border-purple-500/30">0 sources</span>
+                                </div>
+                                <div id="activeUniversalSourcesList" class="space-y-1.5 max-h-36 overflow-y-auto pr-1"></div>
+                            </div>
+
+                            <!-- 2. Bot-Specific Sources -->
+                            <div class="border-t border-blue-500/20 pt-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                                        <i data-lucide="bot" class="w-3.5 h-3.5 text-cyan-400"></i> Bot-Specific Sources
+                                    </h4>
+                                    <span id="activeBotSourceCount" class="text-[10px] font-mono text-cyan-300 bg-blue-950/60 px-2 py-0.5 rounded-full border border-cyan-500/30">0 sources</span>
+                                </div>
+                                <div id="activeSourcesList" class="space-y-1.5 max-h-48 overflow-y-auto pr-1"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -449,7 +515,7 @@
             <!-- TAB 3: TEST PIPELINE -->
             <div id="view-test" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-5">
                 <!-- 1. ChatGPT-Style Chat Sessions Sidebar -->
-                <div class="lg:col-span-3 glow-box rounded-3xl p-4 flex flex-col h-[540px] space-y-3">
+                <div class="lg:col-span-3 glow-box rounded-3xl p-4 flex flex-col h-[540px] space-y-3 min-w-0">
                     <div class="flex items-center justify-between pb-2.5 border-b border-blue-500/20">
                         <span class="font-bold text-white text-xs flex items-center gap-1.5">
                             <i data-lucide="messages-square" class="w-4 h-4 text-cyan-400"></i> Conversations
@@ -462,7 +528,7 @@
                 </div>
 
                 <!-- 2. Main Chat Box -->
-                <div class="lg:col-span-6 glow-box rounded-3xl p-5 flex flex-col h-[540px]">
+                <div class="lg:col-span-6 glow-box rounded-3xl p-5 flex flex-col h-[540px] min-w-0 overflow-hidden">
                     <div class="pb-3 border-b border-blue-500/20 flex items-center justify-between">
                         <div class="flex items-center gap-2 truncate mr-2">
                             <span class="w-2.5 h-2.5 bg-cyan-400 rounded-full shadow-[0_0_10px_#22d3ee] animate-pulse shrink-0"></span>
@@ -476,19 +542,19 @@
                         </div>
                     </div>
 
-                    <div id="testChatBox" class="flex-1 overflow-y-auto space-y-4 py-4 text-xs"></div>
+                    <div id="testChatBox" class="w-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden space-y-4 py-4 text-xs break-words pr-1"></div>
 
                     <div class="flex gap-2 pt-3 border-t border-blue-500/20">
-                        <input id="testChatInput" placeholder="Query knowledge base in test sandbox or click mic..." class="flex-1 bg-[#060b17] border border-blue-500/30 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-cyan-400" onkeydown="if(event.key==='Enter') sendOwnerTest()" />
-                        <button id="dashboardMicBtn" onclick="toggleDashboardVoiceInput()" title="Voice Input" class="bg-[#0b1329] border border-blue-500/30 hover:border-cyan-400 text-slate-400 hover:text-cyan-300 p-2.5 rounded-xl transition cursor-pointer">
+                        <input id="testChatInput" placeholder="Query knowledge base in test sandbox or click mic..." class="flex-1 min-w-0 bg-[#060b17] border border-blue-500/30 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-cyan-400" onkeydown="if(event.key==='Enter') sendOwnerTest()" />
+                        <button id="dashboardMicBtn" onclick="toggleDashboardVoiceInput()" title="Voice Input" class="bg-[#0b1329] border border-blue-500/30 hover:border-cyan-400 text-slate-400 hover:text-cyan-300 p-2.5 rounded-xl transition cursor-pointer shrink-0">
                             <i id="dashMicIcon" data-lucide="mic" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="sendOwnerTest()" class="glow-btn px-5 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer">Send</button>
+                        <button onclick="sendOwnerTest()" class="glow-btn px-5 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer shrink-0">Send</button>
                     </div>
                 </div>
 
                 <!-- 3. Telemetry & Evidence Inspector -->
-                <div class="lg:col-span-3 space-y-4">
+                <div class="lg:col-span-3 space-y-4 min-w-0">
                     <div class="glow-box p-5 rounded-3xl sticky top-20 space-y-4">
                         <h3 class="font-bold text-white text-xs flex items-center gap-1.5">
                             <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i> Retrieval Telemetry
@@ -520,6 +586,41 @@
                     <div class="text-[10px] text-slate-500 flex justify-between items-center pt-1 border-t border-blue-500/20">
                         <span>Zero-hallucination verification</span>
                         <button onclick="closeDashboardEvidence()" class="glow-btn px-4 py-1.5 rounded-xl text-xs text-white font-bold cursor-pointer">Done</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PDF Viewer Modal (Dashboard) -->
+            <div id="dashPdfViewerModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4" onclick="if(event.target===this) closePdfViewerModal()">
+                <div class="bg-[#0b1329] border border-cyan-500/40 rounded-3xl text-white shadow-2xl w-full max-w-5xl h-[88vh] flex flex-col glow-box overflow-hidden">
+                    <div class="flex items-center justify-between border-b border-blue-500/20 px-5 py-3.5 bg-blue-950/50 shrink-0">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-9 h-9 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center shrink-0 text-red-400 shadow-inner">
+                                <i data-lucide="file-text" class="w-5 h-5"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div id="dashPdfModalTitle" class="text-sm font-bold text-white truncate">Product Specifications & Catalogue</div>
+                                <div class="text-[10px] text-cyan-400 font-mono flex items-center gap-1.5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Official Certified Corporate Document
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <a id="dashPdfModalNewTab" href="#" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-xl bg-blue-600/30 hover:bg-blue-600/50 text-cyan-200 border border-cyan-400/40 text-xs font-semibold flex items-center gap-1.5 transition">
+                                <i data-lucide="external-link" class="w-3.5 h-3.5 text-cyan-400"></i>
+                                <span>New Tab</span>
+                            </a>
+                            <a id="dashPdfModalDownload" href="#" download class="glow-btn px-3.5 py-1.5 rounded-xl text-black text-xs font-bold flex items-center gap-1.5 shadow-md transition">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                <span>Download PDF</span>
+                            </a>
+                            <button onclick="closePdfViewerModal()" class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition cursor-pointer ml-1">
+                                <i data-lucide="x" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex-1 w-full bg-[#040814] relative">
+                        <iframe id="dashPdfFrame" src="" class="w-full h-full border-0" title="PDF Document Viewer"></iframe>
                     </div>
                 </div>
             </div>
@@ -658,6 +759,126 @@
 
         </div>
 
+        <!-- 3. UNIVERSAL KNOWLEDGE VIEW -->
+        <div id="universalKnowledgeView" class="hidden space-y-6">
+            <!-- Back button -->
+            <button onclick="showHomeView()" class="text-slate-400 hover:text-cyan-400 flex items-center gap-1.5 font-bold transition cursor-pointer">
+                <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> All Agents & Home
+            </button>
+
+            <!-- Top Cosmic Header -->
+            <div class="glow-box p-6 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4 border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-blue-950/30 to-[#060b17]">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-cyan-400 flex items-center justify-center text-white shadow-[0_0_25px_rgba(168,85,247,0.5)] shrink-0">
+                        <i data-lucide="globe" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2.5">
+                            <h1 class="text-xl font-black text-white tracking-tight">Universal Knowledge Base</h1>
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold">Inherited by All Bots</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1">Shared organization intelligence, product catalogues, and documentation inherited automatically by every AI agent.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 shrink-0">
+                    <div class="px-4 py-2 rounded-2xl bg-[#060b17]/80 border border-purple-500/30 text-right">
+                        <div class="text-[10px] uppercase tracking-wider text-slate-400 font-mono">Active Inheriting Agents</div>
+                        <div id="univActiveBotsCount" class="text-lg font-black text-cyan-400 font-mono">0 Bots</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="glow-box p-4 rounded-2xl space-y-1">
+                    <div class="text-slate-400 text-[11px] font-medium flex items-center gap-2">
+                        <i data-lucide="layers" class="w-4 h-4 text-purple-400"></i> Universal Sources
+                    </div>
+                    <div id="univStatSources" class="text-2xl font-black text-white">0</div>
+                </div>
+                <div class="glow-box p-4 rounded-2xl space-y-1">
+                    <div class="text-slate-400 text-[11px] font-medium flex items-center gap-2">
+                        <i data-lucide="cpu" class="w-4 h-4 text-cyan-400"></i> Vector Chunks
+                    </div>
+                    <div id="univStatChunks" class="text-2xl font-black text-white font-mono">0</div>
+                </div>
+                <div class="glow-box p-4 rounded-2xl space-y-1">
+                    <div class="text-slate-400 text-[11px] font-medium flex items-center gap-2">
+                        <i data-lucide="database" class="w-4 h-4 text-emerald-400"></i> Vector Memory Allocated
+                    </div>
+                    <div id="univStatTokens" class="text-2xl font-black text-white font-mono">0 tokens</div>
+                </div>
+            </div>
+
+            <!-- Ingestion & Sources Layout -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left Ingestion Tools (8 cols) -->
+                <div class="lg:col-span-8 space-y-5">
+                    <!-- Tool 1: File Upload -->
+                    <div class="glow-box p-6 rounded-3xl space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="upload-cloud" class="w-4 h-4 text-cyan-400"></i> Ingest Universal Document
+                                </h2>
+                                <p class="text-slate-400 text-xs mt-0.5">Upload product catalogues, technical manuals, price sheets, zip archives, or policies (Supports up to 500 MB).</p>
+                            </div>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 self-start sm:self-auto shrink-0">PDF, CSV, TXT, DOCX, ZIP &bull; Max 500MB</span>
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-[#060b17] border border-blue-500/30 rounded-2xl p-2.5">
+                            <input type="file" id="univFileUploadInput" class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-purple-600/30 file:text-purple-200 hover:file:bg-purple-600/50 cursor-pointer" />
+                            <button onclick="submitUniversalFile()" class="glow-btn px-6 py-2.5 rounded-xl text-xs font-bold text-white shrink-0 cursor-pointer">Index to Universal</button>
+                        </div>
+                    </div>
+
+                    <!-- Tool 2: Web Scrape -->
+                    <div class="glow-box p-6 rounded-3xl space-y-4">
+                        <div>
+                            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                                <i data-lucide="globe" class="w-4 h-4 text-blue-400"></i> Universal Web Crawler
+                            </h2>
+                            <p class="text-slate-400 text-xs mt-0.5">Extract and vectorize live documentation, portals, or website sections for all bots.</p>
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <input id="univScrapeUrlInput" placeholder="https://example.com/company-policy or /catalogue" class="flex-1 bg-[#060b17] border border-blue-500/30 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-cyan-400" />
+                            <button onclick="submitUniversalScrape()" class="bg-blue-600/30 hover:bg-blue-600/50 border border-cyan-400/40 text-cyan-200 font-bold px-5 py-2.5 rounded-xl text-xs whitespace-nowrap transition cursor-pointer flex items-center justify-center gap-2">
+                                <i data-lucide="scan" class="w-3.5 h-3.5"></i> Scrape & Index
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tool 3: Custom Text / Policy Note -->
+                    <div class="glow-box rounded-3xl overflow-hidden">
+                        <button onclick="document.getElementById('univManualNoteBox').classList.toggle('hidden')" class="w-full p-5 flex justify-between items-center text-left text-xs font-bold text-white hover:bg-blue-600/10 transition cursor-pointer">
+                            <span class="flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4 text-purple-400"></i> Add Universal Grounding Fact or Policy Note</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
+                        </button>
+                        <div id="univManualNoteBox" class="hidden p-6 pt-0 space-y-3 border-t border-blue-500/20">
+                            <input id="univNoteTitle" placeholder="Title (e.g. Universal Return Policy, Hardware Warranty)" class="w-full bg-[#060b17] border border-blue-500/30 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-cyan-400" />
+                            <textarea id="univNoteText" rows="4" placeholder="Type universal grounding prose that every agent in your workspace should know..." class="w-full bg-[#060b17] border border-blue-500/30 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-cyan-400"></textarea>
+                            <button onclick="submitUniversalNote()" class="glow-btn text-white font-bold px-6 py-2.5 rounded-xl text-xs w-full cursor-pointer">Save to Universal Vector Store</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Sources List (4 cols) -->
+                <div class="lg:col-span-4 space-y-4">
+                    <div class="glow-box p-6 rounded-3xl sticky top-20 space-y-3">
+                        <div class="flex items-center justify-between border-b border-blue-500/20 pb-3">
+                            <h3 class="text-xs font-bold text-white flex items-center gap-2">
+                                <i data-lucide="database" class="w-4 h-4 text-purple-400"></i> Indexed Sources (<span id="univSourceCountHeading">0</span>)
+                            </h3>
+                            <button onclick="loadUniversalSources()" class="text-slate-400 hover:text-cyan-400 p-1 transition cursor-pointer" title="Refresh list">
+                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                        <p class="text-[11px] text-slate-400">Every source in this list is automatically searchable by all bots during RAG answering.</p>
+                        <div id="univSourcesList" class="space-y-2 max-h-[480px] overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </main>
 
     <!-- TEAM MODAL -->
@@ -694,6 +915,93 @@
             <div><label class="text-xs text-slate-400 block mb-1">Agent Name</label><input id="newBotName" placeholder="Customer Support AI" class="w-full bg-[#060b17] border border-blue-500/30 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-400" /></div>
             <div><label class="text-xs text-slate-400 block mb-1">Target Website Domain</label><input id="newBotDomain" placeholder="company.com" class="w-full bg-[#060b17] border border-blue-500/30 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-400" /></div>
             <div class="flex gap-2 pt-2"><button onclick="closeNewBotModal()" class="flex-1 bg-slate-900 text-slate-400 py-2.5 rounded-xl font-bold">Cancel</button><button onclick="submitNewBot()" class="flex-1 glow-btn text-white py-2.5 rounded-xl font-bold">Create</button></div>
+        </div>
+    </div>
+
+    <!-- INGESTION PROGRESS MODAL (Animated 4-step pipeline) -->
+    <div id="ingestionProgressModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+        <div class="glow-box rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl border-cyan-500/40 relative overflow-hidden bg-[#0b1329]">
+            <div class="flex items-center justify-between border-b border-blue-500/20 pb-3">
+                <div class="flex items-center gap-2.5 text-sm font-bold text-cyan-400">
+                    <div class="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center">
+                        <i data-lucide="cpu" class="w-4 h-4 text-cyan-300"></i>
+                    </div>
+                    <span id="ingestModalTitle">Neural Knowledge Ingestion</span>
+                </div>
+                <button id="ingestModalCloseBtn" onclick="closeIngestionModal()" class="hidden text-slate-400 hover:text-white cursor-pointer p-1 rounded-lg">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="space-y-1">
+                <div id="ingestTargetName" class="text-xs font-bold text-white truncate">Document Processing</div>
+                <div id="ingestStatusSubtitle" class="text-[11px] text-slate-400">Transforming document into high-dimensional vector embeddings...</div>
+            </div>
+
+            <!-- 4 Step Pipeline Indicator -->
+            <div class="space-y-2.5 py-1">
+                <!-- Step 1 -->
+                <div id="ingestStep1" class="flex items-center gap-3 p-2.5 rounded-xl bg-blue-950/40 border border-blue-500/20 transition-all">
+                    <div class="step-icon w-6 h-6 rounded-full bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300 text-[11px] font-bold">1</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-semibold text-white">Document Parsing & OCR Extraction</div>
+                        <div class="text-[10px] text-slate-400 step-desc">Extracting raw text from pages & tables...</div>
+                    </div>
+                    <div class="step-badge text-[10px] font-mono text-cyan-400">Active</div>
+                </div>
+
+                <!-- Step 2 -->
+                <div id="ingestStep2" class="flex items-center gap-3 p-2.5 rounded-xl bg-[#060b17] border border-slate-800 transition-all opacity-60">
+                    <div class="step-icon w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 text-[11px] font-bold">2</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-semibold text-slate-300">Semantic Boundary Chunking</div>
+                        <div class="text-[10px] text-slate-500 step-desc">Splitting paragraphs with 600-char overlap...</div>
+                    </div>
+                    <div class="step-badge text-[10px] font-mono text-slate-500">Waiting</div>
+                </div>
+
+                <!-- Step 3 -->
+                <div id="ingestStep3" class="flex items-center gap-3 p-2.5 rounded-xl bg-[#060b17] border border-slate-800 transition-all opacity-60">
+                    <div class="step-icon w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 text-[11px] font-bold">3</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-semibold text-slate-300">Neural Embedding Vectorization</div>
+                        <div class="text-[10px] text-slate-500 step-desc">Computing 384-dimensional dense vectors...</div>
+                    </div>
+                    <div class="step-badge text-[10px] font-mono text-slate-500">Waiting</div>
+                </div>
+
+                <!-- Step 4 -->
+                <div id="ingestStep4" class="flex items-center gap-3 p-2.5 rounded-xl bg-[#060b17] border border-slate-800 transition-all opacity-60">
+                    <div class="step-icon w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 text-[11px] font-bold">4</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-semibold text-slate-300">PostgreSQL Vector Indexing</div>
+                        <div class="text-[10px] text-slate-500 step-desc">Committing to pgvector IVFFlat index...</div>
+                    </div>
+                    <div class="step-badge text-[10px] font-mono text-slate-500">Waiting</div>
+                </div>
+            </div>
+
+            <!-- Telemetry Stats (shown on completion) -->
+            <div id="ingestTelemetryStats" class="hidden p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/30 grid grid-cols-3 gap-2 text-center">
+                <div>
+                    <div class="text-[10px] text-slate-400 font-mono">Chunks Created</div>
+                    <div id="ingestMetricChunks" class="text-sm font-black text-cyan-300 font-mono">0</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-slate-400 font-mono">Tokens Vectorized</div>
+                    <div id="ingestMetricTokens" class="text-sm font-black text-white font-mono">0</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-slate-400 font-mono">Processing Time</div>
+                    <div id="ingestMetricTime" class="text-sm font-black text-emerald-400 font-mono">0s</div>
+                </div>
+            </div>
+
+            <div id="ingestDoneBtnContainer" class="hidden pt-1">
+                <button onclick="closeIngestionModal()" class="glow-btn w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer flex items-center justify-center gap-1.5">
+                    <i data-lucide="check" class="w-4 h-4"></i> Ready & Grounded
+                </button>
+            </div>
         </div>
     </div>
 
@@ -803,23 +1111,124 @@
 
         let activeSessionId = null;
 
+        function getBotWelcomeGreeting(bData) {
+            const bName = (bData && bData.name) ? bData.name : 'Kiavi IQ';
+            let bDomain = 'our official products & services';
+            if (bData && bData.sources && bData.sources.length > 0) {
+                const webSrc = bData.sources.find(s => s.type === 'WEBSITE' && s.title);
+                if (webSrc) {
+                    try {
+                        const rawUrl = webSrc.title.startsWith('http') ? webSrc.title : 'https://' + webSrc.title;
+                        const u = new URL(rawUrl);
+                        bDomain = u.hostname.replace(/^www\./, '');
+                    } catch(e) {
+                        bDomain = webSrc.title;
+                    }
+                }
+            }
+            return `I am ${bName}, your AI assistant for ${bDomain}. I can assist you with official documentation, services, pricing, and contact information. How can I help you today?`;
+        }
+
+        let activeBotUniversalSources = [];
+        let activeBotSpecificSources = [];
+
+        function getInitialFollowupChips() {
+            const options = [];
+            const allSources = [...(activeBotSpecificSources || []), ...(activeBotUniversalSources || [])];
+
+            if (allSources.length > 0) {
+                options.push("Explore Product Catalogue 📁");
+                allSources.forEach(s => {
+                    if (options.length >= 4) return;
+                    let clean = (s.title || '').replace(/\.[a-zA-Z0-9]+$/, '').replace(/\|.*$/, '').trim();
+                    if (/steel|metal|iron/i.test(clean)) {
+                        options.push("Explore Steel & Metal Specs");
+                    } else if (/sports|archive|shoe|badminton|footwear/i.test(clean)) {
+                        options.push("Explore Sports & Footwear Items");
+                    } else if (/vasudev|software|development/i.test(clean)) {
+                        options.push("AI & Software Development Services");
+                    } else if (/vedaone|valuation|financial/i.test(clean)) {
+                        options.push("Financial Valuation AI");
+                    } else if (/nykaa|beauty|cosmetics/i.test(clean)) {
+                        options.push("Explore Cosmetics & Beauty Store");
+                    } else if (/youtube/i.test(clean)) {
+                        options.push("YouTube Services & Guidelines");
+                    } else if (clean.length > 3 && clean.length < 35) {
+                        options.push("Explore " + clean);
+                    }
+                });
+            }
+
+            if (!options.some(o => /contact|address|support/i.test(o))) {
+                if (options.length < 4) {
+                    options.push("Official Address & Contact");
+                }
+            }
+
+            if (options.length < 2) {
+                options.push("Explore Product Catalogue 📁", "Company Services", "Pricing & Details", "Official Address & Contact");
+            }
+
+            return {
+                prompt: "Here are popular areas and documents you can explore:",
+                options: [...new Set(options)].slice(0, 4)
+            };
+        }
+
+        function runTypewriterGreeting(targetEl, fullText, speed = 18, onComplete) {
+            if (!targetEl) {
+                if (onComplete) onComplete();
+                return;
+            }
+            targetEl.innerHTML = '<span class="tw-content"></span><span class="typewriter-cursor">|</span>';
+            const contentSpan = targetEl.querySelector('.tw-content');
+            const cursorSpan = targetEl.querySelector('.typewriter-cursor');
+            let idx = 0;
+            const timer = setInterval(() => {
+                if (idx < fullText.length) {
+                    contentSpan.textContent += fullText.charAt(idx);
+                    idx++;
+                } else {
+                    clearInterval(timer);
+                    if (cursorSpan) cursorSpan.remove();
+                    targetEl.innerHTML = formatMarkdownWithImages(fullText);
+                    lucide.createIcons();
+                    if (onComplete) onComplete();
+                }
+            }, speed);
+        }
+
         function getBotSessions(botId) {
             if (!botId) return [];
             try {
                 const raw = localStorage.getItem('kiavi_bot_sessions_v5_' + botId);
                 let sessions = raw ? JSON.parse(raw) : [];
+                const bGreeting = getBotWelcomeGreeting(activeBotData);
+                const defaultChips = getInitialFollowupChips();
+
                 if (!sessions || sessions.length === 0) {
-                    const bGreeting = (activeBotData && activeBotData.greeting) ? activeBotData.greeting : "Hello! How can I assist you today?";
                     const newSess = {
                         id: 'sess_' + Date.now(),
                         title: 'Conversation 1',
                         createdAt: formatTimeNow(),
                         messages: [
-                            { role: 'BOT', content: bGreeting, time: formatTimeNow(), isGreeting: true }
+                            { role: 'BOT', content: bGreeting, time: formatTimeNow(), isGreeting: true, followup: defaultChips, typewriterShown: false }
                         ]
                     };
                     sessions = [newSess];
                     saveBotSessions(botId, sessions);
+                } else {
+                    sessions.forEach(s => {
+                        if (s.messages && s.messages.length === 1 && s.messages[0].role === 'BOT' && s.messages[0].isGreeting) {
+                            if (s.messages[0].content.startsWith("Hello!") || s.messages[0].content.includes("secure channel")) {
+                                s.messages[0].content = bGreeting;
+                                s.messages[0].followup = defaultChips;
+                                s.messages[0].typewriterShown = false;
+                            } else if (!s.messages[0].followup) {
+                                s.messages[0].followup = defaultChips;
+                            }
+                        }
+                    });
                 }
                 return sessions;
             } catch(e) {
@@ -837,13 +1246,14 @@
         function createNewChatSession() {
             if (!activeBotId) return;
             const sessions = getBotSessions(activeBotId);
-            const bGreeting = (activeBotData && activeBotData.greeting) ? activeBotData.greeting : "Hello! How can I assist you today?";
+            const bGreeting = getBotWelcomeGreeting(activeBotData);
+            const defaultChips = getInitialFollowupChips();
             const newSess = {
                 id: 'sess_' + Date.now(),
                 title: 'Conversation ' + (sessions.length + 1),
                 createdAt: formatTimeNow(),
                 messages: [
-                    { role: 'BOT', content: bGreeting, time: formatTimeNow(), isGreeting: true }
+                    { role: 'BOT', content: bGreeting, time: formatTimeNow(), isGreeting: true, followup: defaultChips, typewriterShown: false }
                 ]
             };
             sessions.unshift(newSess);
@@ -865,13 +1275,14 @@
             let sessions = getBotSessions(activeBotId);
             sessions = sessions.filter(s => s.id !== sessId);
             if (sessions.length === 0) {
-                const bGreeting = (activeBotData && activeBotData.greeting) ? activeBotData.greeting : "Hello! How can I assist you today?";
+                const bGreeting = getBotWelcomeGreeting(activeBotData);
+                const defaultChips = getInitialFollowupChips();
                 sessions = [{
                     id: 'sess_' + Date.now(),
                     title: 'Conversation 1',
                     createdAt: formatTimeNow(),
                     messages: [
-                        { role: 'BOT', content: bGreeting, time: formatTimeNow(), isGreeting: true }
+                        { role: 'BOT', content: bGreeting, time: formatTimeNow(), isGreeting: true, followup: defaultChips, typewriterShown: false }
                     ]
                 }];
             }
@@ -884,9 +1295,10 @@
             if (!activeBotId) return;
             const sessions = getBotSessions(activeBotId);
             let sess = sessions.find(s => s.id === activeSessionId) || sessions[0];
-            const bGreeting = (activeBotData && activeBotData.greeting) ? activeBotData.greeting : "Hello! How can I assist you today?";
+            const bGreeting = getBotWelcomeGreeting(activeBotData);
+            const defaultChips = getInitialFollowupChips();
             sess.messages = [
-                { role: 'BOT', content: bGreeting, time: formatTimeNow(), isGreeting: true }
+                { role: 'BOT', content: bGreeting, time: formatTimeNow(), isGreeting: true, followup: defaultChips, typewriterShown: false }
             ];
             sess.title = 'Conversation 1';
             saveBotSessions(activeBotId, sessions);
@@ -930,33 +1342,68 @@
             const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0];
             const msgs = (activeSession && activeSession.messages) ? activeSession.messages : [];
 
-            testBox.innerHTML = msgs.map(m => {
+            testBox.innerHTML = msgs.map((m, idx) => {
                 if (m.role === 'USER') {
                     return `
-                        <div class="flex flex-col items-end">
-                            <span class="glow-btn text-white px-4 py-2.5 rounded-2xl inline-block max-w-md shadow-md">${m.content}</span>
+                        <div class="flex flex-col items-end w-full">
+                            <span class="glow-btn text-white px-4 py-2.5 rounded-2xl inline-block max-w-[85%] sm:max-w-md shadow-md break-words">${m.content}</span>
                             <span class="text-[9px] text-slate-500 mt-1 mr-1 font-mono">${m.time}</span>
                         </div>
                     `;
                 } else {
+                    const isUnshownGreeting = m.isGreeting && !m.typewriterShown;
+                    const twSpanId = isUnshownGreeting ? `dash_greeting_text_${idx}` : '';
+                    const twFollowupId = isUnshownGreeting ? `dash_greeting_followup_${idx}` : '';
+
                     return `
-                        <div class="flex flex-col items-start space-y-1">
-                            <div class="flex items-start gap-2 w-full max-w-md">
-                                <span class="glow-box p-3.5 rounded-2xl inline-block flex-1 text-slate-200 leading-relaxed border-blue-500/30">
-                                    ${formatMarkdownWithImages(m.content)}
-                                </span>
-                                <button onclick="speakDashboardText(this, this.parentElement.innerText)" class="mt-1 text-slate-400 hover:text-cyan-400 p-1.5 rounded-xl transition cursor-pointer" title="Read Aloud">
+                        <div class="flex flex-col items-start space-y-1 w-full min-w-0 max-w-full">
+                            <div class="flex items-start gap-2 w-full min-w-0 max-w-full">
+                                <div ${twSpanId ? `id="${twSpanId}"` : ''} class="glow-box p-3.5 rounded-2xl w-full min-w-0 max-w-full sm:max-w-xl text-slate-200 leading-relaxed border-blue-500/30 break-words overflow-x-hidden">
+                                    ${isUnshownGreeting ? '' : formatMarkdownWithImages((m.content && m.content.trim()) ? m.content : "Here are the verified details from the knowledge base:")}
+                                </div>
+                                <button onclick="speakDashboardText(this, this.parentElement.innerText)" class="mt-1 text-slate-400 hover:text-cyan-400 p-1.5 rounded-xl transition cursor-pointer shrink-0" title="Read Aloud">
                                     <i data-lucide="volume-2" class="w-4 h-4"></i>
                                 </button>
                             </div>
                             ${m.sources && m.sources.length > 0 ? `
-                                <div class="flex flex-wrap gap-1.5 mt-1 pt-1">
+                                <div class="flex flex-wrap gap-1.5 mt-1 pt-1 max-w-full">
                                     ${m.sources.map(s => `
                                         <button onclick="showDashboardEvidence('${(s.title || '').replace(/'/g, "\\'")}', '${(s.snippet || '').replace(/'/g, "\\'").replace(/\n/g, " ")}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium transition cursor-pointer">
                                             <i data-lucide="file-check" class="w-3 h-3"></i>
                                             <span>${(s.title || '').length > 22 ? (s.title || '').substring(0, 20) + '...' : (s.title || 'Source')}</span>
                                         </button>
                                     `).join('')}
+                                </div>
+                            ` : ''}
+                            ${m.followup && m.followup.options && m.followup.options.length > 0 ? `
+                                <div ${twFollowupId ? `id="${twFollowupId}"` : ''} class="mt-2.5 p-3 rounded-2xl bg-[#091326] border border-cyan-500/30 w-full min-w-0 max-w-full sm:max-w-xl shadow-lg ${isUnshownGreeting ? 'hidden' : ''}">
+                                    <div class="flex items-center gap-1.5 text-[11px] font-medium text-cyan-300 mb-2">
+                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i>
+                                        <span>${m.followup.prompt || 'Related topics & next steps:'}</span>
+                                    </div>
+                                    <div class="flex flex-wrap gap-2">
+                                        ${m.followup.options.map(opt => `
+                                            <button type="button" 
+                                                    onclick="handleDashboardFollowup(this, '${opt.replace(/'/g, "\\'")}', '${(m.followup.prompt || '').replace(/'/g, "\\'")}')" 
+                                                    ${m.followup.selected ? 'disabled' : ''}
+                                                    class="px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                                                        m.followup.selected === opt 
+                                                            ? 'bg-cyan-500 text-black shadow-md font-bold' 
+                                                            : (m.followup.selected 
+                                                                ? 'bg-slate-800/40 text-slate-500 border border-slate-700/40 cursor-not-allowed opacity-60' 
+                                                                : 'bg-blue-600/25 hover:bg-cyan-500 hover:text-black text-cyan-200 border border-cyan-400/40 hover:border-cyan-300 shadow-sm active:scale-95')
+                                                    }">
+                                                <span>${opt}</span>
+                                                <i data-lucide="arrow-right" class="w-3 h-3 opacity-70"></i>
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                    ${m.followup.dismissed ? `
+                                        <div class="mt-2 text-[10px] text-slate-400 italic flex items-center gap-1">
+                                            <i data-lucide="check" class="w-3 h-3 text-cyan-400"></i>
+                                            <span>Understood! Let me know if you need anything else.</span>
+                                        </div>
+                                    ` : ''}
                                 </div>
                             ` : ''}
                             <div class="flex items-center gap-1.5 text-[9px] text-slate-500 mt-1 ml-1 font-mono">
@@ -970,6 +1417,25 @@
             }).join('');
             lucide.createIcons();
             testBox.scrollTop = testBox.scrollHeight;
+
+            // Trigger typewriter animation for any unshown greeting
+            msgs.forEach((m, idx) => {
+                if (m.role === 'BOT' && m.isGreeting && !m.typewriterShown) {
+                    const spanEl = document.getElementById(`dash_greeting_text_${idx}`);
+                    const flEl = document.getElementById(`dash_greeting_followup_${idx}`);
+                    if (spanEl) {
+                        runTypewriterGreeting(spanEl, m.content, 18, () => {
+                            m.typewriterShown = true;
+                            saveBotSessions(botId, sessions);
+                            if (flEl) {
+                                flEl.classList.remove('hidden');
+                                lucide.createIcons();
+                                testBox.scrollTop = testBox.scrollHeight;
+                            }
+                        });
+                    }
+                }
+            });
         }
 
         async function openBotWorkspace(botId, targetTab = 'appearance') {
@@ -986,6 +1452,8 @@
             localStorage.removeItem('kiavi_active_tab');
 
             document.getElementById('homeView').classList.add('hidden');
+            const uv = document.getElementById('universalKnowledgeView');
+            if (uv) uv.classList.add('hidden');
             document.getElementById('botWorkspaceView').classList.remove('hidden');
 
             document.getElementById('activeBotName').innerText = activeBotData.name;
@@ -1002,13 +1470,23 @@
             if (document.getElementById('botWebhookUrl')) {
                 document.getElementById('botWebhookUrl').value = activeBotData.webhookUrl || '';
             }
-            if (activeBotData.logoUrl) {
-                document.getElementById('botLogoPreview').innerHTML = `<img src="${activeBotData.logoUrl}" class="w-full h-full object-cover rounded-xl" />`;
-                document.getElementById('prevAvatar').innerHTML = `<img src="${activeBotData.logoUrl}" class="w-full h-full object-cover rounded-xl" />`;
-            } else {
-                document.getElementById('botLogoPreview').innerHTML = `<span class="text-[10px] font-bold text-cyan-400">Logo</span>`;
-                document.getElementById('prevAvatar').innerText = (activeBotData.name || 'A').charAt(0).toUpperCase();
+            // Pre-fill Knowledge Tab URL with bot domain & setup quick notice
+            const scrapeInput = document.getElementById('scrapeUrlInput');
+            const quickNotice = document.getElementById('domainQuickScrapeNotice');
+            if (activeBotData.domain) {
+                let dom = activeBotData.domain.trim();
+                if (!dom.startsWith('http://') && !dom.startsWith('https://')) {
+                    dom = 'https://' + dom;
+                }
+                if (scrapeInput) scrapeInput.value = dom;
+                if (quickNotice) {
+                    quickNotice.classList.remove('hidden');
+                    document.getElementById('quickDomainName').innerText = activeBotData.domain;
+                }
             }
+
+            selectedLogoUrl = activeBotData.logoUrl || undefined;
+            updateAvatarDisplay(activeBotData.logoUrl, activeBotData.name);
 
             // Pre-load this bot's chat sessions and active conversation
             renderBotChat(botId);
@@ -1035,36 +1513,64 @@
 
         let selectedLogoUrl = undefined;
 
+        function updateAvatarDisplay(logoUrl, botName) {
+            const name = botName || (activeBotData ? activeBotData.name : 'Agent') || 'Agent';
+            const prevAvatar = document.getElementById('prevAvatar');
+            const logoPrev = document.getElementById('botLogoPreview');
+            const iconBg = document.getElementById('botIconBg');
+
+            if (logoUrl && !logoUrl.includes('placeholder')) {
+                const imgTag = `<img src="${logoUrl}" class="w-full h-full object-cover rounded-xl shadow-inner" onerror="this.style.display='none'; this.parentElement.innerText='${name.charAt(0).toUpperCase()}';" />`;
+                if (prevAvatar) prevAvatar.innerHTML = imgTag;
+                if (logoPrev) logoPrev.innerHTML = `<img src="${logoUrl}" class="w-full h-full object-cover rounded-xl" />`;
+                if (iconBg) iconBg.innerHTML = `<img src="${logoUrl}" class="w-full h-full object-cover rounded-2xl shadow-inner" />`;
+            } else {
+                const initial = name.charAt(0).toUpperCase();
+                if (prevAvatar) prevAvatar.innerText = initial;
+                if (logoPrev) logoPrev.innerHTML = `<span class="text-[10px] font-bold text-cyan-400">Logo</span>`;
+                if (iconBg) {
+                    iconBg.innerHTML = `<i data-lucide="bot" class="w-6 h-6 text-white"></i>`;
+                    lucide.createIcons();
+                }
+            }
+        }
+
+        function quickScrapeDomain() {
+            if (!activeBotData || !activeBotData.domain) return;
+            let dom = activeBotData.domain.trim();
+            if (!dom.startsWith('http://') && !dom.startsWith('https://')) dom = 'https://' + dom;
+            const input = document.getElementById('scrapeUrlInput');
+            if (input) input.value = dom;
+            submitScrape();
+        }
+
         function selectPresetAvatar(avatarUrl) {
             selectedLogoUrl = avatarUrl;
             if (activeBotData) activeBotData.logoUrl = avatarUrl;
-            const prevAvatar = document.getElementById('prevAvatar');
-            if (prevAvatar) {
-                prevAvatar.innerHTML = `<img src="${avatarUrl}" class="w-full h-full object-cover rounded-xl" />`;
-            }
+            updateAvatarDisplay(avatarUrl, activeBotData ? activeBotData.name : 'Agent');
+
             document.querySelectorAll('.avatar-preset-btn').forEach(b => {
-                b.classList.remove('bg-blue-600/40', 'border-cyan-400');
+                b.classList.remove('bg-blue-600/40', 'border-cyan-400', 'shadow-[0_0_15px_rgba(6,182,212,0.5)]');
+                const onclickAttr = b.getAttribute('onclick') || '';
+                if (onclickAttr.includes(avatarUrl)) {
+                    b.classList.add('bg-blue-600/40', 'border-cyan-400', 'shadow-[0_0_15px_rgba(6,182,212,0.5)]');
+                }
             });
-            if (window.event && window.event.currentTarget) {
-                window.event.currentTarget.classList.add('bg-blue-600/40', 'border-cyan-400');
-            }
         }
 
         function autoFetchBrandLogo() {
             if (!activeBotData || !activeBotData.domain) return alert("No domain configured for this bot.");
-            const fetchedUrl = `https://www.google.com/s2/favicons?domain=${activeBotData.domain}&sz=128`;
+            let cleanDomain = activeBotData.domain.replace('https://', '').replace('http://', '').split('/')[0].trim();
+            const fetchedUrl = `https://www.google.com/s2/favicons?domain=${cleanDomain}&sz=128`;
             selectPresetAvatar(fetchedUrl);
-            alert(`✓ Auto-fetched brand logo from ${activeBotData.domain}! Click 'Deploy Appearance Changes' to save.`);
+            alert(`✓ Auto-fetched brand logo for ${cleanDomain}! Click 'Deploy Appearance Changes' below to save.`);
         }
 
         function previewSelectedLogo(input) {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    const prevAvatar = document.getElementById('prevAvatar');
-                    if (prevAvatar) {
-                        prevAvatar.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover rounded-xl" />`;
-                    }
+                    updateAvatarDisplay(e.target.result, activeBotData ? activeBotData.name : 'Agent');
                 };
                 reader.readAsDataURL(input.files[0]);
             }
@@ -1089,10 +1595,7 @@
                 alert("✓ Custom bot logo uploaded successfully!");
                 activeBotData.logoUrl = data.logoUrl;
                 selectedLogoUrl = data.logoUrl;
-                const prevAvatar = document.getElementById('prevAvatar');
-                if (prevAvatar) {
-                    prevAvatar.innerHTML = `<img src="${data.logoUrl}" class="w-full h-full object-cover rounded-xl" />`;
-                }
+                updateAvatarDisplay(data.logoUrl, activeBotData ? activeBotData.name : 'Agent');
             } else {
                 alert("Upload failed: " + (data.detail || "Error"));
             }
@@ -1107,8 +1610,25 @@
             const sessList = document.getElementById('testSessionsList');
             if (sessList) sessList.innerHTML = '';
             document.getElementById('botWorkspaceView').classList.add('hidden');
+            const uv = document.getElementById('universalKnowledgeView');
+            if (uv) uv.classList.add('hidden');
             document.getElementById('homeView').classList.remove('hidden');
             loadHomeBots();
+        }
+
+        function showUniversalKnowledgeView() {
+            localStorage.removeItem('kiavi_active_bot_id');
+            localStorage.removeItem('kiavi_active_tab');
+            activeSessionId = null;
+            const testBox = document.getElementById('testChatBox');
+            if (testBox) testBox.innerHTML = '';
+            const sessList = document.getElementById('testSessionsList');
+            if (sessList) sessList.innerHTML = '';
+            document.getElementById('homeView').classList.add('hidden');
+            document.getElementById('botWorkspaceView').classList.add('hidden');
+            const uv = document.getElementById('universalKnowledgeView');
+            if (uv) uv.classList.remove('hidden');
+            loadUniversalSources();
         }
 
         function switchTab(tab) {
@@ -1168,8 +1688,10 @@
             const suggestions = document.getElementById('editSuggestions').value.trim().split('\n').filter(s => s.trim());
 
             document.getElementById('prevBotTitle').innerText = name;
-            document.getElementById('prevAvatar').innerText = name.charAt(0).toUpperCase();
             document.getElementById('prevGreetingMsg').innerText = greeting;
+
+            const currentLogo = selectedLogoUrl !== undefined ? selectedLogoUrl : (activeBotData ? activeBotData.logoUrl : null);
+            updateAvatarDisplay(currentLogo, name);
 
             // Apply selectedColor to Header and Buttons
             const header = document.getElementById('prevHeader');
@@ -1311,30 +1833,199 @@
             }
         }
 
-        async function loadActiveBotSources() {
-            const res = await fetch(`/api/knowledge/sources/${activeBotId}`, { headers: { 'Authorization': 'Bearer ' + token } });
-            const data = await res.json();
-            document.getElementById('activeUsedTokens').innerText = data.used_tokens.toLocaleString();
-            document.getElementById('activeTokenBar').style.width = Math.min(100, (data.used_tokens / data.max_tokens) * 100) + '%';
+        // ==========================================
+        // NEURAL INGESTION PROGRESS MODAL CONTROLLER
+        // ==========================================
+        let ingestionInterval = null;
 
-            document.getElementById('activeSourcesList').innerHTML = data.sources.map(s => `
-                <div class="p-3 bg-[#060b17] border border-blue-500/20 rounded-xl flex justify-between items-center group hover:border-cyan-500/40 transition">
-                    <div class="flex items-center gap-2.5 overflow-hidden">
-                        <i data-lucide="${s.kind === 'PAGE' ? 'globe' : s.kind === 'FILE' ? 'file-text' : 'pen-tool'}" class="w-3.5 h-3.5 text-cyan-400 shrink-0"></i>
-                        <span class="font-medium text-white text-[11px] truncate">${s.title}</span>
-                    </div>
-                    <button onclick="deleteSource('${s.id}')" class="text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-300 transition ml-2 shrink-0">
-                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                    </button>
-                </div>
-            `).join('');
+        function showIngestionModal(title, targetName) {
+            const modal = document.getElementById('ingestionProgressModal');
+            if (!modal) return;
+            document.getElementById('ingestModalTitle').innerText = title || 'Neural Knowledge Ingestion';
+            document.getElementById('ingestTargetName').innerText = targetName || 'Processing Document...';
+            document.getElementById('ingestStatusSubtitle').innerText = 'Starting extraction and verification pipeline...';
+            document.getElementById('ingestModalCloseBtn').classList.add('hidden');
+            document.getElementById('ingestDoneBtnContainer').classList.add('hidden');
+            document.getElementById('ingestTelemetryStats').classList.add('hidden');
+
+            setIngestStep(1);
+            modal.classList.remove('hidden');
+
+            let currentStep = 1;
+            if (ingestionInterval) clearInterval(ingestionInterval);
+            ingestionInterval = setInterval(() => {
+                if (currentStep < 3) {
+                    currentStep++;
+                    setIngestStep(currentStep);
+                }
+            }, 3000);
+        }
+
+        function setIngestStep(step) {
+            for (let i = 1; i <= 4; i++) {
+                const el = document.getElementById(`ingestStep${i}`);
+                if (!el) continue;
+                const icon = el.querySelector('.step-icon');
+                const badge = el.querySelector('.step-badge');
+                const title = el.querySelector('.text-xs');
+
+                if (i < step) {
+                    el.className = 'flex items-center gap-3 p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 transition-all';
+                    icon.className = 'step-icon w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-300 text-[11px] font-bold';
+                    icon.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i>';
+                    badge.className = 'step-badge text-[10px] font-mono text-emerald-400 font-bold';
+                    badge.innerText = 'Completed';
+                    title.className = 'text-xs font-semibold text-white';
+                } else if (i === step) {
+                    el.className = 'flex items-center gap-3 p-2.5 rounded-xl bg-blue-950/50 border border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.2)] transition-all';
+                    icon.className = 'step-icon w-6 h-6 rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-cyan-300 text-[11px] font-bold animate-pulse';
+                    icon.innerText = i;
+                    badge.className = 'step-badge text-[10px] font-mono text-cyan-400 font-bold animate-pulse';
+                    badge.innerText = 'In Progress...';
+                    title.className = 'text-xs font-semibold text-cyan-200';
+                } else {
+                    el.className = 'flex items-center gap-3 p-2.5 rounded-xl bg-[#060b17] border border-slate-800 transition-all opacity-60';
+                    icon.className = 'step-icon w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 text-[11px] font-bold';
+                    icon.innerText = i;
+                    badge.className = 'step-badge text-[10px] font-mono text-slate-500';
+                    badge.innerText = 'Waiting';
+                    title.className = 'text-xs font-semibold text-slate-400';
+                }
+            }
             lucide.createIcons();
+        }
+
+        function completeIngestionModal(metrics) {
+            if (ingestionInterval) clearInterval(ingestionInterval);
+            setIngestStep(5); // all 4 marked completed
+            document.getElementById('ingestStatusSubtitle').innerText = 'Knowledge successfully vectorized & committed to vector database.';
+            if (metrics) {
+                document.getElementById('ingestMetricChunks').innerText = (metrics.chunks_created || metrics.chunks || 0).toLocaleString();
+                document.getElementById('ingestMetricTokens').innerText = (metrics.tokens || 0).toLocaleString();
+                document.getElementById('ingestMetricTime').innerText = (metrics.embedding_time_ms ? (metrics.embedding_time_ms / 1000).toFixed(1) + 's' : '0.8s');
+                document.getElementById('ingestTelemetryStats').classList.remove('hidden');
+            }
+            document.getElementById('ingestModalCloseBtn').classList.remove('hidden');
+            document.getElementById('ingestDoneBtnContainer').classList.remove('hidden');
+            const doneBtn = document.querySelector('#ingestDoneBtnContainer button');
+            if (doneBtn) {
+                doneBtn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Ready & Grounded';
+                doneBtn.className = 'glow-btn w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer flex items-center justify-center gap-1.5';
+            }
+            lucide.createIcons();
+        }
+
+        function failIngestionModal(errorMsg) {
+            if (ingestionInterval) clearInterval(ingestionInterval);
+            document.getElementById('ingestStatusSubtitle').innerHTML = `<span class="text-rose-400 font-semibold">Error: ${errorMsg || 'Failed to process'}</span>`;
+
+            // Reset all step states to halt cleanly on failure
+            for (let i = 1; i <= 4; i++) {
+                const el = document.getElementById(`ingestStep${i}`);
+                if (!el) continue;
+                const icon = el.querySelector('.step-icon');
+                const badge = el.querySelector('.step-badge');
+                const title = el.querySelector('.text-xs');
+                if (i === 1) {
+                    el.className = 'flex items-center gap-3 p-2.5 rounded-xl bg-red-950/40 border border-red-500/40 transition-all';
+                    icon.className = 'step-icon w-6 h-6 rounded-full bg-red-500/20 border border-red-500 flex items-center justify-center text-red-400 text-[11px] font-bold';
+                    icon.innerHTML = '<i data-lucide="x" class="w-3.5 h-3.5"></i>';
+                    badge.className = 'step-badge text-[10px] font-mono text-red-400 font-bold';
+                    badge.innerText = 'Failed';
+                    title.className = 'text-xs font-semibold text-red-300';
+                } else {
+                    el.className = 'flex items-center gap-3 p-2.5 rounded-xl bg-[#060b17] border border-slate-800 transition-all opacity-40';
+                    icon.className = 'step-icon w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 text-[11px] font-bold';
+                    icon.innerText = i;
+                    badge.className = 'step-badge text-[10px] font-mono text-slate-500';
+                    badge.innerText = 'Halted';
+                    title.className = 'text-xs font-semibold text-slate-500';
+                }
+            }
+
+            document.getElementById('ingestModalCloseBtn').classList.remove('hidden');
+            document.getElementById('ingestDoneBtnContainer').classList.remove('hidden');
+            const doneBtn = document.querySelector('#ingestDoneBtnContainer button');
+            if (doneBtn) {
+                doneBtn.innerHTML = '<i data-lucide="alert-circle" class="w-4 h-4"></i> Dismiss';
+                doneBtn.className = 'bg-red-500/20 hover:bg-red-500/40 text-red-300 border border-red-500/40 w-full py-2.5 rounded-xl text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5';
+            }
+            lucide.createIcons();
+        }
+
+        function closeIngestionModal() {
+            if (ingestionInterval) clearInterval(ingestionInterval);
+            const modal = document.getElementById('ingestionProgressModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        // ==========================================
+        // BOT-SPECIFIC KNOWLEDGE ACTIONS
+        // ==========================================
+        async function loadActiveBotSources() {
+            try {
+                const res = await fetch(`/api/knowledge/sources/${activeBotId}`, { headers: { 'Authorization': 'Bearer ' + token } });
+                const data = await res.json();
+                document.getElementById('activeUsedTokens').innerText = (data.used_tokens || 0).toLocaleString();
+                document.getElementById('activeTokenBar').style.width = Math.min(100, ((data.used_tokens || 0) / (data.max_tokens || 60000)) * 100) + '%';
+
+                activeBotUniversalSources = data.universal_sources || [];
+                activeBotSpecificSources = data.sources || [];
+
+                // 1. Universal Knowledge (Inherited)
+                const uList = document.getElementById('activeUniversalSourcesList');
+                const uBadge = document.getElementById('activeUniversalCount');
+                const uSources = activeBotUniversalSources;
+                if (uBadge) uBadge.innerText = `${uSources.length} sources`;
+                if (uList) {
+                    if (uSources.length === 0) {
+                        uList.innerHTML = `<div class="text-[10px] text-slate-500 italic p-2 border border-dashed border-purple-500/20 rounded-xl">No universal sources inherited yet.</div>`;
+                    } else {
+                        uList.innerHTML = uSources.map(s => `
+                            <div class="p-2.5 bg-[#060b17] border border-purple-500/20 rounded-xl flex justify-between items-center">
+                                <div class="flex items-center gap-2 overflow-hidden min-w-0">
+                                    <i data-lucide="${s.kind === 'PAGE' ? 'globe' : s.kind === 'FILE' ? 'file-text' : 'pen-tool'}" class="w-3.5 h-3.5 text-purple-400 shrink-0"></i>
+                                    <span class="font-medium text-white text-[11px] truncate">${s.title}</span>
+                                </div>
+                                <span class="text-[9px] font-mono text-purple-300 bg-purple-950/60 px-2 py-0.5 rounded-full border border-purple-500/30 shrink-0">Shared</span>
+                            </div>
+                        `).join('');
+                    }
+                }
+
+                // 2. Bot-Specific Sources
+                const bList = document.getElementById('activeSourcesList');
+                const bBadge = document.getElementById('activeBotSourceCount');
+                const bSources = data.sources || [];
+                if (bBadge) bBadge.innerText = `${bSources.length} sources`;
+                if (bList) {
+                    if (bSources.length === 0) {
+                        bList.innerHTML = `<div class="text-[10px] text-slate-500 italic p-2 border border-dashed border-blue-500/20 rounded-xl">No bot-specific files uploaded yet.</div>`;
+                    } else {
+                        bList.innerHTML = bSources.map(s => `
+                            <div class="p-2.5 bg-[#060b17] border border-blue-500/20 rounded-xl flex justify-between items-center group hover:border-cyan-500/40 transition">
+                                <div class="flex items-center gap-2 overflow-hidden min-w-0">
+                                    <i data-lucide="${s.kind === 'PAGE' ? 'globe' : s.kind === 'FILE' ? 'file-text' : 'pen-tool'}" class="w-3.5 h-3.5 text-cyan-400 shrink-0"></i>
+                                    <span class="font-medium text-white text-[11px] truncate">${s.title}</span>
+                                </div>
+                                <button onclick="deleteSource('${s.id}')" class="text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-300 transition ml-2 shrink-0 cursor-pointer" title="Delete source">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        `).join('');
+                    }
+                }
+                lucide.createIcons();
+            } catch (e) {
+                console.error("Failed to load active bot sources", e);
+            }
         }
 
         async function submitScrape() {
             const url = document.getElementById('scrapeUrlInput').value.trim();
             if(!url) return alert("Please enter a valid URL.");
-            const btn = event.target; btn.innerText = "Indexing..."; btn.disabled = true;
+
+            showIngestionModal("Bot Website Crawler", url);
 
             const form = new FormData();
             form.append('bot_id', activeBotId);
@@ -1342,38 +2033,246 @@
 
             try {
                 const res = await fetch('/api/knowledge/scrape', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: form });
-                if(res.ok) { document.getElementById('scrapeUrlInput').value = ""; loadActiveBotSources(); alert("Website content extracted & vectorized."); }
-                else { const err = await res.json(); alert("Scraping failed: " + err.detail); }
-            } catch(e) { alert("Error connecting to server."); }
-            finally { btn.innerText = "Scan & Index"; btn.disabled = false; }
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('scrapeUrlInput').value = "";
+                    completeIngestionModal(data);
+                    loadActiveBotSources();
+                } else {
+                    const err = await res.json().catch(() => ({ detail: "Scraping failed" }));
+                    failIngestionModal(err.detail || "Scraping failed");
+                }
+            } catch(e) {
+                failIngestionModal("Error connecting to server during scrape.");
+            }
         }
 
         async function submitFile() {
-            const file = document.getElementById('fileUploadInput').files[0];
+            const fileInput = document.getElementById('fileUploadInput');
+            const file = fileInput.files[0];
             if(!file) return alert("Please select a file.");
+
+            // 500 MB client-side check
+            const maxBytes = 500 * 1024 * 1024;
+            if (file.size > maxBytes) {
+                return alert("File size exceeds 500 MB limit. Please select a file under 500 MB.");
+            }
+
+            showIngestionModal("Bot Document Ingestion", file.name);
+
             const form = new FormData();
             form.append('bot_id', activeBotId);
             form.append('file', file);
-            const res = await fetch('/api/knowledge/ingest-mixed', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: form });
-            if(res.ok) { document.getElementById('fileUploadInput').value = ""; loadActiveBotSources(); }
-        }
+            try {
+                const res = await fetch('/api/knowledge/ingest-mixed', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: form });
+                if (res.ok) { 
+                    const data = await res.json();
+                    fileInput.value = ""; 
+                    completeIngestionModal(data);
+                    loadActiveBotSources(); 
+                } else {
+                    const err = await res.json().catch(() => ({ detail: "Upload failed" }));
+                    failIngestionModal(err.detail || "Server error during upload");
+                }
+            } catch(e) {
+                failIngestionModal("Connection failed during file upload.");
+            }
+        let activeGapId = null;
+        let activeGapQuestion = null;
 
         async function submitNote() {
             const title = document.getElementById('noteTitle').value.trim();
             const text = document.getElementById('noteText').value.trim();
             if(!text) return alert("Note content cannot be empty.");
+
+            showIngestionModal("Bot Policy Fact Ingestion", title || "Grounding Fact");
+
             const form = new FormData();
             form.append('bot_id', activeBotId);
             form.append('title', title);
             form.append('pasted_text', text);
-            const res = await fetch('/api/knowledge/ingest-mixed', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: form });
-            if(res.ok) { document.getElementById('noteTitle').value = ""; document.getElementById('noteText').value = ""; document.getElementById('manualNoteBox').classList.add('hidden'); loadActiveBotSources(); }
+            if (activeGapId) {
+                form.append('gap_id', activeGapId);
+            }
+            if (activeGapQuestion) {
+                form.append('gap_question', activeGapQuestion);
+            }
+            try {
+                const res = await fetch('/api/knowledge/ingest-mixed', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: form });
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('noteTitle').value = "";
+                    document.getElementById('noteText').value = "";
+                    document.getElementById('manualNoteBox').classList.add('hidden');
+                    activeGapId = null;
+                    activeGapQuestion = null;
+                    completeIngestionModal(data);
+                    loadActiveBotSources();
+                    loadInsights();
+                } else {
+                    const err = await res.json().catch(() => ({ detail: "Save failed" }));
+                    failIngestionModal(err.detail || "Failed to save note");
+                }
+            } catch(e) {
+                failIngestionModal("Error connecting to server.");
+            }
         }
 
         async function deleteSource(id) {
             if(confirm("Delete this knowledge source?")) {
                 await fetch(`/api/knowledge/sources/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
                 loadActiveBotSources();
+            }
+        }
+
+        // ==========================================
+        // UNIVERSAL KNOWLEDGE BASE ACTIONS
+        // ==========================================
+        async function loadUniversalSources() {
+            try {
+                const res = await fetch('/api/knowledge/universal', { headers: { 'Authorization': 'Bearer ' + token } });
+                if (!res.ok) return;
+                const data = await res.json();
+                
+                document.getElementById('univActiveBotsCount').innerText = `${data.active_bots_count || 0} Bots`;
+                document.getElementById('univStatSources').innerText = (data.sources || []).length;
+                document.getElementById('univStatChunks').innerText = (data.total_chunks || 0).toLocaleString();
+                document.getElementById('univStatTokens').innerText = (data.total_tokens || 0).toLocaleString() + ' tokens';
+                document.getElementById('univSourceCountHeading').innerText = (data.sources || []).length;
+
+                const listEl = document.getElementById('univSourcesList');
+                if (!listEl) return;
+
+                if (!data.sources || data.sources.length === 0) {
+                    listEl.innerHTML = `
+                        <div class="p-6 text-center text-slate-500 border border-dashed border-purple-500/20 rounded-2xl">
+                            <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+                            <div class="text-xs">No universal sources yet.</div>
+                            <div class="text-[10px] text-slate-600 mt-0.5">Upload a PDF or paste notes to share with all bots.</div>
+                        </div>
+                    `;
+                } else {
+                    listEl.innerHTML = data.sources.map(s => `
+                        <div class="p-3 bg-[#060b17] border border-purple-500/20 rounded-xl flex justify-between items-center group hover:border-purple-500/40 transition">
+                            <div class="flex items-center gap-2.5 overflow-hidden min-w-0">
+                                <div class="w-7 h-7 rounded-lg bg-purple-500/20 border border-purple-500/40 flex items-center justify-center shrink-0 text-purple-300">
+                                    <i data-lucide="${s.kind === 'PAGE' ? 'globe' : s.kind === 'FILE' ? 'file-text' : 'pen-tool'}" class="w-3.5 h-3.5"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="font-medium text-white text-[11px] truncate">${s.title}</div>
+                                    <div class="text-[9px] text-purple-300/80 font-mono flex items-center gap-1.5">
+                                        <span>${s.tokens ? s.tokens.toLocaleString() + ' tokens' : 'Vectorized'}</span>
+                                        ${s.createdAt ? `<span>&bull; ${s.createdAt}</span>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            <button onclick="deleteUniversalSource('${s.id}')" class="text-slate-500 hover:text-red-400 p-1.5 rounded-lg transition ml-2 shrink-0 cursor-pointer" title="Delete Universal Source">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    `).join('');
+                }
+                lucide.createIcons();
+            } catch (e) {
+                console.error("Failed loading universal sources", e);
+            }
+        }
+
+        async function deleteUniversalSource(id) {
+            if (!confirm("Remove this universal source from all bots?")) return;
+            try {
+                const res = await fetch(`/api/knowledge/universal/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+                if (res.ok) {
+                    loadUniversalSources();
+                } else {
+                    const err = await res.json().catch(() => ({ detail: 'Failed to delete' }));
+                    alert(err.detail || "Could not delete universal source");
+                }
+            } catch (e) {
+                alert("Connection failed");
+            }
+        }
+
+        async function submitUniversalFile() {
+            const fileInput = document.getElementById('univFileUploadInput');
+            const file = fileInput.files[0];
+            if (!file) return alert("Please select a file to ingest into Universal Knowledge.");
+
+            // 500 MB client-side check
+            const maxBytes = 500 * 1024 * 1024;
+            if (file.size > maxBytes) {
+                return alert("File size exceeds 500 MB limit. Please select a file under 500 MB.");
+            }
+
+            showIngestionModal("Universal File Ingestion", file.name);
+
+            const form = new FormData();
+            form.append('file', file);
+            try {
+                const res = await fetch('/api/knowledge/universal/ingest-mixed', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: form });
+                if (res.ok) {
+                    const data = await res.json();
+                    fileInput.value = "";
+                    completeIngestionModal(data);
+                    loadUniversalSources();
+                } else {
+                    const err = await res.json().catch(() => ({ detail: "Ingestion failed" }));
+                    failIngestionModal(err.detail || "Failed to process document");
+                }
+            } catch (e) {
+                failIngestionModal("Server communication error during upload");
+            }
+        }
+
+        async function submitUniversalScrape() {
+            const url = document.getElementById('univScrapeUrlInput').value.trim();
+            if (!url) return alert("Please enter a valid URL.");
+
+            showIngestionModal("Universal Web Crawler", url);
+
+            const form = new FormData();
+            form.append('url', url);
+            try {
+                const res = await fetch('/api/knowledge/universal/scrape', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: form });
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('univScrapeUrlInput').value = "";
+                    completeIngestionModal(data);
+                    loadUniversalSources();
+                } else {
+                    const err = await res.json().catch(() => ({ detail: "Scraping failed" }));
+                    failIngestionModal(err.detail || "Failed to scrape page");
+                }
+            } catch (e) {
+                failIngestionModal("Server error during crawl");
+            }
+        }
+
+        async function submitUniversalNote() {
+            const title = document.getElementById('univNoteTitle').value.trim();
+            const text = document.getElementById('univNoteText').value.trim();
+            if (!text) return alert("Content cannot be empty.");
+
+            showIngestionModal("Universal Policy Ingestion", title || "Universal Note");
+
+            const form = new FormData();
+            form.append('title', title);
+            form.append('pasted_text', text);
+            try {
+                const res = await fetch('/api/knowledge/universal/ingest-mixed', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: form });
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('univNoteTitle').value = "";
+                    document.getElementById('univNoteText').value = "";
+                    document.getElementById('univManualNoteBox').classList.add('hidden');
+                    completeIngestionModal(data);
+                    loadUniversalSources();
+                } else {
+                    const err = await res.json().catch(() => ({ detail: "Save failed" }));
+                    failIngestionModal(err.detail || "Failed to save note");
+                }
+            } catch (e) {
+                failIngestionModal("Error saving universal note");
             }
         }
 
@@ -1403,21 +2302,22 @@
             const box = document.getElementById('testChatBox');
             const msgId = 'stream_' + Date.now();
             box.innerHTML += `
-                <div class="flex flex-col items-start space-y-1">
-                    <div class="flex items-start gap-2 w-full max-w-md">
-                        <span id="${msgId}" class="glow-box p-3.5 rounded-2xl inline-block flex-1 text-slate-200 leading-relaxed border-blue-500/30">
+                <div class="flex flex-col items-start space-y-1 w-full min-w-0 max-w-full">
+                    <div class="flex items-start gap-2 w-full min-w-0 max-w-full">
+                        <div id="${msgId}" class="glow-box p-3.5 rounded-2xl w-full min-w-0 max-w-full sm:max-w-xl text-slate-200 leading-relaxed border-blue-500/30 break-words overflow-x-hidden">
                             <span class="inline-flex items-center gap-1.5 py-0.5 text-cyan-400">
                                 <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 0ms"></span>
                                 <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 150ms"></span>
                                 <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 300ms"></span>
                                 <span class="text-[11px] text-cyan-300 font-mono ml-2">Agent is thinking...</span>
                             </span>
-                        </span>
-                        <button id="${msgId}_tts" onclick="speakDashboardText(this, document.getElementById('${msgId}').innerText)" class="mt-1 text-slate-400 hover:text-cyan-400 p-1.5 rounded-xl transition cursor-pointer" title="Read Aloud">
+                        </div>
+                        <button id="${msgId}_tts" onclick="speakDashboardText(this, document.getElementById('${msgId}').innerText)" class="mt-1 text-slate-400 hover:text-cyan-400 p-1.5 rounded-xl transition cursor-pointer shrink-0" title="Read Aloud">
                             <i data-lucide="volume-2" class="w-4 h-4"></i>
                         </button>
                     </div>
                     <div id="${msgId}_sources" class="w-full"></div>
+                    <div id="${msgId}_followup" class="w-full"></div>
                     <div id="${msgId}_lead"></div>
                     <div class="flex items-center gap-1.5 text-[9px] text-slate-500 mt-1 ml-1 font-mono">
                         <span id="${msgId}_time">${userTime}</span>
@@ -1437,6 +2337,7 @@
             }
             currentStreamAbortController = new AbortController();
 
+            lastTestUserQuestion = q;
             const form = new FormData();
             form.append('bot_id', sendingBotId);
             form.append('question', q);
@@ -1460,6 +2361,7 @@
                 let fullText = "";
                 let receivedFirstToken = false;
                 let capturedSources = [];
+                let capturedFollowup = null;
 
                 while (true) {
                     const { value, done } = await reader.read();
@@ -1506,6 +2408,33 @@
                                         lucide.createIcons();
                                         box.scrollTop = box.scrollHeight;
                                     }
+                                } else if (data.type === 'followup' && data.prompt && data.options) {
+                                    capturedFollowup = data;
+                                    if (activeBotId === sendingBotId) {
+                                        const followupContainer = document.getElementById(msgId + '_followup');
+                                        if (followupContainer) {
+                                            followupContainer.innerHTML = `
+                                                <div class="mt-2.5 p-3 rounded-2xl bg-[#091326] border border-cyan-500/30 w-full min-w-0 max-w-full sm:max-w-xl shadow-lg">
+                                                    <div class="flex items-center gap-1.5 text-[11px] font-medium text-cyan-300 mb-2">
+                                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i>
+                                                        <span>${data.prompt}</span>
+                                                    </div>
+                                                    <div class="flex flex-wrap gap-2">
+                                                        ${data.options.map(opt => `
+                                                            <button type="button" 
+                                                                    onclick="handleDashboardFollowup(this, '${opt.replace(/'/g, "\\'")}', '${data.prompt.replace(/'/g, "\\'")}')" 
+                                                                    class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600/25 hover:bg-cyan-500 hover:text-black text-cyan-200 border border-cyan-400/40 hover:border-cyan-300 shadow-sm transition active:scale-95 cursor-pointer flex items-center gap-1.5">
+                                                                <span>${opt}</span>
+                                                                <i data-lucide="arrow-right" class="w-3 h-3 opacity-70"></i>
+                                                            </button>
+                                                        `).join('')}
+                                                    </div>
+                                                </div>
+                                            `;
+                                            lucide.createIcons();
+                                            box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+                                        }
+                                    }
                                 } else if (data.type === 'lead_form') {
                                     if (activeBotId === sendingBotId && leadContainer) {
                                         renderInlineLead(leadContainer);
@@ -1513,9 +2442,17 @@
                                     }
                                 } else if (data.type === 'done') {
                                     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+                                    if (!fullText.trim()) {
+                                        fullText = (data.full_text && data.full_text.trim()) ? data.full_text : "Here are the verified details from the knowledge base:";
+                                        if (targetSpan && activeBotId === sendingBotId) {
+                                            targetSpan.innerHTML = formatMarkdownWithImages(fullText);
+                                            lucide.createIcons();
+                                            box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+                                        }
+                                    }
                                     if (activeBotId === sendingBotId && latencySpan) {
                                         latencySpan.innerText = `• ⚡ ${elapsed}s latency`;
-                                        document.getElementById('testTokensPerMsg').innerText = Math.round(fullText.length / 4);
+                                        document.getElementById('testTokensPerMsg').innerText = Math.max(1, Math.round(fullText.length / 4));
                                     }
 
                                     // Save Bot reply to active session of sendingBotId ONLY!
@@ -1526,7 +2463,8 @@
                                         content: fullText,
                                         time: userTime,
                                         latency: `${elapsed}s`,
-                                        sources: capturedSources
+                                        sources: capturedSources,
+                                        followup: capturedFollowup || (data.followup || null)
                                     });
                                     saveBotSessions(sendingBotId, freshSessions);
                                     if (activeBotId === sendingBotId) {
@@ -1544,54 +2482,251 @@
             }
         }
 
-        let dashRecognition = null;
-        let isDashListening = false;
+        function handleDashboardFollowup(btn, optionText, promptContext) {
+            const parentWrap = btn.closest('.flex-wrap');
+            if (parentWrap) {
+                const buttons = parentWrap.querySelectorAll('button');
+                buttons.forEach(b => {
+                    b.disabled = true;
+                    if (b === btn) {
+                        b.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-500 text-black shadow-md flex items-center gap-1.5 cursor-default";
+                    } else {
+                        b.className = "px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800/40 text-slate-500 border border-slate-700/40 cursor-not-allowed opacity-60 flex items-center gap-1.5";
+                    }
+                });
+            }
 
-        function toggleDashboardVoiceInput() {
-            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRec) {
-                alert("Voice recognition is not supported in this browser. Please try Chrome, Edge, or Safari.");
+            const lowerOpt = optionText.toLowerCase();
+            const isNegative = lowerOpt.includes('no') || lowerOpt.includes('not now') || lowerOpt.includes('skip') || lowerOpt.includes('dismiss') || lowerOpt.includes('ask something else');
+
+            // Save state in active bot session
+            const freshSessions = getBotSessions(activeBotId);
+            const sess = freshSessions.find(s => s.id === activeSessionId) || freshSessions[0];
+            if (sess && sess.messages) {
+                const lastBotMsg = [...sess.messages].reverse().find(m => m.role === 'BOT' && m.followup);
+                if (lastBotMsg && lastBotMsg.followup) {
+                    lastBotMsg.followup.selected = optionText;
+                    if (isNegative) lastBotMsg.followup.dismissed = true;
+                    saveBotSessions(activeBotId, freshSessions);
+                }
+            }
+
+            if (isNegative) {
+                const card = btn.closest('.bg-\\[\\#091326\\]');
+                if (card) {
+                    const note = document.createElement('div');
+                    note.className = "mt-2 text-[10px] text-slate-400 italic flex items-center gap-1";
+                    note.innerHTML = '<i data-lucide="check" class="w-3 h-3 text-cyan-400"></i><span>Understood! What would you like to know? Feel free to ask below.</span>';
+                    card.appendChild(note);
+                    lucide.createIcons();
+                }
+                const input = document.getElementById('testChatInput');
+                if (input) input.focus();
                 return;
             }
 
-            if (!dashRecognition) {
-                dashRecognition = new SpeechRec();
-                dashRecognition.continuous = false;
-                dashRecognition.interimResults = false;
-
-                dashRecognition.onstart = () => {
-                    isDashListening = true;
-                    document.getElementById('dashboardMicBtn').classList.add('bg-red-500/30', 'text-red-400', 'animate-pulse');
-                    document.getElementById('testChatInput').placeholder = "🎙️ Listening to voice query...";
-                };
-
-                dashRecognition.onresult = (event) => {
-                    const speechResult = event.results[0][0].transcript;
-                    document.getElementById('testChatInput').value = speechResult;
-                    sendOwnerTest();
-                };
-
-                dashRecognition.onend = () => {
-                    isDashListening = false;
-                    document.getElementById('dashboardMicBtn').classList.remove('bg-red-500/30', 'text-red-400', 'animate-pulse');
-                    document.getElementById('testChatInput').placeholder = "Query knowledge base in test sandbox or click mic...";
-                };
-
-                dashRecognition.onerror = () => {
-                    isDashListening = false;
-                    document.getElementById('dashboardMicBtn').classList.remove('bg-red-500/30', 'text-red-400', 'animate-pulse');
-                    document.getElementById('testChatInput').placeholder = "Query knowledge base in test sandbox or click mic...";
-                };
+            let nextQuery = optionText;
+            if (lowerOpt.startsWith('yes') || lowerOpt.startsWith('tell me more') || lowerOpt.includes('show more')) {
+                if (promptContext) {
+                    let topic = promptContext.replace(/^I also have (?:details|information|information on|details on)\s+/i, '')
+                                             .replace(/^(?:what would you like to explore next|here are related areas you might find interesting)\??:?/i, '')
+                                             .replace(/\.\s*Would you like to (?:explore|check) that\??/i, '')
+                                             .replace(/\?$/, '').trim();
+                    nextQuery = topic ? "Tell me more about " + topic : "Tell me more details about that";
+                } else {
+                    nextQuery = "Tell me more details about that.";
+                }
+            } else if (!lowerOpt.startsWith('what') && !lowerOpt.startsWith('how') && !lowerOpt.startsWith('tell')) {
+                nextQuery = "Tell me about " + optionText;
             }
 
-            if (isDashListening) {
-                dashRecognition.stop();
-            } else {
-                dashRecognition.start();
+            const input = document.getElementById('testChatInput');
+            if (input) {
+                input.value = nextQuery;
+                sendOwnerTest();
             }
         }
 
-        function speakDashboardText(btn, text) {
+        let dashRecognition = null;
+        let isDashListening = false;
+        let dashMediaRecorder = null;
+        let dashAudioChunks = [];
+        let dashMediaStream = null;
+
+        async function toggleDashboardVoiceInput() {
+            const micBtn = document.getElementById('dashboardMicBtn');
+            const input = document.getElementById('testChatInput');
+
+            if (isDashListening) {
+                // Stop active listening
+                if (dashRecognition) {
+                    try { dashRecognition.stop(); } catch(e) {}
+                }
+                if (dashMediaRecorder && dashMediaRecorder.state === 'recording') {
+                    try { dashMediaRecorder.stop(); } catch(e) {}
+                }
+                isDashListening = false;
+                if (micBtn) micBtn.classList.remove('bg-red-500/30', 'text-red-400', 'animate-pulse');
+                if (input) input.placeholder = "Query knowledge base in test sandbox or click mic...";
+                return;
+            }
+
+            // Engine 1: Native Web Speech API (Chrome, Edge, Safari)
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
+
+            if (SpeechRec && !isFirefox) {
+                try {
+                    if (!dashRecognition) {
+                        dashRecognition = new SpeechRec();
+                        dashRecognition.continuous = false;
+                        dashRecognition.interimResults = false;
+                        dashRecognition.lang = 'en-US';
+
+                        dashRecognition.onstart = () => {
+                            isDashListening = true;
+                            if (micBtn) micBtn.classList.add('bg-red-500/30', 'text-red-400', 'animate-pulse');
+                            if (input) input.placeholder = "🎙️ Listening... (Speak now)";
+                        };
+
+                        dashRecognition.onresult = (event) => {
+                            const speechResult = event.results[0][0].transcript;
+                            if (speechResult) {
+                                if (input) input.value = speechResult;
+                                sendOwnerTest();
+                            }
+                        };
+
+                        dashRecognition.onend = () => {
+                            isDashListening = false;
+                            if (micBtn) micBtn.classList.remove('bg-red-500/30', 'text-red-400', 'animate-pulse');
+                            if (input) input.placeholder = "Query knowledge base in test sandbox or click mic...";
+                        };
+
+                        dashRecognition.onerror = (err) => {
+                            console.warn("Native SpeechRecognition error, switching to Audio Recorder fallback", err);
+                            isDashListening = false;
+                            if (micBtn) micBtn.classList.remove('bg-red-500/30', 'text-red-400', 'animate-pulse');
+                            if (input) input.placeholder = "Query knowledge base in test sandbox or click mic...";
+                            if (err.error === 'not-allowed') {
+                                alert("Microphone access was denied. Please allow microphone permissions in your browser.");
+                            } else {
+                                startMediaRecorderVoiceInput();
+                            }
+                        };
+                    }
+                    dashRecognition.start();
+                    return;
+                } catch(e) {
+                    console.warn("Could not start native recognition, using server transcriber", e);
+                }
+            }
+
+            // Engine 2: MediaRecorder + Server-Side Transcribe (Firefox, Linux, Mobile fallback)
+            startMediaRecorderVoiceInput();
+        }
+
+        async function startMediaRecorderVoiceInput() {
+            const micBtn = document.getElementById('dashboardMicBtn');
+            const input = document.getElementById('testChatInput');
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert("Microphone recording is not supported in this browser. Please ensure HTTPS or localhost is used.");
+                return;
+            }
+
+            try {
+                dashMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                dashAudioChunks = [];
+
+                let mimeType = 'audio/webm';
+                if (window.MediaRecorder) {
+                    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                        mimeType = 'audio/webm;codecs=opus';
+                    } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+                        mimeType = 'audio/ogg;codecs=opus';
+                    } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                        mimeType = 'audio/mp4';
+                    }
+                }
+
+                dashMediaRecorder = new MediaRecorder(dashMediaStream, mimeType ? { mimeType } : undefined);
+
+                dashMediaRecorder.ondataavailable = (e) => {
+                    if (e.data && e.data.size > 0) {
+                        dashAudioChunks.push(e.data);
+                    }
+                };
+
+                dashMediaRecorder.onstart = () => {
+                    isDashListening = true;
+                    if (micBtn) micBtn.classList.add('bg-red-500/30', 'text-red-400', 'animate-pulse');
+                    if (input) input.placeholder = "🎙️ Listening... (Click mic when done speaking)";
+                };
+
+                dashMediaRecorder.onstop = async () => {
+                    isDashListening = false;
+                    if (micBtn) micBtn.classList.remove('bg-red-500/30', 'text-red-400', 'animate-pulse');
+                    if (input) input.placeholder = "⚡ Transcribing speech...";
+
+                    if (dashMediaStream) {
+                        dashMediaStream.getTracks().forEach(track => track.stop());
+                        dashMediaStream = null;
+                    }
+
+                    if (dashAudioChunks.length === 0) {
+                        if (input) input.placeholder = "Query knowledge base in test sandbox or click mic...";
+                        return;
+                    }
+
+                    const audioBlob = new Blob(dashAudioChunks, { type: mimeType || 'audio/webm' });
+                    const form = new FormData();
+                    form.append('file', audioBlob, 'speech.webm');
+
+                    try {
+                        const res = await fetch('/api/voice/transcribe', {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + token },
+                            body: form
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.text) {
+                                if (input) {
+                                    input.value = data.text;
+                                    input.placeholder = "Query knowledge base in test sandbox or click mic...";
+                                }
+                                sendOwnerTest();
+                            } else {
+                                if (input) input.placeholder = "No speech detected. Try speaking closer to mic.";
+                            }
+                        } else {
+                            const err = await res.json().catch(() => ({ detail: "Audio transcription failed" }));
+                            if (input) input.placeholder = "Could not recognize speech: " + (err.detail || "Try again");
+                        }
+                    } catch(err) {
+                        if (input) input.placeholder = "Voice server connection error.";
+                    }
+
+                    setTimeout(() => {
+                        if (input && input.placeholder !== "Query knowledge base in test sandbox or click mic...") {
+                            input.placeholder = "Query knowledge base in test sandbox or click mic...";
+                        }
+                    }, 3500);
+                };
+
+                dashMediaRecorder.start();
+
+            } catch(err) {
+                console.error("Microphone access error:", err);
+                isDashListening = false;
+                if (micBtn) micBtn.classList.remove('bg-red-500/30', 'text-red-400', 'animate-pulse');
+                if (input) input.placeholder = "Query knowledge base in test sandbox or click mic...";
+                alert("Microphone permission was denied or microphone is not available.");
+            }
+        }
+
+        function speakDashboardText(btn, rawText) {
             if (!('speechSynthesis' in window)) return;
             if (window.speechSynthesis.speaking) {
                 window.speechSynthesis.cancel();
@@ -1599,17 +2734,33 @@
                 lucide.createIcons();
                 return;
             }
-            const utterance = new SpeechSynthesisUtterance(text);
+
+            // Clean markdown syntax, URLs, brackets for natural human speech output
+            let cleanText = (rawText || "")
+                .replace(/https?:\/\/[^\s)]+/g, '')
+                .replace(/\/static\/[^\s)]+/g, '')
+                .replace(/[📄📑📁⚡•\*\#\`\_\[\]\(\)]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            if (!cleanText) return;
+
+            window.speechSynthesis.cancel(); // Reset any stalled audio
+            const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.rate = 1.0;
             utterance.pitch = 1.0;
+            utterance.lang = 'en-US';
+
             utterance.onstart = () => {
                 btn.innerHTML = '<i data-lucide="volume-x" class="w-4 h-4 text-cyan-400 animate-pulse"></i>';
                 lucide.createIcons();
             };
+
             utterance.onend = utterance.onerror = () => {
                 btn.innerHTML = '<i data-lucide="volume-2" class="w-4 h-4"></i>';
                 lucide.createIcons();
             };
+
             window.speechSynthesis.speak(utterance);
         }
 
@@ -1624,6 +2775,53 @@
         function closeDashboardEvidence() {
             document.getElementById('dashEvidenceModal').classList.add('hidden');
             document.getElementById('dashEvidenceModal').classList.remove('flex');
+        }
+
+        function openPdfViewerModal(topicOrUrl, title) {
+            const modal = document.getElementById('dashPdfViewerModal');
+            const iframe = document.getElementById('dashPdfFrame');
+            const titleEl = document.getElementById('dashPdfModalTitle');
+            const newTabEl = document.getElementById('dashPdfModalNewTab');
+            const downloadEl = document.getElementById('dashPdfModalDownload');
+            
+            const botId = activeBotId || "";
+            const cleanTitle = title || "Corporate Product Specifications & Catalogue";
+            
+            let viewUrl = "";
+            let downloadUrl = "";
+            
+            if (topicOrUrl && (topicOrUrl.startsWith('http://') || topicOrUrl.startsWith('https://') || topicOrUrl.startsWith('/'))) {
+                viewUrl = topicOrUrl;
+                downloadUrl = topicOrUrl.includes('?') ? (topicOrUrl + '&download=1') : (topicOrUrl + '?download=1');
+            } else {
+                const cleanTopic = topicOrUrl || "product-catalogue";
+                viewUrl = `/api/catalogues/pdf?bot_id=${encodeURIComponent(botId)}&topic=${encodeURIComponent(cleanTopic)}&title=${encodeURIComponent(cleanTitle)}&download=0`;
+                downloadUrl = `/api/catalogues/pdf?bot_id=${encodeURIComponent(botId)}&topic=${encodeURIComponent(cleanTopic)}&title=${encodeURIComponent(cleanTitle)}&download=1`;
+            }
+            
+            if (titleEl) titleEl.innerText = cleanTitle;
+            if (newTabEl) newTabEl.href = viewUrl;
+            if (downloadEl) {
+                downloadEl.href = downloadUrl;
+                downloadEl.setAttribute('download', 'catalogue.pdf');
+            }
+            if (iframe) iframe.src = viewUrl;
+            
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function closePdfViewerModal() {
+            const modal = document.getElementById('dashPdfViewerModal');
+            const iframe = document.getElementById('dashPdfFrame');
+            if (iframe) iframe.src = "about:blank";
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
         }
 
         async function saveAndTestWebhook() {
@@ -1671,9 +2869,11 @@
             }
         }
 
+        let lastTestUserQuestion = "";
+
         function renderInlineLead(container) {
             container.innerHTML = `
-                <div class="mt-2.5 p-4 glow-box border-amber-500/40 rounded-2xl space-y-2.5 max-w-xs shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+                <div data-question="${escape(lastTestUserQuestion || '')}" class="mt-2.5 p-4 glow-box border-amber-500/40 rounded-2xl space-y-2.5 max-w-xs shadow-[0_0_20px_rgba(245,158,11,0.2)]">
                     <div class="text-amber-400 font-bold text-[11px] flex items-center gap-1.5"><i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Capture Visitor Contact</div>
                     <input id="in_name" placeholder="Name" class="w-full bg-[#060b17] border border-blue-500/30 p-2 rounded-xl text-xs text-white outline-none focus:border-cyan-400" />
                     <input id="in_email" placeholder="Email or phone" class="w-full bg-[#060b17] border border-blue-500/30 p-2 rounded-xl text-xs text-white outline-none focus:border-cyan-400" />
@@ -1689,11 +2889,14 @@
             const email = parent.querySelector('#in_email').value.trim();
             if (!name && !email) return alert("Please enter name or email.");
 
+            const rawQ = parent.getAttribute('data-question');
+            const q = rawQ ? unescape(rawQ) : (lastTestUserQuestion || '');
+
             const form = new FormData();
             form.append('bot_id', activeBotId);
             form.append('name', name);
             form.append('email', email);
-            form.append('note', 'Captured via Test Sandbox');
+            form.append('note', q ? `Inquiry: ${q}` : 'Captured via Test Sandbox');
 
             const res = await fetch('/api/public/lead', { method: 'POST', body: form });
             if (res.ok) {
@@ -1769,8 +2972,73 @@
             html = html.replace(/```([\s\S]*?)```/g, '<pre class="bg-[#040814] p-3 rounded-xl border border-blue-500/30 text-cyan-300 font-mono text-[11px] overflow-x-auto my-2 leading-relaxed">$1</pre>');
             // 3. Inline code `...`
             html = html.replace(/`([^`]+)`/g, '<code class="bg-blue-950/60 text-cyan-300 px-1.5 py-0.5 rounded text-[11px] font-mono border border-blue-500/30">$1</code>');
-            // 4. Markdown Links [Text](URL) or [Text] (URL)
-            html = html.replace(/\[([^\]]+)\]\s*\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-cyan-400 font-bold underline hover:opacity-80 inline-flex items-center gap-0.5">$1 ↗</a>');
+            // 4a. Official PDF Action Card [PDF_CARD:topic|Title]
+            html = html.replace(/\[PDF_CARD:([^\|\]]+)\|([^\]]+)\]/g, (match, topic, title) => {
+                const cleanTopic = (topic || "product-catalogue").trim();
+                const cleanTitle = (title || "Product Specifications & Catalogue").trim();
+                const escapedTitle = cleanTitle.replace(/'/g, "\\'");
+                const botId = activeBotId || "";
+                const downloadUrl = `/api/catalogues/pdf?bot_id=${encodeURIComponent(botId)}&topic=${encodeURIComponent(cleanTopic)}&title=${encodeURIComponent(cleanTitle)}&download=1`;
+                return `
+                    <div class="my-3 p-3.5 rounded-2xl bg-gradient-to-r from-blue-950/90 via-[#071329] to-cyan-950/80 border border-cyan-400/50 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full min-w-0 max-w-full box-border overflow-hidden">
+                        <div class="flex items-center gap-3 min-w-0 flex-1">
+                            <div class="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center shrink-0 text-red-400 shadow-inner">
+                                <i data-lucide="file-text" class="w-5 h-5"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                                    <span class="truncate">${cleanTitle}</span>
+                                    <span class="px-1.5 py-0.5 rounded text-[9px] bg-red-500/20 text-red-300 font-mono border border-red-500/30 shrink-0 font-semibold">PDF SPEC</span>
+                                </div>
+                                <div class="text-[10px] text-cyan-300/80 font-mono truncate">Verified Corporate Catalogue • Full Specifications</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                            <button type="button" onclick="openPdfViewerModal('${cleanTopic}', '${escapedTitle}')" class="px-3 py-1.5 rounded-xl bg-blue-600/30 hover:bg-blue-600/50 text-cyan-200 border border-cyan-400/40 text-[11px] font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-sm cursor-pointer">
+                                <i data-lucide="eye" class="w-3.5 h-3.5 text-cyan-400"></i>
+                                <span>View PDF</span>
+                            </button>
+                            <a href="${downloadUrl}" download="${cleanTopic}-catalogue.pdf" class="glow-btn px-3 py-1.5 rounded-xl text-black text-[11px] font-bold flex items-center gap-1.5 shadow-md transition active:scale-95 cursor-pointer">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                <span>Download PDF</span>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            });
+            // 4b. Interactive PDF Document Card [Title](url.pdf) or links with PDF/Catalogue in text
+            html = html.replace(/\[([^\]]*?(?:PDF|Catalogue|Catalog|Document|Download|Sheet)[^\]]*?)\]\s*\(((?:https?:\/\/|\/)[^\s)]+\.pdf(?:\?[^\s)]*)?)\)/gi, (match, title, url) => {
+                const cleanTitle = title.replace(/^[📄📑📁\s]+/, '').trim() || "Official Product Catalogue (PDF)";
+                const escapedTitle = cleanTitle.replace(/'/g, "\\'");
+                return `
+                    <div class="my-2.5 p-3 rounded-2xl bg-gradient-to-r from-blue-950/90 to-cyan-950/70 border border-cyan-400/50 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 w-full min-w-0 max-w-full box-border overflow-hidden">
+                        <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div class="w-9 h-9 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center shrink-0 text-red-400 shadow-inner">
+                                <i data-lucide="file-text" class="w-4 h-4"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                                    <span class="truncate">${cleanTitle}</span>
+                                    <span class="px-1.5 py-0.2 rounded text-[9px] bg-red-500/20 text-red-300 font-mono border border-red-500/30 shrink-0">PDF</span>
+                                </div>
+                                <div class="text-[10px] text-cyan-300/80 font-mono truncate">Official Knowledge Document • Full Specifications</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                            <button type="button" onclick="openPdfViewerModal('${url}', '${escapedTitle}')" class="px-2.5 py-1.5 rounded-xl bg-blue-600/30 hover:bg-blue-600/50 text-cyan-200 border border-cyan-400/40 text-[11px] font-semibold flex items-center gap-1 transition active:scale-95 shadow-sm cursor-pointer">
+                                <i data-lucide="eye" class="w-3.5 h-3.5 text-cyan-400"></i>
+                                <span>View</span>
+                            </button>
+                            <a href="${url}" download class="glow-btn px-2.5 py-1.5 rounded-xl text-black text-[11px] font-bold flex items-center gap-1 shadow-md transition active:scale-95 cursor-pointer">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                <span>Download</span>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            });
+            // 4c. Standard Markdown Links [Text](URL) - supports both https:// and relative paths like /static/
+            html = html.replace(/\[([^\]]+)\]\s*\(((?:https?:\/\/|\/)[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-cyan-400 font-bold underline hover:opacity-80 inline-flex items-center gap-0.5">$1 ↗</a>');
             // 5. Raw URLs
             html = html.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="text-cyan-400 font-semibold underline break-all hover:opacity-80">$2</a>');
             // 6. Bold text
@@ -1822,9 +3090,14 @@
                         </div>
                         <div class="text-[10px] text-slate-500 font-mono">${g.date}</div>
                     </div>
-                    <button onclick="fillKnowledgeGap('${g.id}', '${escape(g.question)}')" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3.5 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 shadow-[0_0_15px_rgba(245,158,11,0.2)] cursor-pointer">
-                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Grounding Fact
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="dismissKnowledgeGap('${g.id}', '${escape(g.question)}')" class="bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700/60 px-2.5 py-1.5 rounded-xl text-[11px] font-medium transition cursor-pointer" title="Dismiss gap">
+                            Dismiss
+                        </button>
+                        <button onclick="fillKnowledgeGap('${g.id}', '${escape(g.question)}')" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3.5 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 shadow-[0_0_15px_rgba(245,158,11,0.2)] cursor-pointer">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Grounding Fact
+                        </button>
+                    </div>
                 </div>
             `).join('');
             lucide.createIcons();
@@ -1832,11 +3105,31 @@
 
         function fillKnowledgeGap(msgId, questionEsc) {
             const question = unescape(questionEsc);
+            activeGapId = msgId;
+            activeGapQuestion = question;
             switchTab('knowledge');
             document.getElementById('manualNoteBox').classList.remove('hidden');
             document.getElementById('noteTitle').value = `Answer for: ${question}`;
-            document.getElementById('noteText').value = `Information regarding ${question}: `;
+            document.getElementById('noteText').value = `Verified answer for ${question}: \n`;
             document.getElementById('noteText').focus();
+        }
+
+        async function dismissKnowledgeGap(gapId, questionEsc) {
+            const question = unescape(questionEsc);
+            const form = new FormData();
+            form.append('bot_id', activeBotId);
+            form.append('gap_id', gapId);
+            form.append('question', question);
+            try {
+                await fetch('/api/insights/resolve-gap', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                    body: form
+                });
+                loadInsights();
+            } catch(e) {
+                console.error("Failed to dismiss gap", e);
+            }
         }
 
         let activeTakeoverConvId = null;

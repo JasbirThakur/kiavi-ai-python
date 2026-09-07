@@ -31,8 +31,11 @@ services:
       - GROQ_API_KEY=${GROQ_API_KEY}
       - NVIDIA_API_KEY=${NVIDIA_API_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+    volumes:
+      - .:/app
     ports:
       - "8000:8000"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 volumes:
   pgdata:

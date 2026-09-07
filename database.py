@@ -17,6 +17,18 @@ def init_db():
         with engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
             print("✅ pgvector extension verified.")
+            # Run schema migrations for Universal Knowledge Base
+            try:
+                conn.execute(text("ALTER TABLE bot_sources ALTER COLUMN \"botId\" DROP NOT NULL;"))
+            except Exception:
+                pass
+            try:
+                conn.execute(text("ALTER TABLE bot_sources ADD COLUMN IF NOT EXISTS \"isUniversal\" BOOLEAN DEFAULT FALSE;"))
+                conn.execute(text("ALTER TABLE bot_sources ADD COLUMN IF NOT EXISTS \"orgId\" VARCHAR(36) REFERENCES organizations(id) ON DELETE CASCADE;"))
+                conn.execute(text("UPDATE bot_sources SET \"orgId\" = bots.\"orgId\" FROM bots WHERE bot_sources.\"botId\" = bots.id AND bot_sources.\"orgId\" IS NULL;"))
+            except Exception as mig_err:
+                print(f"⚠️ Migration note: {mig_err}")
+            print("✅ Universal Knowledge schema verified.")
 
         import models
         models.Base.metadata.create_all(bind=engine)
