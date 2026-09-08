@@ -70,3 +70,7 @@ def serve_test_site():
 def serve_live_chat(conv_id: str):
     return (TEMPLATE_DIR / "live_chat.html").read_text(encoding="utf-8")
 
+@app.get("/visitor-chat/{conv_id}", response_class=HTMLResponse)
+def serve_visitor_chat(conv_id: str):
+    return (TEMPLATE_DIR / "live_chat.html").read_text(encoding="utf-8")
+

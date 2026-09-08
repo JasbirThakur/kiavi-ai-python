@@ -40,7 +40,11 @@ class Bot(Base):
     suggestions = Column(Text, default="What do you offer?\nHow much does it cost?\nHow do I get in touch?")
     launcherPosition = Column(String(20), default="right")
     logoUrl = Column(String(500), nullable=True)
+    webhookUrl = Column(String(500), nullable=True)
+    supportEmail = Column(String(255), default="jasbirsingh17050@gmail.com", nullable=True)
+    supportPhone = Column(String(50), nullable=True)
     createdAt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
 
 class BotSource(Base):
     __tablename__ = "bot_sources"

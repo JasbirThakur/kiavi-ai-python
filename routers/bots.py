@@ -20,6 +20,9 @@ class BotAppearanceUpdate(BaseModel):
     launcherPosition: str
     logoUrl: str = None
     webhookUrl: str = None
+    supportEmail: str = None
+    supportPhone: str = None
+
 
 @router.get("/")
 def get_user_bots(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -130,6 +133,8 @@ def get_bot_details(bot_id: str, user: models.User = Depends(get_current_user), 
         "launcherPosition": bot.launcherPosition,
         "logoUrl": getattr(bot, "logoUrl", None) or "",
         "webhookUrl": getattr(bot, "webhookUrl", None) or "",
+        "supportEmail": getattr(bot, "supportEmail", None) or "",
+        "supportPhone": getattr(bot, "supportPhone", None) or "",
         "conversations": conv_count
     }
 
@@ -149,9 +154,14 @@ def update_appearance(bot_id: str, req: BotAppearanceUpdate, user: models.User =
         bot.logoUrl = req.logoUrl.strip()
     if req.webhookUrl is not None:
         bot.webhookUrl = req.webhookUrl.strip()
+    if req.supportEmail is not None:
+        bot.supportEmail = req.supportEmail.strip()
+    if req.supportPhone is not None:
+        bot.supportPhone = req.supportPhone.strip()
 
     db.commit()
     return {"status": "success", "message": "Appearance saved. It's live on your site now."}
+
 
 from fastapi import UploadFile, File
 from pathlib import Path

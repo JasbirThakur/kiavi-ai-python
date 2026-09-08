@@ -26,9 +26,12 @@ def init_db():
                 conn.execute(text("ALTER TABLE bot_sources ADD COLUMN IF NOT EXISTS \"isUniversal\" BOOLEAN DEFAULT FALSE;"))
                 conn.execute(text("ALTER TABLE bot_sources ADD COLUMN IF NOT EXISTS \"orgId\" VARCHAR(36) REFERENCES organizations(id) ON DELETE CASCADE;"))
                 conn.execute(text("UPDATE bot_sources SET \"orgId\" = bots.\"orgId\" FROM bots WHERE bot_sources.\"botId\" = bots.id AND bot_sources.\"orgId\" IS NULL;"))
+                conn.execute(text("ALTER TABLE bots ADD COLUMN IF NOT EXISTS \"webhookUrl\" VARCHAR(500);"))
+                conn.execute(text("ALTER TABLE bots ADD COLUMN IF NOT EXISTS \"supportEmail\" VARCHAR(255);"))
+                conn.execute(text("ALTER TABLE bots ADD COLUMN IF NOT EXISTS \"supportPhone\" VARCHAR(50);"))
             except Exception as mig_err:
                 print(f"⚠️ Migration note: {mig_err}")
-            print("✅ Universal Knowledge schema verified.")
+            print("✅ Universal Knowledge & Bot schema verified.")
 
         import models
         models.Base.metadata.create_all(bind=engine)

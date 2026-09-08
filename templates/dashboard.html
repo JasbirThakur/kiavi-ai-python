@@ -388,6 +388,33 @@
                             <textarea id="editGreeting" rows="2" class="w-full bg-[#060b17] border border-blue-500/30 rounded-xl p-3 text-xs text-white outline-none focus:border-cyan-400 transition" oninput="updateLivePreview()"></textarea>
                         </div>
 
+                        <!-- REAL HUMAN SUPPORT AGENT CONFIGURATION (LIVE HAND-OFF) -->
+                        <div class="p-4 rounded-2xl bg-gradient-to-br from-indigo-950/40 via-[#060b17] to-blue-950/30 border border-indigo-500/30 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <label class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                                    <i data-lucide="user-check" class="w-4 h-4 text-cyan-400"></i> Real Human Support Agent (Live Hand-Off)
+                                </label>
+                                <span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">WhatsApp & Gmail Alert</span>
+                            </div>
+                            <p class="text-[11px] text-slate-400 leading-relaxed">
+                                Jab user chat me <strong>"Talk to Human"</strong> par click karega, tab live room ka link in details par WhatsApp &amp; Email ke jariye automatically bheja jaega:
+                            </p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="text-[11px] font-semibold text-slate-300 block mb-1">
+                                        <i data-lucide="mail" class="w-3 h-3 inline text-amber-400"></i> Support Agent Gmail / Email
+                                    </label>
+                                    <input id="editSupportEmail" type="email" placeholder="e.g. sahil.agent@gmail.com" class="w-full bg-[#030712] border border-blue-500/30 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-cyan-400 transition" />
+                                </div>
+                                <div>
+                                    <label class="text-[11px] font-semibold text-slate-300 block mb-1">
+                                        <i data-lucide="phone" class="w-3 h-3 inline text-emerald-400"></i> Agent WhatsApp No. (with country code)
+                                    </label>
+                                    <input id="editSupportPhone" type="tel" placeholder="e.g. +919876543210" class="w-full bg-[#030712] border border-blue-500/30 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-cyan-400 transition" />
+                                </div>
+                            </div>
+                        </div>
+
                         <button onclick="saveAppearanceSettings()" class="w-full glow-btn text-white font-bold py-3.5 rounded-2xl text-xs">
                             Deploy Appearance Changes
                         </button>
@@ -1518,6 +1545,12 @@
             document.getElementById('editBotName').value = activeBotData.name;
             document.getElementById('editGreeting').value = activeBotData.greeting;
             document.getElementById('editSuggestions').value = activeBotData.suggestions;
+            if (document.getElementById('editSupportEmail')) {
+                document.getElementById('editSupportEmail').value = activeBotData.supportEmail || 'jasbirsingh17050@gmail.com';
+            }
+            if (document.getElementById('editSupportPhone')) {
+                document.getElementById('editSupportPhone').value = activeBotData.supportPhone || '';
+            }
             if (document.getElementById('botWebhookUrl')) {
                 document.getElementById('botWebhookUrl').value = activeBotData.webhookUrl || '';
             }
@@ -1869,7 +1902,9 @@
                 greeting: document.getElementById('editGreeting').value.trim(),
                 suggestions: document.getElementById('editSuggestions').value.trim(),
                 launcherPosition: selectedPos,
-                logoUrl: selectedLogoUrl !== undefined ? selectedLogoUrl : (activeBotData ? (activeBotData.logoUrl || "") : "")
+                logoUrl: selectedLogoUrl !== undefined ? selectedLogoUrl : (activeBotData ? (activeBotData.logoUrl || "") : ""),
+                supportEmail: document.getElementById('editSupportEmail') ? document.getElementById('editSupportEmail').value.trim() : "",
+                supportPhone: document.getElementById('editSupportPhone') ? document.getElementById('editSupportPhone').value.trim() : ""
             };
 
             const res = await fetch(`/api/bots/${activeBotId}/appearance`, {
@@ -1878,6 +1913,10 @@
                 body: JSON.stringify(payload)
             });
             if(res.ok) {
+                if (activeBotData) {
+                    activeBotData.supportEmail = payload.supportEmail;
+                    activeBotData.supportPhone = payload.supportPhone;
+                }
                 const toast = document.getElementById('saveToast');
                 toast.classList.remove('hidden');
                 setTimeout(() => toast.classList.add('hidden'), 3000);
@@ -2401,6 +2440,13 @@
                 form.append('user_name', window.currentLoggedInUserName);
             }
 
+            if (window.currentActiveLiveConvId) {
+                const vf = new FormData();
+                vf.append('message', q);
+                vf.append('visitor_name', window.currentLoggedInUserName || 'Customer');
+                fetch(`/api/public/chat/conversations/${window.currentActiveLiveConvId}/visitor-reply`, { method: 'POST', body: vf }).catch(() => {});
+            }
+
             try {
                 const res = await fetch('/api/chat/stream', {
                     method: 'POST',
@@ -2553,6 +2599,10 @@
             form.append('bot_id', activeBotId);
             if (activeSessionId) form.append('session_id', activeSessionId);
             if (window.currentLoggedInUserName) form.append('user_name', window.currentLoggedInUserName);
+            const agentEmailVal = (document.getElementById('editSupportEmail') ? document.getElementById('editSupportEmail').value.trim() : '') || (activeBotData ? (activeBotData.supportEmail || '') : '');
+            const agentPhoneVal = (document.getElementById('editSupportPhone') ? document.getElementById('editSupportPhone').value.trim() : '') || (activeBotData ? (activeBotData.supportPhone || '') : '');
+            if (agentEmailVal) form.append('agent_email', agentEmailVal);
+            if (agentPhoneVal) form.append('agent_phone', agentPhoneVal);
 
             try {
                 const res = await fetch('/api/public/chat/request-agent', { method: 'POST', body: form });
@@ -2566,9 +2616,10 @@
                         btn.innerHTML = `<i data-lucide="shield-check" class="w-3 h-3"></i> Agent Alerted!`;
                     }
 
-                    const mobileUrl = data.mobile_url || `${window.location.origin}${joinUrl}`;
+                    const mobileUrl = data.public_url || data.mobile_url || `${window.location.origin}${joinUrl}`;
                     const whatsappUrl = data.whatsapp_url || `https://api.whatsapp.com/send?text=${encodeURIComponent('🚨 Live Support Alert: ' + mobileUrl)}`;
-                    const qrCodeUrl = data.qr_code_url || `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(mobileUrl)}`;
+                    const mailtoUrl = data.mailto_url || `mailto:${data.support_email || ''}?subject=${encodeURIComponent('🚨 Live Support Alert')}&body=${encodeURIComponent(mobileUrl)}`;
+                    const qrCodeUrl = data.qr_code_url || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(mobileUrl)}`;
 
                     // Append interactive alert card directly into testChatBox
                     const testBox = document.getElementById('testChatBox');
@@ -2579,45 +2630,73 @@
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-2 text-amber-300 font-bold text-xs">
                                     <span class="text-base animate-bounce">🚨</span>
-                                    <span>Real Human Agent Request Generated!</span>
+                                    <span>Real Human Agent Alert Ready!</span>
                                 </div>
-                                <span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">HUMAN_REQUESTED</span>
+                                <span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">LIVE_ROOM_READY</span>
                             </div>
 
-                            <p class="text-[11px] text-slate-300 leading-relaxed">
-                                Real person / support agent ke mobile par connect hone ke liye link taiyar hai:
-                            </p>
+                            <!-- Target Agent Details Card -->
+                            <div class="p-2.5 rounded-xl bg-slate-900/90 border border-blue-500/30 text-[11px] space-y-1">
+                                <div class="font-bold text-cyan-300 flex items-center justify-between">
+                                    <span class="flex items-center gap-1.5">
+                                        <i data-lucide="user-check" class="w-3.5 h-3.5"></i> Configured Support Agent:
+                                    </span>
+                                    <a href="javascript:void(0)" onclick="switchTab('appearance')" class="text-[10px] text-cyan-400 hover:underline">Change Details</a>
+                                </div>
+                                <div class="text-slate-300 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+                                    <span>📧 Gmail: <strong class="text-white">${data.support_email || '<span class="text-amber-400">Not set yet (in Appearance)</span>'}</strong></span>
+                                    <span>📱 WhatsApp: <strong class="text-white">${data.support_phone || '<span class="text-amber-400">Not set yet (in Appearance)</span>'}</strong></span>
+                                </div>
+                            </div>
 
-                            <!-- Mobile QR Code & WhatsApp Direct Share Section -->
-                            <div class="flex flex-col sm:flex-row items-center gap-4 p-3 rounded-xl bg-black/50 border border-slate-700/60">
+                            <!-- Mobile QR Code & WhatsApp / Gmail Share Section -->
+                            <div class="flex flex-col sm:flex-row items-center gap-4 p-3 rounded-xl bg-black/60 border border-slate-700/60">
                                 <div class="p-2 bg-white rounded-xl shadow-md shrink-0 flex flex-col items-center">
                                     <img src="${qrCodeUrl}" alt="Scan QR" class="w-28 h-28 object-contain rounded-lg" />
-                                    <span class="text-[9px] text-slate-800 font-bold mt-1">Scan with Phone</span>
+                                    <span class="text-[9px] text-slate-800 font-bold mt-1">Scan with Phone (4G/5G)</span>
                                 </div>
                                 <div class="flex-1 space-y-2 text-left w-full">
                                     <div class="text-[11px] font-bold text-cyan-300 flex items-center gap-1.5">
-                                        <i data-lucide="smartphone" class="w-3.5 h-3.5"></i> Apne Phone Par Kholein:
+                                        <i data-lucide="send" class="w-3.5 h-3.5"></i> Send Live Alert To Human Agent:
                                     </div>
                                     <div class="text-[10px] text-slate-400 leading-relaxed">
-                                        1. Apne mobile camera se <strong>QR Code scan karein</strong>, ya<br>
-                                        2. <strong>WhatsApp par link bhejein</strong> aur phone me tap karein.
+                                        Mobile par link bhej kar agent turant join kar sakta hai:
                                     </div>
                                     <div class="flex items-center gap-2 pt-1 flex-wrap">
                                         <a href="${whatsappUrl}" target="_blank" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] flex items-center gap-1.5 shadow-md transition cursor-pointer">
-                                            <i data-lucide="message-circle" class="w-3.5 h-3.5"></i> 💬 Send to WhatsApp
+                                            <i data-lucide="message-circle" class="w-3.5 h-3.5"></i> 💬 Send to WhatsApp ${data.support_phone ? '(' + data.support_phone + ')' : ''}
                                         </a>
-                                        <button onclick="navigator.clipboard.writeText('${mobileUrl}'); alert('Mobile Link copied! You can paste in Gmail/WhatsApp:\\n' + '${mobileUrl}');" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-[10px] font-mono flex items-center gap-1 transition cursor-pointer">
-                                            📋 Copy Mobile Link
+                                        <a href="${mailtoUrl}" target="_blank" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] flex items-center gap-1.5 shadow-md transition cursor-pointer">
+                                            <i data-lucide="mail" class="w-3.5 h-3.5"></i> 📧 Send to Gmail ${data.support_email ? '(' + data.support_email + ')' : ''}
+                                        </a>
+                                        <button onclick="navigator.clipboard.writeText('${mobileUrl}'); alert('Public Live Chat Link copied! You can paste in WhatsApp/Gmail:\\n' + '${mobileUrl}');" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-[10px] font-mono flex items-center gap-1 transition cursor-pointer">
+                                            📋 Copy Public Link
                                         </button>
                                     </div>
                                 </div>
                             </div>
 
+                            <!-- 2-Way Testing Explainer Guide -->
+                            <div class="p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-[11px] text-cyan-200 leading-relaxed space-y-1">
+                                <div class="font-bold text-cyan-300 flex items-center gap-1.5">
+                                    <i data-lucide="info" class="w-3.5 h-3.5 text-cyan-400"></i> Two-Way Live Chat (Customer vs Agent):
+                                </div>
+                                <div class="text-slate-300 text-[10px] space-y-0.5">
+                                    <div>• <strong>Side 1 (Customer Side)</strong>: Niche <strong>[👤 Open Customer Chat Window]</strong> par click karein.</div>
+                                    <div>• <strong>Side 2 (Agent Side)</strong>: Apne Gmail / WhatsApp par aaye link ko phone ya dusre tab me kholein (ya niche <strong>[🎧 Open Agent Console]</strong> dabayein).</div>
+                                    <div>• Dono taraf real-time do tarfa messaging chalegi!</div>
+                                </div>
+                            </div>
+
+                            <!-- Distinct 2-Sided Join Options -->
                             <div class="flex items-center gap-2 pt-1 flex-wrap">
-                                <a href="${joinUrl}" target="_blank" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-white font-bold text-xs flex items-center gap-1.5 shadow-md transition cursor-pointer">
-                                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i> 📱 Open in Browser Tab
+                                <a href="${data.visitor_join_url || ('/visitor-chat/' + convId)}" target="_blank" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-cyan-600/30 transition cursor-pointer">
+                                    <i data-lucide="user" class="w-4 h-4"></i> 👤 Open Customer Chat Window
                                 </a>
-                                <button onclick="openLiveTakeover('${convId}')" class="px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer">
+                                <a href="${joinUrl}" target="_blank" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 transition cursor-pointer">
+                                    <i data-lucide="headphones" class="w-4 h-4"></i> 🎧 Open Agent Console (From Gmail Link)
+                                </a>
+                                <button onclick="openLiveTakeover('${convId}')" class="px-3 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer">
                                     <i data-lucide="message-square" class="w-3.5 h-3.5"></i> 💬 Inline Takeover
                                 </button>
                             </div>
@@ -2625,6 +2704,44 @@
                         testBox.appendChild(alertCard);
                         testBox.scrollTop = testBox.scrollHeight;
                         lucide.createIcons();
+
+                        // Start Live Dashboard Polling so any Agent message from Gmail/Phone immediately renders here
+                        window.currentActiveLiveConvId = convId;
+                        if (window.dashboardHandoffInterval) clearInterval(window.dashboardHandoffInterval);
+                        const knownAgentMsgIds = new Set();
+                        window.dashboardHandoffInterval = setInterval(async () => {
+                            if (!window.currentActiveLiveConvId) return;
+                            try {
+                                const pRes = await fetch(`/api/public/chat/poll/${window.currentActiveLiveConvId}`);
+                                if (!pRes.ok) return;
+                                const pData = await pRes.json();
+                                if (pData.status === 'success' && pData.messages) {
+                                    pData.messages.forEach(m => {
+                                        if (m.role === 'AGENT' && !knownAgentMsgIds.has(m.id)) {
+                                            knownAgentMsgIds.add(m.id);
+                                            const tBox = document.getElementById('testChatBox');
+                                            if (tBox) {
+                                                const agentBubble = document.createElement('div');
+                                                agentBubble.className = "flex flex-col items-start space-y-1 w-full max-w-xl my-2 animate-fadeIn";
+                                                agentBubble.innerHTML = `
+                                                    <div class="flex items-center gap-1.5 mb-1 text-[11px] font-semibold text-emerald-400">
+                                                        <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>
+                                                        <span>Live Support Specialist (From Gmail / Phone)</span>
+                                                        <span class="text-[9px] text-slate-500 font-mono ml-1">${m.time || ''}</span>
+                                                    </div>
+                                                    <div class="bg-gradient-to-r from-emerald-950/90 to-teal-950/80 border border-emerald-500/40 text-emerald-100 p-3.5 rounded-2xl rounded-tl-sm text-xs leading-relaxed shadow-lg font-medium">
+                                                        ${escapeHtml(m.content)}
+                                                    </div>
+                                                `;
+                                                tBox.appendChild(agentBubble);
+                                                tBox.scrollTop = tBox.scrollHeight;
+                                                lucide.createIcons();
+                                            }
+                                        }
+                                    });
+                                }
+                            } catch(e) {}
+                        }, 2000);
                     }
 
 

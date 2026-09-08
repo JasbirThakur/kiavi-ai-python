@@ -122,6 +122,8 @@ def request_human_agent(
     conversation_id: str = Form(None),
     session_id: str = Form(None),
     user_name: str = Form(None),
+    agent_email: str = Form(None),
+    agent_phone: str = Form(None),
     db: Session = Depends(get_db)
 ):
     conv = None
@@ -148,37 +150,91 @@ def request_human_agent(
 
     bot = db.query(models.Bot).filter(models.Bot.id == bot_id).first()
     bot_name = bot.name if bot else "AI Assistant"
+    support_email = (getattr(bot, "supportEmail", None) or agent_email or "jasbirsingh17050@gmail.com").strip()
+    support_phone = (getattr(bot, "supportPhone", None) or agent_phone or "").strip()
 
-    # Direct 1-Click Magic Join Link
-    join_url = f"/live-chat/{conv.id}"
+    # Determine public base URL (using live cloudflare tunnel if present, or LAN IP)
+    public_base = "http://192.168.10.138:3000"
+    for tunnel_path in ["/app/tunnel_url.txt", "tunnel_url.txt"]:
+        try:
+            from pathlib import Path
+            tp = Path(tunnel_path)
+            if tp.exists():
+                u = tp.read_text(encoding="utf-8").strip()
+                if u.startswith("https://"):
+                    public_base = u
+                    break
+        except Exception:
+            pass
+
+    agent_chat_url = f"{public_base}/live-chat/{conv.id}"
+    customer_chat_url = f"{public_base}/visitor-chat/{conv.id}"
+
     import urllib.parse
-    host_ip = "192.168.10.138"
-    mobile_url = f"http://{host_ip}:3000{join_url}"
-    whatsapp_url = f"https://api.whatsapp.com/send?text={urllib.parse.quote(f'🚨 Live Support Alert! Visitor {visitor_display} is waiting on {bot_name}. Tap to join live: {mobile_url}')}"
-    qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(mobile_url)}"
+    phone_clean = ''.join(c for c in support_phone if c.isdigit() or c == '+')
+    if phone_clean.startswith('0'):
+        phone_clean = '91' + phone_clean[1:]
+    elif not phone_clean.startswith('+') and len(phone_clean) == 10:
+        phone_clean = '91' + phone_clean
+    phone_param = f"&phone={phone_clean.replace('+', '')}" if phone_clean else ""
+    whatsapp_text = urllib.parse.quote(f"🚨 Live Support Alert!\nVisitor {visitor_display} wants to talk live with a support specialist on {bot_name}.\n\n👉 Click here to join the live chat on your phone:\n{agent_chat_url}")
+    whatsapp_url = f"https://api.whatsapp.com/send?text={whatsapp_text}{phone_param}"
 
-    # Prominent notification logged for support team / webhook listener
-    print("\n" + "="*70, flush=True)
+    email_subject = urllib.parse.quote(f"🚨 Live Support Alert: Visitor {visitor_display} requested live human assistance")
+    email_body = urllib.parse.quote(f"Hello Support Specialist,\n\nVisitor '{visitor_display}' has requested live human assistance on {bot_name}.\n\nClick the link below to enter the live chat room as the Support Specialist on your mobile or laptop:\n{agent_chat_url}\n\nSession ID: {conv.id}\nKiavi IQ Live Support Engine")
+    mailto_url = f"mailto:{support_email}?subject={email_subject}&body={email_body}" if support_email else f"mailto:?subject={email_subject}&body={email_body}"
+
+    qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(agent_chat_url)}"
+
+    print("\n" + "="*75, flush=True)
     print("🚨 [LIVE HUMAN AGENT ALERT] Visitor requested live support!", flush=True)
-    print(f"👤 Visitor Name : {visitor_display}", flush=True)
-    print(f"🤖 Bot Name     : {bot_name} ({bot_id})", flush=True)
-    print(f"💬 Conversation : {conv.id}", flush=True)
-    print(f"🔗 DIRECT 1-CLICK JOIN LINK: {join_url}", flush=True)
-    print(f"📱 Mobile LAN URL  : {mobile_url}", flush=True)
-    print(f"📲 WhatsApp Link   : {whatsapp_url}", flush=True)
-    print("="*70 + "\n", flush=True)
+    print(f"👤 Visitor Name    : {visitor_display}", flush=True)
+    print(f"🤖 Bot Name        : {bot_name} ({bot_id})", flush=True)
+    print(f"📧 Support Email   : {support_email}", flush=True)
+    print(f"📱 Support Phone   : {support_phone or 'Not set'}", flush=True)
+    print(f"🔗 AGENT PUBLIC URL: {agent_chat_url}", flush=True)
+    print(f"👤 CUSTOMER URL    : {customer_chat_url}", flush=True)
+    print(f"📲 WhatsApp Alert  : {whatsapp_url}", flush=True)
+    print("="*75 + "\n", flush=True)
 
     return {
         "status": "success",
         "conversation_id": conv.id,
-        "join_url": join_url,
-        "mobile_url": mobile_url,
+        "join_url": f"/live-chat/{conv.id}",
+        "agent_url": agent_chat_url,
+        "customer_url": customer_chat_url,
+        "visitor_join_url": f"/visitor-chat/{conv.id}",
+        "public_url": agent_chat_url,
+        "mobile_url": agent_chat_url,
         "whatsapp_url": whatsapp_url,
+        "mailto_url": mailto_url,
         "qr_code_url": qr_code_url,
+        "support_email": support_email,
+        "support_phone": support_phone,
         "visitor_name": visitor_display,
         "bot_name": bot_name
     }
 
+
+@router.post("/api/public/chat/conversations/{conv_id}/visitor-reply")
+def public_visitor_reply(
+    conv_id: str,
+    message: str = Form(...),
+    visitor_name: str = Form("Visitor"),
+    db: Session = Depends(get_db)
+):
+    conv = db.query(models.Conversation).filter(models.Conversation.id == conv_id).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    user_msg = models.Message(
+        conversationId=conv.id,
+        role="USER",
+        content=message.strip()
+    )
+    db.add(user_msg)
+    db.commit()
+    return {"status": "success", "message_id": user_msg.id}
 
 
 @router.post("/api/public/chat/conversations/{conv_id}/agent-reply")
