@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Live Support Room | Kiavi IQ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.4); }
+    </style>
+</head>
+<body class="bg-[#0b1120] text-slate-100 flex flex-col h-[100dvh] overflow-hidden antialiased selection:bg-indigo-500 selection:text-white">
+
+    <!-- Top Header -->
+    <header class="bg-[#0f172a]/95 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 shrink-0 flex items-center justify-between z-20 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="relative">
+                <div id="statusDot" class="w-3 h-3 rounded-full bg-amber-400 animate-pulse"></div>
+                <div class="w-3 h-3 rounded-full bg-amber-400/40 absolute inset-0 animate-ping"></div>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-bold text-sm text-slate-100 tracking-tight" id="headerTitle">Live Support Agent</h1>
+                    <span id="sessionTag" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700/60">Connecting...</span>
+                </div>
+                <p id="visitorSubtitle" class="text-[11px] text-slate-400">Loading visitor details...</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button id="endBtn" onclick="endLiveSession()" class="hidden px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer">
+                <i data-lucide="phone-off" class="w-3.5 h-3.5"></i>
+                <span>End Chat</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Accept Chat Banner (Shown if chat is waiting) -->
+    <div id="acceptBanner" class="bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/10 border-b border-amber-500/30 px-4 py-3 flex items-center justify-between shrink-0 shadow-inner">
+        <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0">
+                <i data-lucide="bell-ring" class="w-4 h-4 animate-bounce"></i>
+            </div>
+            <div>
+                <div class="text-xs font-bold text-amber-300">Visitor Waiting for You!</div>
+                <div class="text-[11px] text-amber-200/70">Click Accept to join this live conversation.</div>
+            </div>
+        </div>
+        <button onclick="acceptLiveChat()" id="acceptBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 transition active:scale-95 cursor-pointer">
+            <i data-lucide="user-check" class="w-4 h-4"></i>
+            <span>Accept Chat</span>
+        </button>
+    </div>
+
+    <!-- Active Connected Banner (Shown when Agent joins) -->
+    <div id="connectedBanner" class="hidden bg-emerald-950/40 border-b border-emerald-500/30 px-4 py-2 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span class="text-xs font-semibold text-emerald-300">You are connected live with the visitor</span>
+        </div>
+        <span class="text-[10px] text-emerald-400/80 font-mono">AI Paused</span>
+    </div>
+
+    <!-- Chat Messages Scroll Area -->
+    <main id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-3.5">
+        <div class="flex justify-center my-4">
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-[11px] text-slate-400">
+                <i data-lucide="lock" class="w-3 h-3 text-slate-500"></i>
+                <span>Encrypted Live Support Channel</span>
+            </div>
+        </div>
+        <div id="historyPlaceholder" class="text-center py-8 text-slate-500 text-xs font-mono">
+            Loading visitor conversation history...
+        </div>
+    </main>
+
+    <!-- Bottom Typing / Input Bar -->
+    <footer class="bg-[#0f172a]/95 backdrop-blur-md border-t border-slate-800/80 p-3 shrink-0">
+        <form id="replyForm" onsubmit="sendAgentMessage(event)" class="flex items-center gap-2 max-w-3xl mx-auto">
+            <input 
+                type="text" 
+                id="agentInput" 
+                placeholder="Type your message to visitor..." 
+                autocomplete="off"
+                class="flex-1 bg-[#1e293b]/90 border border-slate-700/80 rounded-2xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-inner"
+            />
+            <button 
+                type="submit" 
+                id="sendBtn"
+                class="w-11 h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 transition active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
+            >
+                <i data-lucide="send" class="w-4 h-4"></i>
+            </button>
+        </form>
+    </footer>
+
+    <script>
+        // Extract conversation ID from URL path: /live-chat/:conv_id
+        const pathParts = window.location.pathname.split('/').filter(Boolean);
+        const convId = pathParts[pathParts.length - 1];
+
+        let pollInterval = null;
+        let isConnected = false;
+        let lastMessageCount = 0;
+        let visitorName = "Visitor";
+
+        async function initLiveRoom() {
+            if (!convId || convId === 'live-chat') {
+                document.getElementById('historyPlaceholder').innerHTML = `
+                    <div class="p-6 bg-red-950/40 border border-red-500/30 rounded-2xl text-red-300 text-xs text-center">
+                        <i data-lucide="alert-triangle" class="w-6 h-6 mx-auto mb-2 text-red-400"></i>
+                        Invalid or missing conversation link.
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            document.getElementById('sessionTag').innerText = `Session #${convId.substring(0, 8)}`;
+            lucide.createIcons();
+
+            await pollMessages();
+            pollInterval = setInterval(pollMessages, 2500);
+        }
+
+        async function pollMessages() {
+            try {
+                const res = await fetch(`/api/public/chat/poll/${convId}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.status === 'success' && data.messages) {
+                    renderMessages(data);
+                }
+            } catch(err) {
+                console.warn("Polling error:", err);
+            }
+        }
+
+        function renderMessages(data) {
+            const container = document.getElementById('chatMessages');
+            const messages = data.messages || [];
+
+            // Detect visitor name from history if present
+            const firstUserMsg = messages.find(m => m.role === 'USER');
+            if (firstUserMsg && visitorName === "Visitor") {
+                // Try extracting name if possible or set generic
+                document.getElementById('visitorSubtitle').innerText = `Live Chat with Visitor`;
+            }
+
+            // Update Status and Banners
+            if (data.conv_status === 'HUMAN_TAKEN_OVER') {
+                isConnected = true;
+                document.getElementById('acceptBanner').classList.add('hidden');
+                document.getElementById('connectedBanner').classList.remove('hidden');
+                document.getElementById('endBtn').classList.remove('hidden');
+                document.getElementById('statusDot').className = "w-3 h-3 rounded-full bg-emerald-400";
+                document.getElementById('agentInput').placeholder = "Reply directly to visitor...";
+            } else if (data.conv_status === 'RESOLVED') {
+                document.getElementById('acceptBanner').classList.add('hidden');
+                document.getElementById('connectedBanner').classList.add('hidden');
+                document.getElementById('endBtn').classList.add('hidden');
+                document.getElementById('statusDot').className = "w-3 h-3 rounded-full bg-slate-500";
+                document.getElementById('agentInput').disabled = true;
+                document.getElementById('agentInput').placeholder = "Session ended.";
+                document.getElementById('sendBtn').disabled = true;
+            }
+
+            // Render transcripts if new messages arrived
+            if (messages.length !== lastMessageCount) {
+                lastMessageCount = messages.length;
+                const placeholder = document.getElementById('historyPlaceholder');
+                if (placeholder) placeholder.remove();
+
+                container.innerHTML = messages.map(m => {
+                    const isUser = m.role === 'USER';
+                    const isAgent = m.role === 'AGENT';
+                    const isSystem = m.role === 'SYSTEM';
+
+                    if (isSystem) {
+                        return `
+                            <div class="flex justify-center my-2">
+                                <span class="px-3 py-1 rounded-full bg-slate-900/90 border border-slate-800 text-[10px] text-amber-400/90 font-mono shadow-xs">
+                                    ${escapeHtml(m.content)}
+                                </span>
+                            </div>
+                        `;
+                    }
+
+                    if (isUser) {
+                        return `
+                            <div class="flex flex-col items-start max-w-[85%]">
+                                <div class="flex items-center gap-1.5 mb-1 text-[11px] font-semibold text-cyan-300">
+                                    <i data-lucide="user" class="w-3.5 h-3.5 text-cyan-400"></i>
+                                    <span>Visitor</span>
+                                    <span class="text-[10px] text-slate-500 font-normal font-mono ml-1">${m.time || ''}</span>
+                                </div>
+                                <div class="bg-[#1e293b] border border-slate-700/70 text-slate-100 px-4 py-2.5 rounded-2xl rounded-tl-sm text-sm leading-relaxed shadow-sm">
+                                    ${escapeHtml(m.content)}
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    if (isAgent) {
+                        return `
+                            <div class="flex flex-col items-end max-w-[85%] ml-auto">
+                                <div class="flex items-center gap-1.5 mb-1 text-[11px] font-semibold text-emerald-400">
+                                    <span class="text-[10px] text-slate-500 font-normal font-mono mr-1">${m.time || ''}</span>
+                                    <span>You (Support Specialist)</span>
+                                    <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>
+                                </div>
+                                <div class="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm leading-relaxed shadow-md font-medium">
+                                    ${escapeHtml(m.content)}
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // AI Bot message
+                    return `
+                        <div class="flex flex-col items-start max-w-[85%]">
+                            <div class="flex items-center gap-1.5 mb-1 text-[11px] font-semibold text-indigo-300">
+                                <i data-lucide="bot" class="w-3.5 h-3.5 text-indigo-400"></i>
+                                <span>AI Assistant</span>
+                                <span class="text-[10px] text-slate-500 font-normal font-mono ml-1">${m.time || ''}</span>
+                            </div>
+                            <div class="bg-slate-900/90 border border-indigo-950 text-slate-300 px-4 py-2.5 rounded-2xl rounded-tl-sm text-xs leading-relaxed">
+                                ${escapeHtml(m.content)}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                lucide.createIcons();
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        async function acceptLiveChat() {
+            const btn = document.getElementById('acceptBtn');
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Connecting...`;
+            lucide.createIcons();
+
+            const form = new FormData();
+            form.append('message', 'Hello! I am your live support specialist. How may I assist you today?');
+            form.append('agent_name', 'Live Support');
+
+            try {
+                const res = await fetch(`/api/public/chat/conversations/${convId}/agent-reply`, {
+                    method: 'POST',
+                    body: form
+                });
+                if (res.ok) {
+                    await pollMessages();
+                }
+            } catch(e) {
+                console.error("Accept error:", e);
+                btn.innerHTML = `Try Again`;
+            }
+            lucide.createIcons();
+        }
+
+        async function sendAgentMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('agentInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            input.value = '';
+
+            const form = new FormData();
+            form.append('message', msg);
+            form.append('agent_name', 'Support Agent');
+
+            try {
+                await fetch(`/api/public/chat/conversations/${convId}/agent-reply`, {
+                    method: 'POST',
+                    body: form
+                });
+                await pollMessages();
+            } catch(e) {
+                console.error("Send message error:", e);
+            }
+        }
+
+        async function endLiveSession() {
+            if (!confirm("Are you sure you want to end this live chat session? The AI assistant will resume automatically.")) return;
+
+            try {
+                await fetch(`/api/public/chat/conversations/${convId}/end-live-session`, {
+                    method: 'POST'
+                });
+                await pollMessages();
+            } catch(e) {
+                console.error("End session error:", e);
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        document.addEventListener('DOMContentLoaded', initLiveRoom);
+    </script>
+</body>
+</html>

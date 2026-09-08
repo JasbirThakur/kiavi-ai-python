@@ -42,11 +42,12 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5">
-                    <button id="wHumanBtn" onclick="requestLiveHuman()" title="Request Live Human Agent" class="px-2.5 py-1 rounded-full bg-white/20 hover:bg-white/30 text-[10px] font-bold text-white flex items-center gap-1 transition cursor-pointer">
-                        <i data-lucide="user-check" class="w-3 h-3"></i> Human
+                    <button id="wHumanBtn" onclick="requestLiveHuman()" title="Talk to Real Human / Agent" class="px-2.5 py-1 rounded-full bg-white/20 hover:bg-white/30 text-[10px] font-bold text-white flex items-center gap-1 transition cursor-pointer">
+                        <i data-lucide="user-check" class="w-3 h-3"></i> Talk to Human
                     </button>
                     <button onclick="toggleChat()" class="text-white hover:text-white/80 p-1 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
                 </div>
+
             </div>
 
             <!-- Chat Body -->
@@ -654,12 +655,15 @@
         async function requestLiveHuman() {
             if (!botConfig) return;
             const btn = document.getElementById('wHumanBtn');
-            btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Notifying...`;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Alerting Agent...`;
             lucide.createIcons();
 
             const form = new FormData();
             form.append('bot_id', botConfig.botId);
             if (currentConvId) form.append('conversation_id', currentConvId);
+            if (typeof currentUserName !== 'undefined' && currentUserName) {
+                form.append('user_name', currentUserName);
+            }
 
             try {
                 const res = await fetch('/api/public/chat/request-agent', { method: 'POST', body: form });
@@ -667,15 +671,15 @@
                 if (data.status === 'success') {
                     currentConvId = data.conversation_id;
                     isHumanHandedOff = true;
-                    btn.className = "px-2.5 py-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white flex items-center gap-1 shadow-md";
-                    btn.innerHTML = `<i data-lucide="check" class="w-3 h-3"></i> Agent Notified`;
-                    document.getElementById('wBotStatus').innerHTML = `<span class="w-1.5 h-1.5 bg-amber-400 rounded-full animate-ping"></span> Live Agent Connecting...`;
+                    btn.className = "px-2.5 py-1 rounded-full bg-amber-500 text-[10px] font-bold text-white flex items-center gap-1 shadow-md";
+                    btn.innerHTML = `<i data-lucide="clock" class="w-3 h-3 animate-pulse"></i> Agent Alerted`;
+                    document.getElementById('wBotStatus').innerHTML = `<span class="w-1.5 h-1.5 bg-amber-400 rounded-full animate-ping"></span> Connecting to Live Agent...`;
 
                     const body = document.getElementById('wChatBody');
                     body.innerHTML += `
                         <div class="flex flex-col items-center my-2">
                             <span class="bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-300 px-3 py-1.5 rounded-full text-[10px] font-semibold flex items-center gap-1.5 shadow-xs">
-                                🔔 A live human specialist has been notified and will respond here shortly.
+                                🔔 A real human specialist has been alerted with your conversation link and will join you shortly!
                             </span>
                         </div>
                     `;
@@ -695,29 +699,61 @@
                 try {
                     const res = await fetch(`/api/public/chat/poll/${currentConvId}`);
                     const data = await res.json();
-                    if (data.status === 'success' && data.messages) {
-                        const agentMsgs = data.messages.filter(m => m.role === 'AGENT');
-                        agentMsgs.forEach(m => {
-                            const domId = 'agent_msg_' + m.id;
-                            if (!document.getElementById(domId)) {
-                                const body = document.getElementById('wChatBody');
-                                body.innerHTML += `
-                                    <div class="flex flex-col items-start space-y-1 my-1">
-                                        <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                                            <i data-lucide="user-check" class="w-3 h-3"></i> Live Support Agent
-                                        </span>
-                                        <span id="${domId}" class="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/30 p-3.5 rounded-2xl inline-block max-w-[88%] text-slate-800 dark:text-slate-100 shadow-sm leading-relaxed">${formatMarkdownWithImages(m.content)}</span>
-                                        <span class="text-[9px] text-slate-400 ml-1 font-mono">${m.time || formatTime()}</span>
-                                    </div>
-                                `;
-                                lucide.createIcons();
-                                body.scrollTop = body.scrollHeight;
+                    if (data.status === 'success') {
+                        // Check lifecycle status
+                        const btn = document.getElementById('wHumanBtn');
+                        if (data.conv_status === 'HUMAN_TAKEN_OVER') {
+                            document.getElementById('wBotStatus').innerHTML = `<span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span> Live Agent Active`;
+                            if (btn) {
+                                btn.className = "px-2.5 py-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white flex items-center gap-1 shadow-md";
+                                btn.innerHTML = `<i data-lucide="shield-check" class="w-3 h-3"></i> Connected`;
                             }
-                        });
+                        } else if (data.conv_status === 'RESOLVED') {
+                            document.getElementById('wBotStatus').innerHTML = `<span class="w-1.5 h-1.5 bg-emerald-300 rounded-full"></span> AI Assistant • Online`;
+                            if (btn) {
+                                btn.className = "px-2.5 py-1 rounded-full bg-white/20 hover:bg-white/30 text-[10px] font-bold text-white flex items-center gap-1 transition cursor-pointer";
+                                btn.innerHTML = `<i data-lucide="user-check" class="w-3 h-3"></i> Talk to Human`;
+                            }
+                            clearInterval(pollTimer);
+                            pollTimer = null;
+                            isHumanHandedOff = false;
+
+                            const body = document.getElementById('wChatBody');
+                            body.innerHTML += `
+                                <div class="flex flex-col items-center my-2">
+                                    <span class="bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-full text-[10px] font-semibold flex items-center gap-1.5">
+                                        ✨ Live agent session concluded. AI assistant is back online.
+                                    </span>
+                                </div>
+                            `;
+                            body.scrollTop = body.scrollHeight;
+                        }
+
+                        if (data.messages) {
+                            const agentMsgs = data.messages.filter(m => m.role === 'AGENT');
+                            agentMsgs.forEach(m => {
+                                const domId = 'agent_msg_' + m.id;
+                                if (!document.getElementById(domId)) {
+                                    const body = document.getElementById('wChatBody');
+                                    body.innerHTML += `
+                                        <div class="flex flex-col items-start space-y-1 my-1">
+                                            <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                                <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Live Support Specialist
+                                            </span>
+                                            <span id="${domId}" class="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/30 p-3.5 rounded-2xl inline-block max-w-[88%] text-slate-800 dark:text-slate-100 shadow-sm leading-relaxed">${formatMarkdownWithImages(m.content)}</span>
+                                            <span class="text-[9px] text-slate-400 ml-1 font-mono">${m.time || formatTime()}</span>
+                                        </div>
+                                    `;
+                                    lucide.createIcons();
+                                    body.scrollTop = body.scrollHeight;
+                                }
+                            });
+                        }
                     }
                 } catch(e) {}
-            }, 3000);
+            }, 2500);
         }
+
 
         let lastUserQuestion = "";
 

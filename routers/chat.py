@@ -103,16 +103,25 @@ async def chat_stream_public(
 
     resolved_name = (user_name or '').strip()
 
+    if conv.status == "HUMAN_TAKEN_OVER":
+        import json
+        async def agent_active_stream():
+            yield f"data: {json.dumps({'type': 'start', 'confidence': 1.0})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        return StreamingResponse(agent_active_stream(), media_type="text/event-stream")
+
     return StreamingResponse(
         stream_rag_pipeline(bot_id, question, db, conversation_id=conv.id, message_id=user_msg.id, user_name=resolved_name),
         media_type="text/event-stream"
     )
+
 
 @router.post("/api/public/chat/request-agent")
 def request_human_agent(
     bot_id: str = Form(...),
     conversation_id: str = Form(None),
     session_id: str = Form(None),
+    user_name: str = Form(None),
     db: Session = Depends(get_db)
 ):
     conv = None
@@ -127,14 +136,85 @@ def request_human_agent(
     conv.isHandedOff = True
     conv.status = "HUMAN_REQUESTED"
 
+    visitor_display = user_name.strip() if user_name else "Visitor"
+
     sys_msg = models.Message(
         conversationId=conv.id,
         role="SYSTEM",
-        content="🔔 Visitor requested live human agent."
+        content=f"🔔 {visitor_display} requested a live human specialist."
     )
     db.add(sys_msg)
     db.commit()
-    return {"status": "success", "conversation_id": conv.id}
+
+    bot = db.query(models.Bot).filter(models.Bot.id == bot_id).first()
+    bot_name = bot.name if bot else "AI Assistant"
+
+    # Direct 1-Click Magic Join Link
+    join_url = f"/live-chat/{conv.id}"
+
+    # Prominent notification logged for support team / webhook listener
+    print("\n" + "="*70, flush=True)
+    print("🚨 [LIVE HUMAN AGENT ALERT] Visitor requested live support!", flush=True)
+    print(f"👤 Visitor Name : {visitor_display}", flush=True)
+    print(f"🤖 Bot Name     : {bot_name} ({bot_id})", flush=True)
+    print(f"💬 Conversation : {conv.id}", flush=True)
+    print(f"🔗 DIRECT 1-CLICK JOIN LINK: {join_url}", flush=True)
+    print(f"📱 Mobile / Web URL: http://localhost:3000{join_url}", flush=True)
+    print("="*70 + "\n", flush=True)
+
+    return {
+        "status": "success",
+        "conversation_id": conv.id,
+        "join_url": join_url,
+        "visitor_name": visitor_display,
+        "bot_name": bot_name
+    }
+
+
+@router.post("/api/public/chat/conversations/{conv_id}/agent-reply")
+def public_agent_reply(
+    conv_id: str,
+    message: str = Form(...),
+    agent_name: str = Form("Support Specialist"),
+    db: Session = Depends(get_db)
+):
+    conv = db.query(models.Conversation).filter(models.Conversation.id == conv_id).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    conv.isHandedOff = True
+    conv.status = "HUMAN_TAKEN_OVER"
+
+    agent_msg = models.Message(
+        conversationId=conv.id,
+        role="AGENT",
+        content=message.strip()
+    )
+    db.add(agent_msg)
+    db.commit()
+    return {"status": "success", "message_id": agent_msg.id}
+
+
+@router.post("/api/public/chat/conversations/{conv_id}/end-live-session")
+def end_live_session(
+    conv_id: str,
+    db: Session = Depends(get_db)
+):
+    conv = db.query(models.Conversation).filter(models.Conversation.id == conv_id).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    conv.isHandedOff = False
+    conv.status = "RESOLVED"
+
+    end_msg = models.Message(
+        conversationId=conv.id,
+        role="SYSTEM",
+        content="⏹️ Live support session has concluded. AI assistant is back online."
+    )
+    db.add(end_msg)
+    db.commit()
+    return {"status": "success", "message": "Live session resolved"}
 
 
 @router.post("/api/chat/conversations/{conv_id}/agent-reply")
@@ -159,6 +239,7 @@ def send_agent_reply(
     db.add(agent_msg)
     db.commit()
     return {"status": "success", "message_id": agent_msg.id}
+
 
 
 @router.get("/api/public/chat/poll/{conv_id}")

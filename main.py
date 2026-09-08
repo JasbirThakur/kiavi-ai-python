@@ -65,3 +65,8 @@ def serve_account():
 @app.get("/test-site", response_class=HTMLResponse)
 def serve_test_site():
     return (TEMPLATE_DIR / "test_site.html").read_text(encoding="utf-8")
+
+@app.get("/live-chat/{conv_id}", response_class=HTMLResponse)
+def serve_live_chat(conv_id: str):
+    return (TEMPLATE_DIR / "live_chat.html").read_text(encoding="utf-8")
+
