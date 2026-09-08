@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Client Site Simulation — Kiavi IQ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="http://127.0.0.1:8000/w.js" data-key="ae53bb29-6236-4a0b-9680-6cea390fb513"></script>
+</head>
+<body class="bg-[#080d1a] font-sans min-h-screen flex flex-col text-slate-100 selection:bg-cyan-500 selection:text-white">
+
+    <!-- Top Agent Switcher & Simulator Banner -->
+    <div class="bg-slate-950/90 border-b border-cyan-500/20 px-6 py-2.5 flex flex-wrap justify-between items-center text-xs backdrop-blur-md sticky top-0 z-50">
+        <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-[0_0_8px_#34d399] animate-pulse"></span>
+            <span class="font-bold text-white uppercase tracking-wider text-[11px]">Simulated Client Environment</span>
+            <span class="text-slate-500 hidden sm:inline">&middot; External Website Embed</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <label class="text-slate-400 text-[11px]">Active Agent:</label>
+            <select id="botSelect" onchange="switchBot(this.value)" class="bg-[#0f172a] border border-cyan-500/30 text-cyan-300 font-bold rounded-lg px-3 py-1 text-xs outline-none cursor-pointer">
+                <option value="">Loading bots...</option>
+            </select>
+            <a href="/dashboard" class="bg-blue-600/30 hover:bg-blue-600/50 text-cyan-300 border border-cyan-500/30 px-3 py-1 rounded-lg text-xs font-semibold transition">
+                &larr; Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Mock Nav Bar for Simulated Client Site -->
+    <nav class="bg-slate-900/60 border-b border-slate-800/80 px-8 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <div id="brandIcon" class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white text-sm shadow-md">
+                A
+            </div>
+            <div id="brandName" class="text-xl font-extrabold tracking-tight text-white">Appdeft AI<span class="text-cyan-400">.</span></div>
+        </div>
+        <div class="flex gap-6 text-sm font-medium text-slate-400">
+            <a href="#" class="hover:text-white transition">Services</a>
+            <a href="#" class="hover:text-white transition">Solutions</a>
+            <a href="#" class="hover:text-white transition">Case Studies</a>
+            <a href="#" id="contactBtn" class="text-cyan-400 font-bold hover:text-cyan-300 transition">Get In Touch</a>
+        </div>
+    </nav>
+
+    <!-- Mock Hero Section -->
+    <main class="flex-1 flex flex-col items-center justify-center p-8 text-center relative overflow-hidden">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.06)_0,transparent_70%)] pointer-events-none"></div>
+
+        <div class="max-w-2xl space-y-6 relative z-10">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold">
+                <i data-lucide="globe" class="w-3.5 h-3.5"></i> <span id="siteDomain">appdeft.ai</span>
+            </div>
+
+            <h1 id="heroTitle" class="text-4xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+                Simulating Website for <br/><span id="heroBotName" class="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-500">App-Deft_Boat</span>
+            </h1>
+
+            <p class="text-sm text-slate-400 leading-relaxed max-w-lg mx-auto">
+                This client website is running your embedded Kiavi IQ agent with your chosen custom color, docking position, and neural knowledge base.
+            </p>
+
+            <div class="p-5 bg-slate-950/80 border border-cyan-500/20 rounded-2xl text-left max-w-md mx-auto space-y-2.5 shadow-2xl">
+                <div class="text-xs font-bold text-emerald-400 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]"></span>
+                    Live Widget Active on This Page
+                </div>
+                <div class="text-xs text-slate-400 leading-relaxed">
+                    Look at the <b id="dockingLabel" class="text-cyan-300">bottom corner</b> to find your live floating launcher button. Click it to chat with your grounded AI!
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 🚀 AUTO-LOAD ACTIVE BOT WIDGET SCRIPT -->
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        let selectedKey = urlParams.get('key');
+        const token = localStorage.getItem('kiavi_token');
+
+        async function initTestSite() {
+            lucide.createIcons();
+            let allBots = [];
+
+            if (token) {
+                try {
+                    const res = await fetch('/api/bots/', { headers: { 'Authorization': 'Bearer ' + token } });
+                    const data = await res.json();
+                    allBots = data.bots || [];
+                } catch(e) {}
+            }
+
+            const activeStorageKey = localStorage.getItem('kiavi_active_bot_key');
+            if (!selectedKey && activeStorageKey && allBots.some(b => b.publicKey === activeStorageKey)) {
+                selectedKey = activeStorageKey;
+            } else if (!selectedKey && allBots.length > 0) {
+                selectedKey = allBots[0].publicKey;
+            }
+
+            const select = document.getElementById('botSelect');
+            if (allBots.length > 0) {
+                select.innerHTML = allBots.map(b => `
+                    <option value="${b.publicKey}" ${b.publicKey === selectedKey ? 'selected' : ''}>
+                        ${b.name} (${b.domain || 'no domain'})
+                    </option>
+                `).join('');
+            } else if (selectedKey) {
+                select.innerHTML = `<option value="${selectedKey}">Active Key (${selectedKey.substring(0,8)}...)</option>`;
+            } else {
+                selectedKey = "pk_live_2ab08a3da470458f";
+                select.innerHTML = `<option value="${selectedKey}">Default Demo Bot</option>`;
+            }
+
+            // Fetch bot config to adapt page hero branding
+            try {
+                const cRes = await fetch(`/api/public/config/${selectedKey}`);
+                if (cRes.ok) {
+                    const cfg = await cRes.json();
+                    document.getElementById('heroBotName').innerText = cfg.name || 'Agent';
+                    document.getElementById('brandName').innerText = cfg.name || 'Site';
+                    document.getElementById('brandIcon').innerText = (cfg.name || 'A').charAt(0).toUpperCase();
+                    if (cfg.accentColor) {
+                        document.getElementById('brandIcon').style.background = cfg.accentColor;
+                        document.getElementById('contactBtn').style.color = cfg.accentColor;
+                    }
+                    if (cfg.launcherPosition === 'left') {
+                        document.getElementById('dockingLabel').innerText = 'BOTTOM LEFT';
+                    } else {
+                        document.getElementById('dockingLabel').innerText = 'BOTTOM RIGHT';
+                    }
+                }
+            } catch(e) {}
+
+            // Embed w.js script
+            const script = document.createElement('script');
+            script.src = `/w.js`;
+            script.setAttribute('data-key', selectedKey);
+            document.body.appendChild(script);
+        }
+
+        function switchBot(key) {
+            if (key) {
+                localStorage.setItem('kiavi_active_bot_key', key);
+                window.location.href = `/test-site?key=${key}`;
+            }
+        }
+
+        window.onload = initTestSite;
+    </script>
+</body>
+</html>
