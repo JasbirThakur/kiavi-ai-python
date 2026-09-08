@@ -151,6 +151,11 @@ def request_human_agent(
 
     # Direct 1-Click Magic Join Link
     join_url = f"/live-chat/{conv.id}"
+    import urllib.parse
+    host_ip = "192.168.10.138"
+    mobile_url = f"http://{host_ip}:3000{join_url}"
+    whatsapp_url = f"https://api.whatsapp.com/send?text={urllib.parse.quote(f'🚨 Live Support Alert! Visitor {visitor_display} is waiting on {bot_name}. Tap to join live: {mobile_url}')}"
+    qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(mobile_url)}"
 
     # Prominent notification logged for support team / webhook listener
     print("\n" + "="*70, flush=True)
@@ -159,16 +164,21 @@ def request_human_agent(
     print(f"🤖 Bot Name     : {bot_name} ({bot_id})", flush=True)
     print(f"💬 Conversation : {conv.id}", flush=True)
     print(f"🔗 DIRECT 1-CLICK JOIN LINK: {join_url}", flush=True)
-    print(f"📱 Mobile / Web URL: http://localhost:3000{join_url}", flush=True)
+    print(f"📱 Mobile LAN URL  : {mobile_url}", flush=True)
+    print(f"📲 WhatsApp Link   : {whatsapp_url}", flush=True)
     print("="*70 + "\n", flush=True)
 
     return {
         "status": "success",
         "conversation_id": conv.id,
         "join_url": join_url,
+        "mobile_url": mobile_url,
+        "whatsapp_url": whatsapp_url,
+        "qr_code_url": qr_code_url,
         "visitor_name": visitor_display,
         "bot_name": bot_name
     }
+
 
 
 @router.post("/api/public/chat/conversations/{conv_id}/agent-reply")
