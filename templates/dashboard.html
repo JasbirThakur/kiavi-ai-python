@@ -394,24 +394,16 @@
                                 <label class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
                                     <i data-lucide="user-check" class="w-4 h-4 text-cyan-400"></i> Real Human Support Agent (Live Hand-Off)
                                 </label>
-                                <span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">WhatsApp & Gmail Alert</span>
+                                <span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">Gmail Alert</span>
                             </div>
                             <p class="text-[11px] text-slate-400 leading-relaxed">
-                                Jab user chat me <strong>"Talk to Human"</strong> par click karega, tab live room ka link in details par WhatsApp &amp; Email ke jariye automatically bheja jaega:
+                                Jab user chat me <strong>"Talk to Human"</strong> par click karega, tab live room ka link is Gmail / Email par alert ke roop me bheja jaega:
                             </p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label class="text-[11px] font-semibold text-slate-300 block mb-1">
-                                        <i data-lucide="mail" class="w-3 h-3 inline text-amber-400"></i> Support Agent Gmail / Email
-                                    </label>
-                                    <input id="editSupportEmail" type="email" placeholder="e.g. sahil.agent@gmail.com" class="w-full bg-[#030712] border border-blue-500/30 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-cyan-400 transition" />
-                                </div>
-                                <div>
-                                    <label class="text-[11px] font-semibold text-slate-300 block mb-1">
-                                        <i data-lucide="phone" class="w-3 h-3 inline text-emerald-400"></i> Agent WhatsApp No. (with country code)
-                                    </label>
-                                    <input id="editSupportPhone" type="tel" placeholder="e.g. +919876543210" class="w-full bg-[#030712] border border-blue-500/30 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-cyan-400 transition" />
-                                </div>
+                            <div>
+                                <label class="text-[11px] font-semibold text-slate-300 block mb-1">
+                                    <i data-lucide="mail" class="w-3 h-3 inline text-amber-400"></i> Support Agent Gmail / Email
+                                </label>
+                                <input id="editSupportEmail" type="email" placeholder="jasbirsingh17050@gmail.com" class="w-full bg-[#030712] border border-blue-500/30 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-cyan-400 transition" />
                             </div>
                         </div>
 
@@ -2639,40 +2631,30 @@
                             <div class="p-2.5 rounded-xl bg-slate-900/90 border border-blue-500/30 text-[11px] space-y-1">
                                 <div class="font-bold text-cyan-300 flex items-center justify-between">
                                     <span class="flex items-center gap-1.5">
-                                        <i data-lucide="user-check" class="w-3.5 h-3.5"></i> Configured Support Agent:
+                                        <i data-lucide="user-check" class="w-3.5 h-3.5"></i> Configured Support Specialist:
                                     </span>
                                     <a href="javascript:void(0)" onclick="switchTab('appearance')" class="text-[10px] text-cyan-400 hover:underline">Change Details</a>
                                 </div>
-                                <div class="text-slate-300 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
-                                    <span>📧 Gmail: <strong class="text-white">${data.support_email || '<span class="text-amber-400">Not set yet (in Appearance)</span>'}</strong></span>
-                                    <span>📱 WhatsApp: <strong class="text-white">${data.support_phone || '<span class="text-amber-400">Not set yet (in Appearance)</span>'}</strong></span>
+                                <div class="text-slate-300 text-[11px]">
+                                    <span>📧 Agent Gmail: <strong class="text-white">${data.support_email || 'jasbirsingh17050@gmail.com'}</strong></span>
                                 </div>
                             </div>
 
-                            <!-- Mobile QR Code & WhatsApp / Gmail Share Section -->
-                            <div class="flex flex-col sm:flex-row items-center gap-4 p-3 rounded-xl bg-black/60 border border-slate-700/60">
-                                <div class="p-2 bg-white rounded-xl shadow-md shrink-0 flex flex-col items-center">
-                                    <img src="${qrCodeUrl}" alt="Scan QR" class="w-28 h-28 object-contain rounded-lg" />
-                                    <span class="text-[9px] text-slate-800 font-bold mt-1">Scan with Phone (4G/5G)</span>
+                            <!-- Gmail Alert Dispatch Section -->
+                            <div class="p-3 rounded-xl bg-black/60 border border-slate-700/60 space-y-2">
+                                <div class="text-[11px] font-bold text-cyan-300 flex items-center gap-1.5">
+                                    <i data-lucide="mail" class="w-3.5 h-3.5 text-amber-400"></i> Send Live Alert To Agent Email:
                                 </div>
-                                <div class="flex-1 space-y-2 text-left w-full">
-                                    <div class="text-[11px] font-bold text-cyan-300 flex items-center gap-1.5">
-                                        <i data-lucide="send" class="w-3.5 h-3.5"></i> Send Live Alert To Human Agent:
-                                    </div>
-                                    <div class="text-[10px] text-slate-400 leading-relaxed">
-                                        Mobile par link bhej kar agent turant join kar sakta hai:
-                                    </div>
-                                    <div class="flex items-center gap-2 pt-1 flex-wrap">
-                                        <a href="${whatsappUrl}" target="_blank" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] flex items-center gap-1.5 shadow-md transition cursor-pointer">
-                                            <i data-lucide="message-circle" class="w-3.5 h-3.5"></i> 💬 Send to WhatsApp ${data.support_phone ? '(' + data.support_phone + ')' : ''}
-                                        </a>
-                                        <a href="${mailtoUrl}" target="_blank" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] flex items-center gap-1.5 shadow-md transition cursor-pointer">
-                                            <i data-lucide="mail" class="w-3.5 h-3.5"></i> 📧 Send to Gmail ${data.support_email ? '(' + data.support_email + ')' : ''}
-                                        </a>
-                                        <button onclick="navigator.clipboard.writeText('${mobileUrl}'); alert('Public Live Chat Link copied! You can paste in WhatsApp/Gmail:\\n' + '${mobileUrl}');" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-[10px] font-mono flex items-center gap-1 transition cursor-pointer">
-                                            📋 Copy Public Link
-                                        </button>
-                                    </div>
+                                <div class="text-[10px] text-slate-400">
+                                    Support Agent ko live chat join karne ke liye Gmail alert link bhej sakte hain:
+                                </div>
+                                <div class="flex items-center gap-2 pt-1 flex-wrap">
+                                    <a href="${mailtoUrl}" target="_blank" class="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md transition cursor-pointer">
+                                        <i data-lucide="mail" class="w-3.5 h-3.5"></i> 📧 Send to Gmail (${data.support_email || 'jasbirsingh17050@gmail.com'})
+                                    </a>
+                                    <button onclick="navigator.clipboard.writeText('${mobileUrl}'); alert('Public Live Chat Link copied!\\n' + '${mobileUrl}');" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-mono flex items-center gap-1 transition cursor-pointer">
+                                        📋 Copy Agent Link
+                                    </button>
                                 </div>
                             </div>
 
@@ -2683,7 +2665,7 @@
                                 </div>
                                 <div class="text-slate-300 text-[10px] space-y-0.5">
                                     <div>• <strong>Side 1 (Customer Side)</strong>: Niche <strong>[👤 Open Customer Chat Window]</strong> par click karein.</div>
-                                    <div>• <strong>Side 2 (Agent Side)</strong>: Apne Gmail / WhatsApp par aaye link ko phone ya dusre tab me kholein (ya niche <strong>[🎧 Open Agent Console]</strong> dabayein).</div>
+                                    <div>• <strong>Side 2 (Agent Side)</strong>: Apne Gmail par aaye link ko phone ya dusre tab me kholein (ya niche <strong>[🎧 Open Agent Console]</strong> dabayein).</div>
                                     <div>• Dono taraf real-time do tarfa messaging chalegi!</div>
                                 </div>
                             </div>
