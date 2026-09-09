@@ -1,0 +1,7 @@
+Summarize the key facts, user preferences, specific entities, and unanswered questions from the conversation below into concise bullet points.
+Preserve all crucial details like names, dates, product types, and decisions.
+
+Conversation:
+{conversation}
+
+Summary:

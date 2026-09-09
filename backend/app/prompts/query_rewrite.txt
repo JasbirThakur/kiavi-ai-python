@@ -1,0 +1,11 @@
+Given the following conversation history and the user's latest message, rewrite the user's message into a complete, standalone search query that preserves all relevant context (such as subject, specific entity, product name, or topic).
+If the message is already standalone or is a simple conversational greeting/acknowledgement, return it as is.
+Respond with ONLY the rewritten query text and nothing else.
+
+Conversation History:
+{history}
+
+User's Latest Message:
+{query}
+
+Standalone Search Query:

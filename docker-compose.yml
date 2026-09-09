@@ -20,7 +20,9 @@ services:
 
   # ⚡ Kiavi IQ FastAPI Backend Engine
   backend:
-    build: .
+    image: kiavi-ai-python-backend:latest
+    build:
+      context: ./backend
     container_name: kiavi_backend
     restart: always
     depends_on:
@@ -32,13 +34,15 @@ services:
       - NVIDIA_API_KEY=${NVIDIA_API_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
     volumes:
-      - .:/app
+      - ./backend:/app
+      - ./frontend/public:/app/public
     ports:
       - "8000:8000"
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-  # 🌐 Kiavi IQ Dedicated Standalone Frontend Service
+  # 🌐 Kiavi IQ Dedicated Frontend Service (Reverse Proxy & UI)
   frontend:
+    image: kiavi-ai-python-frontend:latest
     build:
       context: ./frontend
     container_name: kiavi_frontend
@@ -47,9 +51,9 @@ services:
       - backend
     volumes:
       - ./frontend/public:/usr/share/nginx/html
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
     ports:
       - "3000:80"
 
 volumes:
   pgdata:
-

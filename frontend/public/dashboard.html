@@ -1204,45 +1204,268 @@
             if (allSources.length > 0) {
                 options.push("Explore Product Catalogue 📁");
                 allSources.forEach(s => {
-                    if (options.length >= 4) return;
-                    let clean = (s.title || '').replace(/\.[a-zA-Z0-9]+$/, '').replace(/\|.*$/, '').trim();
-                    if (/steel|metal|iron/i.test(clean)) {
-                        options.push("Explore Steel & Metal Specs");
-                    } else if (/sports|archive|shoe|badminton|footwear/i.test(clean)) {
-                        options.push("Explore Sports & Footwear Items");
-                    } else if (/vasudev|software|development/i.test(clean)) {
-                        options.push("AI & Software Development Services");
-                    } else if (/vedaone|valuation|financial/i.test(clean)) {
-                        options.push("Financial Valuation AI");
-                    } else if (/nykaa|beauty|cosmetics/i.test(clean)) {
-                        options.push("Explore Cosmetics & Beauty Store");
-                    } else if (/youtube/i.test(clean)) {
-                        options.push("YouTube Services & Guidelines");
-                    } else if (clean.length > 3 && clean.length < 35) {
-                        options.push("Explore " + clean);
+                    let title = (s.title || '').trim();
+                    let tl = title.toLowerCase();
+                    let pill = "";
+                    if (tl.includes("alorica") || tl.includes("cx leader")) {
+                        pill = "Explore Alorica CX Services";
+                    } else if (tl.includes("steel") || tl.includes("metal")) {
+                        pill = "Explore Steel & Metal Specs";
+                    } else if (tl.includes("sports") || tl.includes("shoe") || tl.includes("footwear")) {
+                        pill = "Explore Sports & Footwear Items";
+                    } else if (tl.includes("archive.zip") || (tl === "archive" && s.kind === "FILE")) {
+                        pill = "Explore Product Archive Dataset";
+                    } else if (tl.includes("nykaa") || tl.includes("beauty") || tl.includes("cosmetics")) {
+                        pill = "Explore Cosmetics & Beauty Store";
+                    } else if (tl.includes("python")) {
+                        pill = "Explore Python Programming Notes";
+                    } else if (tl.includes("vsix") || tl.includes("visualstudio") || tl.includes("visual studio")) {
+                        pill = "Explore Visual Studio Extensions";
+                    } else if (tl.includes("httpbin")) {
+                        pill = "Explore HTTPBin Web Data";
+                    } else if (tl.includes("vasudev") || tl.includes("software") || tl.includes("development")) {
+                        pill = "AI & Software Development Services";
+                    } else if (tl.includes("vedaone") || tl.includes("valuation") || tl.includes("financial")) {
+                        pill = "Financial Valuation AI";
+                    } else if (tl.includes("youtube")) {
+                        pill = "Explore YouTube Guidelines";
+                    } else if (tl.includes("refund")) {
+                        pill = "Explore Enterprise Refund Policy";
+                    } else {
+                        let clean = title.replace(/\.[a-zA-Z0-9]+$/, '').replace(/^https?:\/\/(www\.)?/, '').replace(/[\|\-—•].*$/, '').replace(/_+/g, ' ').trim();
+                        if (clean.length > 30) clean = clean.substring(0, 28) + '...';
+                        if (clean.length > 2) {
+                            pill = clean.toLowerCase().startsWith("explore ") ? clean : "Explore " + clean;
+                        }
+                    }
+                    if (pill && !options.includes(pill)) {
+                        options.push(pill);
                     }
                 });
             }
 
             if (!options.some(o => /contact|address|support/i.test(o))) {
-                if (options.length < 4) {
-                    options.push("Official Address & Contact");
-                }
+                options.push("Official Address & Contact");
             }
-
-            if (options.length < 2) {
-                options.push("Explore Product Catalogue 📁", "Company Services", "Pricing & Details", "Official Address & Contact");
-            }
-
             if (!options.some(o => /human|agent|support/i.test(o))) {
                 options.push("👤 Talk to Real Human");
             }
 
             return {
                 prompt: "Here are some exciting areas you can explore right now:",
-                options: [...new Set(options)].slice(0, 5)
+                options: [...new Set(options)]
             };
+        }
 
+        function renderDashboardFollowupMarkup(followup, uid, isUnshownGreeting) {
+            if (!followup || !followup.options || followup.options.length === 0) return '';
+            const options = followup.options;
+            const promptText = followup.prompt || 'Related topics & next steps:';
+            const isHiddenClass = isUnshownGreeting ? 'hidden' : '';
+            const cardId = uid ? `id="${uid}"` : '';
+            const expandId = uid ? `${uid}_exp` : ('fl_exp_' + Math.random().toString(36).substring(2, 9));
+
+            if (options.length <= 4) {
+                return `
+                    <div ${cardId} class="dash-followup-card mt-2.5 p-3 rounded-2xl bg-[#091326] border border-cyan-500/30 w-full min-w-0 max-w-full sm:max-w-xl shadow-lg ${isHiddenClass}">
+                        <div class="flex items-center gap-1.5 text-[11px] font-medium text-cyan-300 mb-2">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i>
+                            <span>${promptText}</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            ${options.map(opt => `
+                                <button type="button" 
+                                        onclick="handleDashboardFollowup(this, '${opt.replace(/'/g, "\\'")}', '${promptText.replace(/'/g, "\\'")}')" 
+                                        ${followup.selected ? 'disabled' : ''}
+                                        class="dash-followup-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                                            followup.selected === opt 
+                                                ? 'bg-cyan-500 text-black shadow-md font-bold' 
+                                                : (followup.selected 
+                                                    ? 'bg-slate-800/40 text-slate-500 border border-slate-700/40 cursor-not-allowed opacity-60' 
+                                                    : 'bg-blue-600/25 hover:bg-cyan-500 hover:text-black text-cyan-200 border border-cyan-400/40 hover:border-cyan-300 shadow-sm active:scale-95')
+                                        }">
+                                    <span>${opt}</span>
+                                    <i data-lucide="arrow-right" class="w-3 h-3 opacity-70"></i>
+                                </button>
+                            `).join('')}
+                        </div>
+                        ${followup.dismissed ? `
+                            <div class="mt-2 text-[10px] text-slate-400 italic flex items-center gap-1">
+                                <i data-lucide="check" class="w-3 h-3 text-cyan-400"></i>
+                                <span>Understood! Let me know if you need anything else.</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            const primary = options.slice(0, 3);
+            const more = options.slice(3);
+
+            return `
+                <div ${cardId} class="dash-followup-card mt-2.5 p-3 rounded-2xl bg-[#091326] border border-cyan-500/30 w-full min-w-0 max-w-full sm:max-w-xl shadow-lg ${isHiddenClass}">
+                    <div class="flex items-center justify-between text-[11px] font-medium text-cyan-300 mb-2">
+                        <div class="flex items-center gap-1.5">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i>
+                            <span>${promptText}</span>
+                        </div>
+                        <span class="text-[10px] text-cyan-400/80 bg-cyan-950/60 px-2 py-0.5 rounded-full border border-cyan-500/30 font-mono">${options.length} topics available</span>
+                    </div>
+                    
+                    <!-- Top 3 Primary Pills + 4th More Expander -->
+                    <div class="flex flex-wrap gap-2 items-center">
+                        ${primary.map(opt => `
+                            <button type="button" 
+                                    onclick="handleDashboardFollowup(this, '${opt.replace(/'/g, "\\'")}', '${promptText.replace(/'/g, "\\'")}')" 
+                                    ${followup.selected ? 'disabled' : ''}
+                                    class="dash-followup-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                                        followup.selected === opt 
+                                            ? 'bg-cyan-500 text-black shadow-md font-bold' 
+                                            : (followup.selected 
+                                                ? 'bg-slate-800/40 text-slate-500 border border-slate-700/40 cursor-not-allowed opacity-60' 
+                                                : 'bg-blue-600/25 hover:bg-cyan-500 hover:text-black text-cyan-200 border border-cyan-400/40 hover:border-cyan-300 shadow-sm active:scale-95')
+                                    }">
+                                <span>${opt}</span>
+                                <i data-lucide="arrow-right" class="w-3 h-3 opacity-70"></i>
+                            </button>
+                        `).join('')}
+
+                        <button type="button" 
+                                id="${expandId}_toggle_btn"
+                                onclick="toggleDashboardFollowupExpand('${expandId}')"
+                                class="dash-followup-toggle px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-purple-600/30 via-indigo-600/30 to-cyan-600/30 hover:from-purple-600/50 hover:to-cyan-600/50 text-cyan-200 hover:text-white border border-cyan-400/50 hover:border-cyan-300 shadow-md transition active:scale-95 cursor-pointer flex items-center gap-1.5">
+                            <i data-lucide="layers" class="w-3.5 h-3.5 text-cyan-300"></i>
+                            <span id="${expandId}_toggle_txt">More (+${more.length}) Topics ▾</span>
+                        </button>
+                    </div>
+
+                    <!-- Expandable Search Bar & Real-time Filterable Knowledge Base Pills -->
+                    <div id="${expandId}_panel" class="hidden mt-3 p-3 rounded-xl bg-[#060b17]/95 border border-cyan-500/40 shadow-2xl space-y-2.5">
+                        <div class="flex items-center justify-between text-[11px] font-semibold text-cyan-300 px-0.5">
+                            <span class="flex items-center gap-1.5">
+                                <i data-lucide="database" class="w-3.5 h-3.5 text-cyan-400"></i>
+                                <span>All Database Sources (${options.length} Topics)</span>
+                            </span>
+                            <span class="text-[10px] text-slate-400 font-normal">Type to filter</span>
+                        </div>
+
+                        <!-- Instant Search Input -->
+                        <div class="relative">
+                            <i data-lucide="search" class="w-3.5 h-3.5 text-cyan-400 absolute left-2.5 top-2.5"></i>
+                            <input type="text" 
+                                   id="${expandId}_input"
+                                   placeholder="Search through all ${options.length} database topics..." 
+                                   oninput="filterDashboardFollowup('${expandId}', this.value)"
+                                   class="w-full bg-[#0a152d] border border-cyan-500/30 rounded-xl pl-8 pr-7 py-1.5 text-xs text-cyan-100 placeholder-slate-400 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400">
+                            <button type="button" 
+                                    id="${expandId}_clear"
+                                    onclick="clearDashboardFollowupSearch('${expandId}')" 
+                                    class="hidden absolute right-2.5 top-1.5 text-slate-400 hover:text-white text-xs p-0.5">
+                                ✕
+                            </button>
+                        </div>
+
+                        <!-- Scrollable Pill Options Grid -->
+                        <div id="${expandId}_grid" class="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1 py-1 custom-scrollbar">
+                            ${more.map(opt => `
+                                <button type="button" 
+                                        data-topic="${opt.toLowerCase()}"
+                                        onclick="handleDashboardFollowup(this, '${opt.replace(/'/g, "\\'")}', '${promptText.replace(/'/g, "\\'")}')" 
+                                        ${followup.selected ? 'disabled' : ''}
+                                        class="dash-followup-pill dash-followup-btn px-2.5 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                                            followup.selected === opt 
+                                                ? 'bg-cyan-500 text-black shadow-md font-bold' 
+                                                : (followup.selected 
+                                                    ? 'bg-slate-800/40 text-slate-500 border border-slate-700/40 cursor-not-allowed opacity-60' 
+                                                    : 'bg-cyan-950/50 hover:bg-cyan-500 hover:text-black text-cyan-200 border border-cyan-500/30 hover:border-cyan-300 shadow-sm active:scale-95')
+                                        }">
+                                    <span>${opt}</span>
+                                    <i data-lucide="arrow-right" class="w-3 h-3 opacity-60"></i>
+                                </button>
+                            `).join('')}
+                        </div>
+
+                        <div id="${expandId}_empty" class="hidden text-center py-3 text-xs text-slate-400 italic">
+                            No matching database topics found for this search.
+                        </div>
+
+                        <div class="flex justify-end pt-1 border-t border-cyan-500/20">
+                            <button type="button" 
+                                    onclick="toggleDashboardFollowupExpand('${expandId}')" 
+                                    class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1 cursor-pointer">
+                                <span>Show less</span>
+                                <i data-lucide="chevron-up" class="w-3 h-3"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    ${followup.dismissed ? `
+                        <div class="mt-2 text-[10px] text-slate-400 italic flex items-center gap-1">
+                            <i data-lucide="check" class="w-3 h-3 text-cyan-400"></i>
+                            <span>Understood! Let me know if you need anything else.</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function toggleDashboardFollowupExpand(expandId) {
+            const panel = document.getElementById(expandId + '_panel');
+            const txt = document.getElementById(expandId + '_toggle_txt');
+            if (!panel) return;
+            const isHidden = panel.classList.contains('hidden');
+            if (isHidden) {
+                panel.classList.remove('hidden');
+                if (txt) txt.textContent = 'Collapse Topics ▴';
+                const input = document.getElementById(expandId + '_input');
+                if (input) setTimeout(() => input.focus(), 50);
+            } else {
+                panel.classList.add('hidden');
+                if (txt) {
+                    const count = panel.querySelectorAll('.dash-followup-pill').length;
+                    txt.textContent = `More (+${count}) Topics ▾`;
+                }
+            }
+            lucide.createIcons();
+        }
+
+        function filterDashboardFollowup(expandId, query) {
+            const grid = document.getElementById(expandId + '_grid');
+            const empty = document.getElementById(expandId + '_empty');
+            const clearBtn = document.getElementById(expandId + '_clear');
+            if (!grid) return;
+
+            const q = (query || '').trim().toLowerCase();
+            if (clearBtn) {
+                if (q) clearBtn.classList.remove('hidden');
+                else clearBtn.classList.add('hidden');
+            }
+
+            const pills = grid.querySelectorAll('.dash-followup-pill');
+            let visibleCount = 0;
+            pills.forEach(p => {
+                const topic = p.getAttribute('data-topic') || '';
+                if (!q || topic.includes(q)) {
+                    p.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    p.classList.add('hidden');
+                }
+            });
+
+            if (empty) {
+                if (visibleCount === 0) empty.classList.remove('hidden');
+                else empty.classList.add('hidden');
+            }
+        }
+
+        function clearDashboardFollowupSearch(expandId) {
+            const input = document.getElementById(expandId + '_input');
+            if (input) {
+                input.value = '';
+                filterDashboardFollowup(expandId, '');
+                input.focus();
+            }
         }
 
         function runTypewriterGreeting(targetEl, fullText, speed = 18, onComplete) {
@@ -1445,37 +1668,7 @@
                                     `).join('')}
                                 </div>
                             ` : ''}
-                            ${m.followup && m.followup.options && m.followup.options.length > 0 ? `
-                                <div ${twFollowupId ? `id="${twFollowupId}"` : ''} class="mt-2.5 p-3 rounded-2xl bg-[#091326] border border-cyan-500/30 w-full min-w-0 max-w-full sm:max-w-xl shadow-lg ${isUnshownGreeting ? 'hidden' : ''}">
-                                    <div class="flex items-center gap-1.5 text-[11px] font-medium text-cyan-300 mb-2">
-                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i>
-                                        <span>${m.followup.prompt || 'Related topics & next steps:'}</span>
-                                    </div>
-                                    <div class="flex flex-wrap gap-2">
-                                        ${m.followup.options.map(opt => `
-                                            <button type="button" 
-                                                    onclick="handleDashboardFollowup(this, '${opt.replace(/'/g, "\\'")}', '${(m.followup.prompt || '').replace(/'/g, "\\'")}')" 
-                                                    ${m.followup.selected ? 'disabled' : ''}
-                                                    class="px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                                                        m.followup.selected === opt 
-                                                            ? 'bg-cyan-500 text-black shadow-md font-bold' 
-                                                            : (m.followup.selected 
-                                                                ? 'bg-slate-800/40 text-slate-500 border border-slate-700/40 cursor-not-allowed opacity-60' 
-                                                                : 'bg-blue-600/25 hover:bg-cyan-500 hover:text-black text-cyan-200 border border-cyan-400/40 hover:border-cyan-300 shadow-sm active:scale-95')
-                                                    }">
-                                                <span>${opt}</span>
-                                                <i data-lucide="arrow-right" class="w-3 h-3 opacity-70"></i>
-                                            </button>
-                                        `).join('')}
-                                    </div>
-                                    ${m.followup.dismissed ? `
-                                        <div class="mt-2 text-[10px] text-slate-400 italic flex items-center gap-1">
-                                            <i data-lucide="check" class="w-3 h-3 text-cyan-400"></i>
-                                            <span>Understood! Let me know if you need anything else.</span>
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            ` : ''}
+                            ${renderDashboardFollowupMarkup(m.followup, twFollowupId || ('dash_msg_fl_' + idx), isUnshownGreeting)}
                             <div class="flex items-center gap-1.5 text-[9px] text-slate-500 mt-1 ml-1 font-mono">
                                 <span>${m.time}</span>
                                 ${m.latency ? `<span class="text-cyan-400 font-bold">• ⚡ ${m.latency} latency</span>` : ''}
@@ -2098,6 +2291,24 @@
                     }
                 }
                 lucide.createIcons();
+
+                // Dynamically sync initial greeting chips with newly loaded sources if not yet interacted with
+                if (activeBotId) {
+                    const freshSessions = getBotSessions(activeBotId);
+                    let updated = false;
+                    freshSessions.forEach(sess => {
+                        if (sess.messages && sess.messages.length === 1 && sess.messages[0].role === 'BOT' && sess.messages[0].isGreeting) {
+                            if (!sess.messages[0].followup || !sess.messages[0].followup.selected) {
+                                sess.messages[0].followup = getInitialFollowupChips();
+                                updated = true;
+                            }
+                        }
+                    });
+                    if (updated) {
+                        saveBotSessions(activeBotId, freshSessions);
+                        renderBotChat(activeBotId);
+                    }
+                }
             } catch (e) {
                 console.error("Failed to load active bot sources", e);
             }
@@ -2510,24 +2721,7 @@
                                     if (activeBotId === sendingBotId) {
                                         const followupContainer = document.getElementById(msgId + '_followup');
                                         if (followupContainer) {
-                                            followupContainer.innerHTML = `
-                                                <div class="mt-2.5 p-3 rounded-2xl bg-[#091326] border border-cyan-500/30 w-full min-w-0 max-w-full sm:max-w-xl shadow-lg">
-                                                    <div class="flex items-center gap-1.5 text-[11px] font-medium text-cyan-300 mb-2">
-                                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i>
-                                                        <span>${data.prompt}</span>
-                                                    </div>
-                                                    <div class="flex flex-wrap gap-2">
-                                                        ${data.options.map(opt => `
-                                                            <button type="button" 
-                                                                    onclick="handleDashboardFollowup(this, '${opt.replace(/'/g, "\\'")}', '${data.prompt.replace(/'/g, "\\'")}')" 
-                                                                    class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600/25 hover:bg-cyan-500 hover:text-black text-cyan-200 border border-cyan-400/40 hover:border-cyan-300 shadow-sm transition active:scale-95 cursor-pointer flex items-center gap-1.5">
-                                                                <span>${opt}</span>
-                                                                <i data-lucide="arrow-right" class="w-3 h-3 opacity-70"></i>
-                                                            </button>
-                                                        `).join('')}
-                                                    </div>
-                                                </div>
-                                            `;
+                                            followupContainer.innerHTML = renderDashboardFollowupMarkup(data, `${msgId}_fl`, false);
                                             lucide.createIcons();
                                             box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
                                         }
@@ -2741,17 +2935,36 @@
         }
 
         function handleDashboardFollowup(btn, optionText, promptContext) {
-            const parentWrap = btn.closest('.flex-wrap');
-            if (parentWrap) {
-                const buttons = parentWrap.querySelectorAll('button');
+            const card = btn.closest('.dash-followup-card') || btn.closest('.bg-\\[\\#091326\\]');
+            if (card) {
+                const buttons = card.querySelectorAll('button');
                 buttons.forEach(b => {
+                    if (b.id && (b.id.includes('_toggle_btn') || b.id.includes('_clear'))) {
+                        b.disabled = true;
+                        return;
+                    }
                     b.disabled = true;
                     if (b === btn) {
-                        b.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-500 text-black shadow-md flex items-center gap-1.5 cursor-default";
+                        b.className = "dash-followup-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-500 text-black shadow-md flex items-center gap-1.5 cursor-default";
                     } else {
-                        b.className = "px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800/40 text-slate-500 border border-slate-700/40 cursor-not-allowed opacity-60 flex items-center gap-1.5";
+                        b.className = "dash-followup-btn px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800/40 text-slate-500 border border-slate-700/40 cursor-not-allowed opacity-60 flex items-center gap-1.5";
                     }
                 });
+                const panel = card.querySelector('[id$="_panel"]');
+                if (panel) panel.classList.add('hidden');
+            } else {
+                const parentWrap = btn.closest('.flex-wrap');
+                if (parentWrap) {
+                    const buttons = parentWrap.querySelectorAll('button');
+                    buttons.forEach(b => {
+                        b.disabled = true;
+                        if (b === btn) {
+                            b.className = "px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-500 text-black shadow-md flex items-center gap-1.5 cursor-default";
+                        } else {
+                            b.className = "px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800/40 text-slate-500 border border-slate-700/40 cursor-not-allowed opacity-60 flex items-center gap-1.5";
+                        }
+                    });
+                }
             }
 
             const lowerOpt = optionText.toLowerCase();

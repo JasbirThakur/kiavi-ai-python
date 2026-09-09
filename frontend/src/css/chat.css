@@ -1,0 +1,10 @@
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.message-bubble {
+  word-break: break-word;
+}
+
