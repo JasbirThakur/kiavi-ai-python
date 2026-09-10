@@ -3484,6 +3484,36 @@
                     </div>
                 `;
             });
+            // 4a-csv. Official CSV Action Card [CSV_CARD:topic|Title]
+            html = html.replace(/\[CSV_CARD:([^\|\]]+)\|([^\]]+)\]/g, (match, topic, title) => {
+                const cleanTopic = (topic || "product-catalogue").trim();
+                const cleanTitle = (title || "Product Specifications & Data Sheet").trim();
+                const escapedTitle = cleanTitle.replace(/'/g, "\\'");
+                const botId = activeBotId || "";
+                const downloadUrl = `/api/catalogues/csv?bot_id=${encodeURIComponent(botId)}&topic=${encodeURIComponent(cleanTopic)}&title=${encodeURIComponent(cleanTitle)}&download=1`;
+                return `
+                    <div class="my-3 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/90 via-[#062419] to-teal-950/80 border border-emerald-400/50 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full min-w-0 max-w-full box-border overflow-hidden">
+                        <div class="flex items-center gap-3 min-w-0 flex-1">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0 text-emerald-400 shadow-inner">
+                                <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                                    <span class="truncate">${cleanTitle}</span>
+                                    <span class="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30 shrink-0 font-semibold">CSV SPREADSHEET</span>
+                                </div>
+                                <div class="text-[10px] text-emerald-300/80 font-mono truncate">Verified Tabular Data Sheet • Full Specifications</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                            <a href="${downloadUrl}" download="${cleanTopic}-data.csv" class="glow-btn px-3.5 py-1.5 rounded-xl text-black bg-gradient-to-r from-emerald-400 to-teal-300 text-[11px] font-bold flex items-center gap-1.5 shadow-md transition active:scale-95 cursor-pointer">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                <span>Download CSV</span>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            });
             // 4b. Interactive PDF Document Card [Title](url.pdf) or links with PDF/Catalogue in text
             html = html.replace(/\[([^\]]*?(?:PDF|Catalogue|Catalog|Document|Download|Sheet)[^\]]*?)\]\s*\(((?:https?:\/\/|\/)[^\s)]+\.pdf(?:\?[^\s)]*)?)\)/gi, (match, title, url) => {
                 const cleanTitle = title.replace(/^[📄📑📁\s]+/, '').trim() || "Official Product Catalogue (PDF)";

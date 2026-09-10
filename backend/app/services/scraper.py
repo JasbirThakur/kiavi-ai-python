@@ -556,7 +556,7 @@ def discover_sitemap_urls(base_url: str, headers: dict) -> list[str]:
 
     return discovered
 
-def scrape_url_content(url: str, crawl_depth: int = 5) -> tuple[str, str, str]:
+def scrape_url_content(url: str, crawl_depth: int = 15) -> tuple[str, str, str]:
     """
     Intelligent Deep Web Scraper:
     - Scrapes all content from Next.js, React, Nuxt, Vue, Angular, WordPress, and static sites.
@@ -626,13 +626,13 @@ def scrape_url_content(url: str, crawl_depth: int = 5) -> tuple[str, str, str]:
             if l not in prioritized_links and l != url.rstrip('/'):
                 prioritized_links.append(l)
 
-        # 4. Scrape Subpages up to crawl_depth with Multi-hop Link Discovery and 18s Max Elapsed Limit
+        # 4. Scrape Subpages up to crawl_depth with Multi-hop Link Discovery and 28s Max Elapsed Limit
         base_clean = clean_domain_name(domain)
         visited_urls = {url.rstrip('/')}
         crawl_queue = list(prioritized_links)
         while crawl_queue and len(collected_pages) < crawl_depth:
-            if time.time() - start_crawl > 18:
-                print(f"⏱️ [Web Crawler]: Max crawl duration (18s) reached. Finalizing with {len(collected_pages)} pages.")
+            if time.time() - start_crawl > 28:
+                print(f"⏱️ [Web Crawler]: Max crawl duration (28s) reached. Finalizing with {len(collected_pages)} pages.")
                 break
             sub_url = crawl_queue.pop(0)
             clean_sub_url = sub_url.split('#')[0].rstrip('/')

@@ -991,67 +991,6 @@ async def stream_rag_pipeline(
     b_name_words = [w for w in re.split(r'[^a-z0-9]+', b_name.lower()) if len(w) >= 3]
     b_domain_clean = re.sub(r'^(https?://)?(www\.)?', '', b_domain.lower()).split('/')[0].split('.')[0]
 
-    # Dedicated Contact & Support Handler (Zero Third-Party Contamination)
-    contact_triggers = [
-        'contact', 'support', 'email', 'phone', 'call', 'number', 'reach',
-        'touch', 'helpdesk', 'customer service', 'get in touch', 'talk to human',
-        'consultant', 'office', 'address', 'headquarters', 'location'
-    ]
-    is_contact_query = any(trig in normalized_q for trig in contact_triggers)
-    is_third_party_brand = any(k in normalized_q for k in ['nykaa', 'steel', 'sports', 'footwear', 'badminton', 'shoe'])
-
-    if is_contact_query and not is_third_party_brand:
-        print(f"📞 [Official Contact Query Detected]: '{question}' for bot '{b_name}' ({b_domain})")
-        if is_user_hindi:
-            contact_closing = f"Inme se aap kis service ya solution ke baare mein pehle discuss karna chahenge, {user_first_name}? Niche diye gaye options par tap karein ya seedhe batayein! 😊" if user_first_name else "Inme se aap kis service ya solution ke baare mein pehle discuss karna chahenge? Niche diye gaye options par tap karein ya seedhe batayein! 😊"
-            contact_body = (
-                f"{user_salutation}Humse connect karne ke liye bohot shukriya! 🚀 Ye rahi **{b_name}** ki official contact details—hum 24/7 aapki madad ke liye tayyar hain:\n\n"
-                f"• **Official Support Email:** support@{b_domain or 'appdeft.ai'}\n"
-                f"• **Enterprise Website:** https://{b_domain or 'appdeft.ai'}\n"
-                f"• **Live Consultation & Demos:** Hamari AI solutions engineering team custom integrations aur live platform demonstrations ke liye 24/7 available hai.\n"
-                f"• **14-Day Evaluation Guarantee:** Har enterprise rollout ke sath 14 business days ka 100% money-back guarantee milta hai, zero cancellation penalties ke sath.\n\n"
-                f"{contact_closing}"
-            )
-            prompt_text = f"{user_first_name}, {b_name} ke baare mein aur kya explore karna chahenge aap?" if user_first_name else f"{b_name} ke baare mein aur kya explore karna chahenge aap?"
-        else:
-            contact_closing = f"Which exciting service or capability would you like to explore first, {user_first_name}? Just tap an option below or ask me directly!" if user_first_name else "Which exciting service or capability would you like to explore first? Just tap an option below or ask me directly!"
-            contact_body = (
-                f"{user_salutation}We'd love to connect with you directly! 🚀 Here are the official contact channels and support details for **{b_name}**—our team is always ready to assist you:\n\n"
-                f"• **Official Support Email:** support@{b_domain or 'appdeft.ai'}\n"
-                f"• **Enterprise Website:** https://{b_domain or 'appdeft.ai'}\n"
-                f"• **Live Consultation & Demos:** Our AI solutions engineering team is available 24/7 for architectural deep-dives, live platform demonstrations, and custom integrations.\n"
-                f"• **14-Day Evaluation Guarantee:** All enterprise deployments include a 100% risk-free refund within 14 business days of initial rollout with zero cancellation penalties.\n\n"
-                f"{contact_closing}"
-            )
-            prompt_text = f"How else can we assist you with {b_name} today, {user_first_name}?" if user_first_name else f"How else can we assist you with {b_name} today?"
-
-        followup_data = {
-            "prompt": prompt_text,
-            "options": ["AI Chatbot Capabilities", "Commercial Pricing & Plans", "CRM Integrations", "Explore Other Catalogues"]
-        }
-        if conversation_id:
-            try:
-                bot_msg_db = models.Message(
-                    conversationId=conversation_id,
-                    role="BOT",
-                    content=contact_body,
-                    unanswered=False
-                )
-                db.add(bot_msg_db)
-                db.commit()
-            except Exception as e:
-                print(f"Error saving bot response: {e}")
-
-        yield f"data: {json.dumps({'type': 'start', 'confidence': 1.0})}\n\n"
-        for word in contact_body.split(" "):
-            if word:
-                yield f"data: {json.dumps({'type': 'token', 'content': word + ' '})}\n\n"
-
-        yield f"data: {json.dumps({'type': 'sources', 'sources': [{'title': f'{b_name} Official Support Directory', 'kind': 'PAGE', 'url': f'https://{b_domain}' if b_domain else '', 'snippet': f'Verified official contact channels and support directory for {b_name}.'}]})}\n\n"
-        yield f"data: {json.dumps({'type': 'followup', 'prompt': followup_data['prompt'], 'options': followup_data['options']})}\n\n"
-        yield f"data: {json.dumps({'type': 'done', 'full_text': contact_body, 'followup': followup_data})}\n\n"
-        return
-
     is_name_match = (
         (len(b_name_clean) >= 3 and b_name_clean in q_clean) or
         any(w in normalized_q for w in b_name_words) or
@@ -1213,7 +1152,25 @@ async def stream_rag_pipeline(
         yield f"data: {json.dumps({'type': 'done', 'full_text': body, 'followup': followup_data})}\n\n"
         return
 
-    # 2. Dense Vector Search with wide top-40 candidate pool
+    # 2. Dense Vector Search with dedicated proprietary pool + shared pool
+    prop_results = []
+    if bot_id:
+        prop_results = (
+            db.query(
+                models.DocumentChunk,
+                models.DocumentChunk.embedding.cosine_distance(query_vec).label("distance"),
+                models.BotSource.botId.label("src_bot_id"),
+                models.BotSource.isUniversal.label("src_is_universal"),
+                models.BotSource.title.label("src_title"),
+                models.BotSource.url.label("src_url")
+            )
+            .join(models.BotSource, models.DocumentChunk.sourceId == models.BotSource.id)
+            .filter(models.BotSource.botId == bot_id, models.BotSource.isUniversal == False)
+            .order_by("distance")
+            .limit(25)
+            .all()
+        )
+
     results = (
         db.query(
             models.DocumentChunk,
@@ -1226,7 +1183,7 @@ async def stream_rag_pipeline(
         .join(models.BotSource, models.DocumentChunk.sourceId == models.BotSource.id)
         .filter(source_scope)
         .order_by("distance")
-        .limit(40)
+        .limit(30)
         .all()
     )
 
@@ -1246,17 +1203,22 @@ async def stream_rag_pipeline(
             .join(models.BotSource, models.DocumentChunk.sourceId == models.BotSource.id)
             .filter(source_scope)
             .filter(or_(*[models.DocumentChunk.content.ilike(f"%{term}%") for term in high_intent_terms]))
-            .limit(10)
+            .limit(15)
             .all()
         )
 
-    # Merge vector results and lexical candidates (deduplicated by chunk id)
+    # Merge vector results and lexical candidates (deduplicated by chunk id, prioritizing bot proprietary chunks)
     seen_ids = set()
     candidate_chunks = []
-    for chunk, distance, src_bot_id, src_is_universal, src_title, src_url in results:
+    for chunk, distance, src_bot_id, src_is_universal, src_title, src_url in prop_results:
         seen_ids.add(chunk.id)
-        is_prop = (str(src_bot_id or '') == str(bot_id) and not src_is_universal)
-        candidate_chunks.append((chunk, float(distance), is_prop, bool(src_is_universal), src_title, src_url))
+        candidate_chunks.append((chunk, float(distance), True, False, src_title, src_url))
+
+    for chunk, distance, src_bot_id, src_is_universal, src_title, src_url in results:
+        if chunk.id not in seen_ids:
+            seen_ids.add(chunk.id)
+            is_prop = (str(src_bot_id or '') == str(bot_id) and not src_is_universal)
+            candidate_chunks.append((chunk, float(distance), is_prop, bool(src_is_universal), src_title, src_url))
 
     for chunk, distance, src_bot_id, src_is_universal, src_title, src_url in lexical_results:
         if chunk.id not in seen_ids:
@@ -1281,7 +1243,7 @@ async def stream_rag_pipeline(
         kw_boost = min(0.40, kw_hits * 0.15) + intent_boost
 
         # Priority boost for bot's own proprietary sources
-        bot_priority_boost = 0.30 if is_bot_proprietary else 0.0
+        bot_priority_boost = 0.85 if is_bot_proprietary else 0.0
 
         # Targeted Industry Boost & Cross-Industry Strict Isolation
         industry_boost = 0.0
@@ -1323,7 +1285,7 @@ async def stream_rag_pipeline(
         elif matched_industry is None and not is_catalogue_mention:
             # When the user is NOT asking about a specific catalogue or exploring catalogues,
             # universal shared catalogue chunks (steel, footwear, cosmetics, alorica) must NOT leak into general company inquiries!
-            if is_universal and any(k in content_lower for k in ['steel', 'metal', 'nykaa', 'cosmetic', 'lipstick', 'shoe', 'footwear', 'badminton', 'alorica']):
+            if is_universal and any(k in content_lower for k in ['steel', 'metal', 'nykaa', 'cosmetic', 'lipstick', 'shoe', 'footwear', 'badminton', 'alorica', 'archive', 'dataset', 'products-dataset']):
                 industry_boost = -5.0
 
         # Absolute hard anti-leakage barriers:
@@ -1339,11 +1301,15 @@ async def stream_rag_pipeline(
         if any(k in content_lower for k in ['running shoes', 'badminton racket', 'basketball size']) and matched_industry in ['software', 'steel', 'cosmetics', 'alorica', 'python']:
             industry_boost = -10.0
 
-        # 4. Alorica chunks must NEVER leak into software, steel, sports, cosmetics queries
+        # 4. Universal sports archive must NEVER leak into non-sports queries
+        if any(k in src_title_clean for k in ['archive.zip', 'sports-ecommerce']) and not any(k in normalized_q for k in ['sport', 'shoe', 'badminton', 'basketball', 'racket', 'footwear', 'sneaker']):
+            industry_boost = -10.0
+
+        # 5. Alorica chunks must NEVER leak into software, steel, sports, cosmetics queries
         if 'alorica' in src_title_clean and matched_industry in ['software', 'steel', 'sports', 'cosmetics', 'python']:
             industry_boost = -10.0
 
-        # 5. Software / AppDeft proprietary chunks must NEVER leak into alorica queries
+        # 6. Software / AppDeft proprietary chunks must NEVER leak into alorica queries
         if any(k in src_title_clean for k in ['appdeft', 'app-deft', 'vinnisoft', 'vasudev']) and matched_industry in ['alorica', 'steel', 'sports', 'cosmetics', 'python']:
             industry_boost = -10.0
 
@@ -1496,7 +1462,7 @@ async def stream_rag_pipeline(
     if prior_messages:
         for m in reversed(prior_messages):
             role = "user" if m.role in ["USER", "user"] else "assistant"
-            clean_c = re.sub(r'\[PDF_CARD:.*?\]', '', m.content).strip()
+            clean_c = re.sub(r'\[(?:PDF_CARD|VIEW_PDF|CSV_CARD):.*?\]', '', m.content).strip()
             clean_c = re.sub(r'<<<FOLLOW_UP>>>.*?<<<END_FOLLOW_UP>>>', '', clean_c, flags=re.DOTALL).strip()
             clean_c = re.sub(r'---\s*📑.*', '', clean_c, flags=re.DOTALL).strip()
             if clean_c:
@@ -1629,7 +1595,7 @@ async def stream_rag_pipeline(
     # Strip any LLM-emitted PDF cards and banners so backend injects the authoritative, query-specific card
     clean_text = re.sub(r'---\s*📑[^\n]*\n\*[^\n]*\*', '', clean_text).strip()
     clean_text = re.sub(r'---\s*📑.*?(?=\n\n|$)', '', clean_text, flags=re.DOTALL).strip()
-    clean_text = re.sub(r'\[(?:PDF_CARD|VIEW_PDF):[^\]]*\]', '', clean_text).strip()
+    clean_text = re.sub(r'\[(?:PDF_CARD|VIEW_PDF|CSV_CARD):[^\]]*\]', '', clean_text).strip()
     clean_text = re.sub(r'---\s*$', '', clean_text).strip()
 
     # Ironclad Fallback: If clean_text was empty or completely stripped, synthesize a grounded answer directly from passed chunks
@@ -1764,17 +1730,30 @@ async def stream_rag_pipeline(
             caption, img_url = retrieved_images[0]
             clean_text = f"![{caption}]({img_url})\n\n" + clean_text
 
-    # Inject Official PDF Action Card ONLY when:
-    # 1. User explicitly requested a PDF/brochure/catalogue/download/sheet, OR
+    # Inject Official PDF & CSV Action Cards when:
+    # 1. User explicitly requested a PDF, CSV, spreadsheet, catalogue, brochure, download, sheet, OR
     # 2. User asked for a comprehensive overview/exploration of a company/industry/catalogue
-    # (Excludes narrow, specific sub-questions like resignation policy, syntax, quick facts unless PDF requested)
-    if matched_industry and not nothing_retrieved and not lead_form_required:
-        if '[PDF_CARD:' not in clean_text and '[VIEW_PDF:' not in clean_text:
+    # (Excludes narrow, specific sub-questions like resignation policy, syntax, quick facts unless document requested)
+    if not nothing_retrieved and not lead_form_required:
+        if '[PDF_CARD:' not in clean_text and '[CSV_CARD:' not in clean_text and '[VIEW_PDF:' not in clean_text:
+            is_csv_explicitly_requested = any(k in normalized_q for k in [
+                'csv', 'excel', 'spreadsheet', 'sheet', 'tabular', 'table format', 'data sheet',
+                'rate sheet', 'csv file', 'csv mai', 'csv me', 'csv format', 'csv download'
+            ])
+
             is_pdf_explicitly_requested = any(k in normalized_q for k in [
-                'pdf', 'catalogue', 'catalog', 'brochure', 'download', 'spec sheet',
-                'specification sheet', 'specs sheet', 'rate card', 'pricing sheet',
-                'price list', 'document', 'whitepaper', 'bhejo', 'download karo',
-                'send pdf', 'view pdf', 'show pdf', 'give me pdf'
+                'pdf', 'brochure', 'spec sheet', 'specification sheet', 'specs sheet',
+                'whitepaper', 'send pdf', 'view pdf', 'show pdf', 'give me pdf', 'pdf mai', 'pdf me', 'pdf file'
+            ])
+
+            is_both_requested = (is_csv_explicitly_requested and is_pdf_explicitly_requested) or any(k in normalized_q for k in [
+                'pdf ya csv', 'pdf or csv', 'pdf and csv', 'csv ya pdf', 'csv or pdf', 'both formats',
+                'all formats', 'har tarike se', 'dono format', 'dono file'
+            ])
+
+            is_general_download_requested = any(k in normalized_q for k in [
+                'catalogue', 'catalog', 'download', 'rate card', 'pricing sheet',
+                'price list', 'document', 'bhejo', 'download karo', 'rate schedule'
             ])
 
             is_company_or_industry_overview = (
@@ -1796,18 +1775,26 @@ async def stream_rag_pipeline(
                 'function', 'variable', 'syntax', 'loop', 'how to', 'why does', 'can i get'
             ])
 
-            should_show_pdf_card = (
-                is_pdf_explicitly_requested or 
+            should_show_card = (
+                is_csv_explicitly_requested or
+                is_pdf_explicitly_requested or
+                is_both_requested or
+                is_general_download_requested or
                 (is_company_or_industry_overview and not is_narrow_specific_subquery)
             )
 
-            if should_show_pdf_card:
+            if should_show_card:
                 b_name = (bot.name if bot else "Our Company").strip()
+                if scored_chunks and scored_chunks[0][3]:
+                    top_title = scored_chunks[0][3]
+                    clean_top_title = top_title.split('|')[0].strip() if '|' in top_title else top_title
+                    if clean_top_title and len(clean_top_title) > 2 and clean_top_title.lower() not in ['central knowledge base']:
+                        b_name = clean_top_title
+
                 topic_clean = None
                 topic_slug = None
 
                 if is_pricing_query:
-                    card_title_banner = "📑 **Official Commercial Pricing & Rate Schedule (PDF)**\n*Would you like to review or download the complete certified rate schedule for this?*"
                     if matched_industry == 'steel':
                         topic_clean = "Steel & Metal Products — Commercial Pricing & Rate Schedule"
                         topic_slug = "steel-pricing"
@@ -1833,7 +1820,6 @@ async def stream_rag_pipeline(
                         topic_clean = f"{b_name} — Commercial Pricing & Rate Breakdown"
                         topic_slug = "pricing-schedule"
                 else:
-                    card_title_banner = "📑 **Official Specifications & Product Catalogue (PDF)**\n*Would you like to review or download the complete certified documentation for this?*"
                     if matched_industry == 'steel':
                         topic_clean = "Steel & Metal Technical Specifications & Standards"
                         topic_slug = "steel-specifications"
@@ -1873,7 +1859,27 @@ async def stream_rag_pipeline(
                         topic_slug = "product-catalogue"
 
                 if topic_clean and topic_slug:
-                    clean_text += f"\n\n---\n{card_title_banner}\n\n[PDF_CARD:{topic_slug}|{topic_clean}]"
+                    if is_both_requested:
+                        clean_text += (
+                            f"\n\n---\n📑 **Official Document & Data Exports (PDF & CSV)**\n"
+                            f"*Certified documentation and structured spreadsheet data grounded from verified records:*\n\n"
+                            f"[PDF_CARD:{topic_slug}|{topic_clean}]\n"
+                            f"[CSV_CARD:{topic_slug}|{topic_clean}]"
+                        )
+                    elif is_csv_explicitly_requested:
+                        csv_banner = (
+                            "📊 **Official Commercial Rate Matrix & Data Sheet (CSV)**\n*Would you like to download the certified spreadsheet data for this?*"
+                            if is_pricing_query else
+                            "📊 **Official Specifications & Data Sheet (CSV)**\n*Would you like to download the certified spreadsheet data for this?*"
+                        )
+                        clean_text += f"\n\n---\n{csv_banner}\n\n[CSV_CARD:{topic_slug}|{topic_clean}]"
+                    else:
+                        pdf_banner = (
+                            "📑 **Official Commercial Pricing & Rate Schedule (PDF)**\n*Would you like to review or download the complete certified rate schedule for this?*"
+                            if is_pricing_query else
+                            "📑 **Official Specifications & Product Catalogue (PDF)**\n*Would you like to review or download the complete certified documentation for this?*"
+                        )
+                        clean_text += f"\n\n---\n{pdf_banner}\n\n[PDF_CARD:{topic_slug}|{topic_clean}]"
 
     words = clean_text.split(" ")
     for word in words:
