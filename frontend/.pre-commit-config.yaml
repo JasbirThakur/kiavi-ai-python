@@ -1,0 +1,26 @@
+# Pre-Commit Configuration for Kiavi IQ Frontend
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.html$'
+      - id: end-of-file-fixer
+        exclude: '\.html$'
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=5000']
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      - id: prevent-secret-leaks
+        name: API Key & Secret Leak Guard
+        entry: bash -c '! grep -E "(nvapi-[A-Za-z0-9_-]{20,}|gsk_[A-Za-z0-9]{20,}|AIzaSy[A-Za-z0-9_-]{33}|sk-[A-Za-z0-9]{32,})" "$@"' _
+        language: system
+        types: [text]
+        exclude: '^\.env\.example$'
+        description: Blocks commits containing raw unencrypted API keys.
+

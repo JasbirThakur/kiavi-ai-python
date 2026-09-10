@@ -1,4 +1,12 @@
+# ==============================================================================
+# Kiavi IQ - Backend Service Dockerfile
+# Service: FastAPI REST & Streaming Engine (Port 8000)
+# ==============================================================================
 FROM python:3.12-slim
+
+LABEL maintainer="Kiavi AI Team"
+LABEL service="kiavi-backend-api"
+LABEL description="Grounded RAG backend engine with PostgreSQL, pgvector, NVIDIA NIM & Groq"
 
 # System level OCR, audio, and PDF-to-Image dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -26,4 +34,3 @@ COPY . .
 EXPOSE 8000
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-

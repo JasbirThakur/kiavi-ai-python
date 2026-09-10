@@ -1,7 +1,13 @@
 venv/
+.venv/
 __pycache__/
 *.pyc
 *.db
 .env
+**/.env
+**/.env.*
+!**/.env.example
+node_modules/
+dist/
 bin/
 *.log

@@ -1,0 +1,21 @@
+# ==============================================================================
+# Kiavi IQ Frontend - Standalone Docker Compose
+# Runs Nginx Web Server & Reverse Proxy on port 3000
+# Usage on Desktop / Standalone:
+#   docker compose up -d
+# ==============================================================================
+services:
+  # 🌐 Kiavi IQ Frontend UI & Reverse Proxy
+  frontend:
+    image: kiavi-frontend:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kiavi_frontend_web
+    restart: always
+    volumes:
+      - ./public:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "3000:80"
+

@@ -1,8 +1,14 @@
+# ==============================================================================
+# Kiavi IQ Backend - Standalone Docker Compose
+# Runs PostgreSQL (pgvector) on port 5433 and FastAPI Backend Engine on port 8000
+# Usage on Desktop / Standalone:
+#   docker compose up -d
+# ==============================================================================
 services:
   # 🐘 PostgreSQL Database with Native pgvector Support
   db:
     image: pgvector/pgvector:pg16
-    container_name: kiavi_postgres
+    container_name: kiavi_backend_postgres
     restart: always
     environment:
       POSTGRES_USER: postgres
@@ -20,38 +26,25 @@ services:
 
   # ⚡ Kiavi IQ FastAPI Backend Engine
   backend:
-    image: kiavi-ai-python-backend:latest
+    image: kiavi-backend:latest
     build:
-      context: ./backend
-    container_name: kiavi_backend
+      context: .
+      dockerfile: Dockerfile
+    container_name: kiavi_backend_api
     restart: always
     depends_on:
       db:
         condition: service_healthy
     env_file:
-      - ./backend/.env
+      - .env
     environment:
       - DATABASE_URL=postgresql://postgres:postgrespassword2026@db:5432/kiavidb
     volumes:
-      - ./backend:/app
+      - .:/app
     ports:
       - "8000:8000"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-  # 🌐 Kiavi IQ Dedicated Frontend Service (Reverse Proxy & UI)
-  frontend:
-    image: kiavi-ai-python-frontend:latest
-    build:
-      context: ./frontend
-    container_name: kiavi_frontend
-    restart: always
-    depends_on:
-      - backend
-    volumes:
-      - ./frontend/public:/usr/share/nginx/html
-      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf
-    ports:
-      - "3000:80"
-
 volumes:
   pgdata:
+

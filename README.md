@@ -1,102 +1,89 @@
 # ⚡ Kiavi IQ — Enterprise Autonomous AI Agent Platform
 
-Kiavi IQ is a production-ready, decoupled conversational AI agent platform featuring:
-- **Clean Decoupled Architecture**: Independent `frontend/`, `backend/`, and `nginx/` layers.
-- **Deep Web Ingestion**: TLS fingerprint rotation bypassing Akamai and Cloudflare WAFs.
-- **Multi-Format Parsing**: Automatic parsing of PDF, DOCX, CSV, TXT, and ZIP/VSIX packages.
-- **Native pgvector Storage**: High-dimensional vector search on PostgreSQL 16.
-- **18-Point Conversational Intelligence**: Warm, natural, human-like dialogue grounded in truth with zero hallucinations.
-- **Live Human Handoff**: Real-time two-way chat takeover with email alerts.
-- **Embeddable Chat Widget**: One-line `<script src="/w.js"></script>` integration.
+Kiavi IQ is an enterprise-grade, modular conversational AI platform featuring two completely independent services:
+- **Backend API**: High-performance FastAPI service with PostgreSQL 16 (`pgvector`), NVIDIA NIM & Groq LLMs.
+- **Frontend UI**: Modular React + Vite application, Nginx production server, and embeddable live chat widget.
 
 ---
 
-## 📁 Repository Structure
+## 📁 Clean Repository Layout
 
 ```text
 kiavi-ai-python/
 │
-├── frontend/                          # Dedicated Frontend Application
-│   ├── public/                        # Production pages (dashboard, widget, live-chat, etc.)
-│   ├── src/                           # Modular React + Vite application
-│   │   ├── components/                # ChatWindow, MessageBubble, Sidebar, etc.
-│   │   ├── pages/                     # Login, Dashboard, Chat, KnowledgeBase
-│   │   ├── services/api.js            # Unified API service
-│   │   └── hooks/useChat.js           # Custom chat streaming hook
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── Dockerfile
-│   └── README.md
+├── backend/                  # 🐍 Standalone Backend API Repository
+│   ├── .env                  # Backend credentials (PORT=8000, DATABASE_URL, NVIDIA_API_KEY)
+│   ├── .env.example          # Template environment file
+│   ├── .dockerignore         # Docker ignore rules
+│   ├── .gitignore            # Python gitignore rules
+│   ├── .pre-commit-config.yaml # Python linting & secret leak prevention
+│   ├── Dockerfile            # Python 3.12 + PyTorch + FastAPI image
+│   ├── docker-compose.yml    # Standalone Compose (PostgreSQL 5433 + Backend API 8000)
+│   ├── backup.sql            # Certified vector database backup
+│   ├── restore_db.sh         # One-line database restore script
+│   ├── requirements.txt      # Python dependencies
+│   ├── README.md             # Backend setup & API documentation
+│   ├── app/                  # FastAPI application code
+│   └── tests/                # Pytest unit and integration tests
 │
-├── backend/                           # Dedicated FastAPI Backend Service
-│   ├── app/
-│   │   ├── api/routes/                # auth, bots, chat, knowledge, leads, insights, widget, voice
-│   │   ├── config/settings.py         # Environment configuration
-│   │   ├── core/                      # Security (JWT/bcrypt), dependencies, exceptions
-│   │   ├── db/                        # Database connection & SQLAlchemy models (pgvector)
-│   │   ├── prompts/                   # 18-point charter & query rewriting prompts
-│   │   ├── schemas/                   # Pydantic validation schemas
-│   │   ├── services/                  # LLM, RAG, scrapers, ingestion, embedding, memory
-│   │   ├── utils/                     # Structured logger & helpers
-│   │   ├── static/                    # Uploads, logos, and generated PDFs
-│   │   └── main.py                    # FastAPI entrypoint
-│   ├── tests/                         # Backend unit tests
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   └── README.md
+├── frontend/                 # ⚛️ Standalone Frontend UI Repository
+│   ├── .env                  # Frontend configuration (PORT=3000, VITE_API_BASE_URL)
+│   ├── .env.example          # Template environment file
+│   ├── .dockerignore         # Docker ignore rules
+│   ├── .gitignore            # Node gitignore rules
+│   ├── .pre-commit-config.yaml # Frontend linting & secret leak prevention
+│   ├── Dockerfile            # Nginx production web server image
+│   ├── docker-compose.yml    # Standalone Compose (Nginx Web Server Port 3000)
+│   ├── nginx.conf            # Reverse proxy configuration with SSE streaming
+│   ├── package.json          # Node.js dependencies
+│   ├── vite.config.js        # Vite build & proxy configuration
+│   ├── README.md             # Frontend setup & development guide
+│   ├── public/               # Production HTML pages & widget assets
+│   └── src/                  # React UI components & services
 │
-├── nginx/
-│   └── nginx.conf                     # Production reverse proxy configuration
-│
-├── docker-compose.yml                 # Orchestrates db, backend, and frontend
-├── .env
-├── .env.example
-├── .gitignore
-└── README.md
+├── docker-compose.yml        # 🚀 Monorepo orchestrator (runs DB + Backend + Frontend together)
+├── .gitignore                # 🛡️ Global gitignore rules
+└── README.md                 # 📖 Main documentation & repository export guide
 ```
 
 ---
 
-## 🚀 Quick Start (Docker Compose)
+## 🚀 Running the Full Stack Together (Local Monorepo)
 
-### 1. Configure Environment:
+To run the full stack (PostgreSQL + Backend + Frontend) simultaneously from this repository:
+
 ```bash
-cp .env.example .env
+docker compose up -d
 ```
 
-### 2. Start Services:
-```bash
-docker compose up -d --build
-```
-
-### 3. Access Services:
-- 📊 **Dashboard / Frontend UI**: [http://localhost:3000](http://localhost:3000)
-- 🔑 **Login**: [http://localhost:3000/login](http://localhost:3000/login)
-- ⚡ **Backend API**: [http://localhost:8000](http://localhost:8000)
-- 📖 **API Documentation (Swagger)**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- 🧪 **Client Test Site**: [http://localhost:3000/test-site](http://localhost:3000/test-site)
-
-### 🔑 Default Credentials:
-- **Email**: `sahil@kiavi.com`
-- **Password**: `Test@1234`
+- **Frontend UI**: `http://localhost:3000`
+- **Backend API**: `http://localhost:8000` (Docs: `http://localhost:8000/docs`)
+- **Database**: `localhost:5433`
 
 ---
 
-## 🛠️ Local Development Without Docker
+## 📦 Exporting to Separate Company Repositories
 
-### Backend:
+Each folder is 100% self-contained and ready to be pushed to its own git repository:
+
+### 1. Export Frontend
 ```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+cp -r frontend /home/devuser/Desktop/Kiavi-frontend
+cd /home/devuser/Desktop/Kiavi-frontend
+git init
+git add .
+git commit -m "feat: initial frontend repository setup"
+git remote add origin <company-frontend-repo-url>
+git push -u origin main
 ```
 
-### Frontend (React / Vite):
+### 2. Export Backend
 ```bash
-cd frontend
-npm install
-npm run dev
+cp -r backend /home/devuser/Desktop/Kiavi-backend
+cd /home/devuser/Desktop/Kiavi-backend
+git init
+git add .
+git commit -m "feat: initial backend repository setup"
+git remote add origin <company-backend-repo-url>
+git push -u origin main
 ```
-Accessible at [http://localhost:5173](http://localhost:5173).

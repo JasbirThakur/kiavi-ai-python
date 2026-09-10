@@ -2,7 +2,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -66,64 +66,25 @@ app.include_router(voice.router)
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-# 7. Public Frontend Static Pages & Widget Integration
-BASE_DIR = Path(__file__).resolve().parent.parent
-PUBLIC_DIR = BASE_DIR / "public"
-if not PUBLIC_DIR.exists():
-    PUBLIC_DIR = BASE_DIR.parent / "frontend" / "public"
+# 7. Root API Information Endpoint
+@app.get("/", tags=["System"])
+def root_endpoint():
+    return {
+        "service": "Kiavi IQ - Grounded AI Backend API",
+        "version": "2.0.0",
+        "status": "online",
+        "frontend_dashboard": "http://localhost:3000/dashboard",
+        "documentation": "/docs",
+        "health": "/api/health"
+    }
 
-@app.get("/w.js")
-def serve_widget_script():
-    js_file = PUBLIC_DIR / "w.js"
-    return FileResponse(js_file, media_type="application/javascript")
-
-@app.get("/widget/{public_key}", response_class=HTMLResponse)
-def serve_widget_ui(public_key: str):
-    f = PUBLIC_DIR / "widget.html"
-    if f.exists():
-        return f.read_text(encoding="utf-8")
-    return HTMLResponse("Widget UI Not Found", status_code=404)
-
-@app.get("/", response_class=HTMLResponse)
-@app.get("/dashboard", response_class=HTMLResponse)
-def serve_dashboard():
-    f = PUBLIC_DIR / "dashboard.html"
-    if f.exists():
-        return f.read_text(encoding="utf-8")
-    return HTMLResponse("Dashboard Not Found", status_code=404)
-
-@app.get("/login", response_class=HTMLResponse)
-@app.get("/signup", response_class=HTMLResponse)
-def serve_login():
-    f = PUBLIC_DIR / "login.html"
-    if f.exists():
-        return f.read_text(encoding="utf-8")
-    return HTMLResponse("Login Not Found", status_code=404)
-
-@app.get("/dashboard/account", response_class=HTMLResponse)
-@app.get("/account", response_class=HTMLResponse)
-def serve_account():
-    f = PUBLIC_DIR / "account.html"
-    if f.exists():
-        return f.read_text(encoding="utf-8")
-    return HTMLResponse("Account Not Found", status_code=404)
-
-@app.get("/test-site", response_class=HTMLResponse)
-def serve_test_site():
-    f = PUBLIC_DIR / "test_site.html"
-    if f.exists():
-        return f.read_text(encoding="utf-8")
-    return HTMLResponse("Test Site Not Found", status_code=404)
-
-@app.get("/live-chat/{conv_id}", response_class=HTMLResponse)
-@app.get("/visitor-chat/{conv_id}", response_class=HTMLResponse)
-def serve_live_chat(conv_id: str):
-    f = PUBLIC_DIR / "live_chat.html"
-    if not f.exists():
-        f = PUBLIC_DIR / "live-chat.html"
-    if f.exists():
-        return f.read_text(encoding="utf-8")
-    return HTMLResponse("Live Chat Not Found", status_code=404)
+# Convenience browser redirects to Frontend UI (Port 3000)
+@app.get("/dashboard", include_in_schema=False)
+@app.get("/login", include_in_schema=False)
+@app.get("/signup", include_in_schema=False)
+@app.get("/account", include_in_schema=False)
+def redirect_to_frontend():
+    return RedirectResponse(url="http://localhost:3000/dashboard", status_code=307)
 
 # 8. Health Check API
 @app.get("/api/health", tags=["Health"])
