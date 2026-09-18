@@ -4,7 +4,7 @@ from datetime import datetime
 
 class BotCreate(BaseModel):
     name: str
-    domain: Optional[str] = "appdeft.ai"
+    domain: Optional[str] = ""
     greeting: Optional[str] = "Hi! How can I help?"
     suggestions: Optional[str] = "What do you offer?\nHow much does it cost?\nHow do I get in touch?"
     accentColor: Optional[str] = "#00c48c"

@@ -28,3 +28,8 @@ SpeechRecognition
 pydub
 reportlab
 curl_cffi
+trafilatura
+flashrank
+tiktoken
+arize-phoenix
+openinference-instrumentation-openai

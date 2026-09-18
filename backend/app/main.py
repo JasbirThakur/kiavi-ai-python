@@ -23,7 +23,13 @@ from app.api.routes import (
     leads,
     insights,
     widget,
-    voice
+    voice,
+    users_admin,
+    document_lifecycle,
+    products,
+    lms,
+    audit,
+    compliance_governance
 )
 from app.utils.logger import logger
 
@@ -61,6 +67,12 @@ app.include_router(leads.router)
 app.include_router(insights.router)
 app.include_router(widget.router)
 app.include_router(voice.router)
+app.include_router(users_admin.router)
+app.include_router(document_lifecycle.router)
+app.include_router(products.router)
+app.include_router(lms.router)
+app.include_router(audit.router)
+app.include_router(compliance_governance.router)
 
 # 6. Static Uploads Mount (/static)
 STATIC_DIR.mkdir(parents=True, exist_ok=True)

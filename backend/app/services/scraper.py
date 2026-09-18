@@ -7,6 +7,10 @@ from bs4 import BeautifulSoup
 import wikipediaapi
 import subprocess
 import shutil
+try:
+    import trafilatura
+except ImportError:
+    trafilatura = None
 from app.config.settings import BRANDFETCH_API_KEY
 
 wiki = wikipediaapi.Wikipedia(
@@ -61,7 +65,7 @@ def is_valid_phone(phone: str) -> bool:
 def is_valid_address(addr: str) -> bool:
     """
     Validates physical addresses.
-    Rejects base64 strings, font hashes, minified scripts, and programming tokens.
+    Rejects image plates, markdown captions, UI instructions, ad marketing, and programming tokens.
     Requires at least 3 words, digits, and a recognized address/geographic indicator.
     """
     if not addr or not isinstance(addr, str):
@@ -75,28 +79,37 @@ def is_valid_address(addr: str) -> bool:
     # Reject long hash/base64 tokens
     if any(len(w) > 24 for w in words):
         return False
-    code_indicators = [
+
+    lower = clean.lower()
+    bad_tokens = [
         "+", "=", "{", "}", "<", ">", "_id", "slug", "href", "http://", "https://",
         "__next", "function", "var ", "const ", "return", "typeof", "undefined",
-        "null", "window.", "document.", "px;", "rem;", "rgba(", "rgb("
+        "null", "window.", "document.", "px;", "rem;", "rgba(", "rgb(",
+        "[visual", "[diagram", "[image", "[photo", "[figure", "[row ", "[table", "[social",
+        "check the box", "click", "select", "sign in", "sign up", "log in", "register",
+        "download", "subscribe", "per month", "/mo", "usd", "$", "€", "£", "₹", "donation",
+        "newsletter", "conversion", "grantees", "nonprofit", "cookie", "privacy",
+        "terms of service", "all rights reserved", "copyright",
+        "learn more", "find out", "read more", "view details", "get up to", "connect the",
+        "showcase", "ideal for", "need professional", "states that", "reads:"
     ]
-    lower = clean.lower()
-    if any(tok in lower for tok in code_indicators):
+    if any(tok in lower for tok in bad_tokens):
         return False
+
     # Must contain at least one digit (building #, floor #, sector #, pin/zip code)
     if not re.search(r"\d", clean):
         return False
+
     addr_keywords = [
-        "floor", "suite", "ste", "phase", "sector", "industrial", "road", "rd", "street", "st",
-        "avenue", "ave", "boulevard", "blvd", "building", "bldg", "block", "plot", "sco",
-        "plaza", "tower", "park", "way", "drive", "dr", "lane", "ln", "court", "ct", "circle",
-        "cir", "highway", "hwy", "center", "centre", "square", "sq", "terrace",
-        "city", "state", "county", "district", "province", "zip", "postal", "pincode", "box", "po box",
+        "floor", "suite", "ste", "phase", "sector", "industrial area", "road", "street",
+        "avenue", "boulevard", "blvd", "building", "bldg", "block", "plot", "sco",
+        "plaza", "tower", "pkwy", "parkway", "highway", "hwy", "square", "terrace",
+        "zip", "postal code", "pincode", "po box", "p.o. box",
         "punjab", "chandigarh", "mohali", "delhi", "mumbai", "bangalore", "bengaluru",
         "hyderabad", "chennai", "kolkata", "pune", "noida", "gurugram", "gurgaon",
         "california", "texas", "florida", "new york", "washington", "san bruno",
         "mountain view", "san francisco", "san jose", "seattle", "austin", "chicago",
-        "london", "uk", "united kingdom", "usa", "united states", "india", "canada", "australia"
+        "london", "united kingdom", "united states"
     ]
     if not any(re.search(rf"\b{kw}\b", lower) for kw in addr_keywords):
         return False
@@ -209,6 +222,35 @@ def extract_modern_framework_data(html: str, base_url: str) -> dict:
     found_addresses = set()
     base_clean = clean_domain_name(urlparse(base_url).netloc)
 
+    def is_clean_human_prose(text_val: str, key_val: str = "") -> bool:
+        if not text_val or not isinstance(text_val, str):
+            return False
+        t = text_val.strip()
+        if len(t) < 15 or len(t) > 600:
+            return False
+        if any(ch in t for ch in ["{", "}", "<", ">", ";", "function(", "return ", "typeof ", "=>", "rgba(", "var("]):
+            return False
+        if t.startswith(("http://", "https://", "/", "data:", "blob:", "ftp:", "mailto:", "tel:")):
+            return False
+        k_low = key_val.lower()
+        if any(noise in k_low for noise in [
+            "widget", "layout", "slot", "component", "viewtype", "actiontype", "tracking",
+            "checksum", "template", "grid", "banner", "elementid", "props", "state", "redux",
+            "beacon", "pixel", "telemetry", "metric"
+        ]):
+            return False
+        t_low = t.lower()
+        if any(noise in t_low for noise in [
+            "atlas_", "_omu_", "default_fk_", "_view", "_grid", "_banner", "_solo",
+            "trackingid", "analytics", "carousel_", "navbar_", "footer_"
+        ]):
+            return False
+        if t.count(" ") < 2 and "_" in t:
+            return False
+        if "_" in t and t.isupper():
+            return False
+        return True
+
     # 1. Next.js 13/14/15 App Router React Server Components (RSC) streams
     rsc_chunks = re.findall(r'self\.__next_f\.push\(\[1,\s*\"(.*?)\"\]\)', html)
     for c in rsc_chunks:
@@ -237,7 +279,7 @@ def extract_modern_framework_data(html: str, base_url: str) -> dict:
             prose_matches = re.findall(r'\"(?:title|description|text|content|name|role|answer|question)\":\s*\"([^\"]{10,})\"', decoded)
             for p in prose_matches:
                 p_clean = p.replace('\\n', ' ').strip()
-                if p_clean and len(p_clean) > 12:
+                if is_clean_human_prose(p_clean):
                     extracted_text_blocks.append(p_clean)
         except Exception:
             pass
@@ -259,7 +301,7 @@ def extract_modern_framework_data(html: str, base_url: str) -> dict:
                         elif k in ('email', 'contactEmail') and isinstance(v, str):
                             if is_valid_email(v):
                                 found_emails.add(v)
-                        elif isinstance(v, str) and len(v) > 20:
+                        elif isinstance(v, str) and is_clean_human_prose(v, k):
                             extracted_text_blocks.append(v)
                         else:
                             extract_strings(v)
@@ -336,9 +378,9 @@ def extract_modern_framework_data(html: str, base_url: str) -> dict:
                                     elif k_lower in ("url", "href", "slug", "link", "megamenutitleurl", "path") and (v_clean.startswith("/") or base_clean in clean_domain_name(urlparse(v_clean).netloc)):
                                         full = urljoin(base_url, v_clean)
                                         found_links.add(full.split('#')[0].rstrip('/'))
-                                    elif 15 <= len(v_clean) <= 600 and not any(ch in v_clean for ch in ["{", "}", "<", ">", ";", "function(", "return ", "typeof "]):
-                                        if any(indicator in k_lower for indicator in ("title", "desc", "name", "headline", "summary", "text", "content", "about", "query", "question", "answer", "category", "offer", "feature", "brand")):
-                                            extracted_text_blocks.append(f"{k}: {v_clean}")
+                                    elif is_clean_human_prose(v_clean, k):
+                                        if any(indicator in k_lower for indicator in ("title", "desc", "headline", "summary", "text", "content", "about", "query", "question", "answer", "category", "offer", "feature", "brand")):
+                                            extracted_text_blocks.append(v_clean)
                                 elif isinstance(v, (dict, list)):
                                     traverse_state(v, depth + 1)
                         elif isinstance(obj, list):
@@ -375,6 +417,89 @@ def extract_modern_framework_data(html: str, base_url: str) -> dict:
         "phones": list(found_phones),
         "emails": list(found_emails),
         "addresses": list(found_addresses)
+    }
+
+def clean_scraped_data(raw_html: str, url: str = "") -> tuple[str, dict]:
+    """
+    Cleans HTML noise using Trafilatura (primary) and BeautifulSoup (fallback).
+    Strips navigation boilerplate, scripts, ads, and forms, BUT explicitly extracts
+    and preserves all critical business information from <header> and <footer>
+    (addresses, customer care phones, emails, working hours, key announcements).
+    """
+    header_footer_info = []
+    extracted_phones = set()
+    extracted_emails = set()
+    extracted_addresses = set()
+
+    soup = BeautifulSoup(raw_html, 'html.parser')
+
+    # 1. Extract important information from <header> and <footer> tags before stripping noise
+    for tag_name in ['header', 'footer']:
+        for sec in soup.find_all(tag_name):
+            txt = sec.get_text(separator='\n')
+            for line in txt.splitlines():
+                l = line.strip()
+                if not l or len(l) < 4:
+                    continue
+                # Skip pure menu navigation tokens
+                if l.lower() in ['home', 'about', 'about us', 'contact', 'contact us', 'login', 'sign up', 'menu', 'navigation', 'careers', 'privacy policy', 'terms of service']:
+                    continue
+                
+                # Check for phones
+                phone_matches = re.findall(r'(?:(?:\+?\d{1,4}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}|\b1800[-.\s]?\d{3}[-.\s]?\d{3,4}\b)', l)
+                for pm in phone_matches:
+                    if is_valid_phone(pm):
+                        extracted_phones.add(pm)
+
+                # Check for emails
+                email_matches = re.findall(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', l)
+                for em in email_matches:
+                    if is_valid_email(em):
+                        extracted_emails.add(em)
+
+                # Check for addresses
+                if is_valid_address(l):
+                    extracted_addresses.add(l)
+                elif any(k in l.lower() for k in ['headquarters', 'office:', 'hours:', 'mon-fri', 'monday - friday', 'am - ', 'pm - ', 'toll free', 'helpline', 'hotline', 'registered office', 'cin:', 'gst:']):
+                    if len(l) < 200 and l not in header_footer_info:
+                        header_footer_info.append(l)
+
+    # 2. Extract core text using Trafilatura (cleans ads, sidebars, navigations)
+    core_text = ""
+    if trafilatura:
+        try:
+            core_text = trafilatura.extract(raw_html, include_links=True, include_images=False) or ""
+        except Exception:
+            core_text = ""
+
+    # 3. Fallback: BeautifulSoup cleanup if Trafilatura didn't extract enough text
+    if not core_text or len(core_text.split()) < 25:
+        clean_soup = BeautifulSoup(raw_html, 'html.parser')
+        for el in clean_soup(['script', 'style', 'nav', 'footer', 'header', 'aside', 'form', 'noscript', 'iframe', 'svg']):
+            el.decompose()
+        core_text = clean_soup.get_text(separator='\n')
+        core_text = "\n".join(line.strip() for line in core_text.splitlines() if line.strip())
+
+    # 4. Append Verified Header & Footer Information block if important info exists
+    header_footer_blocks = []
+    if extracted_addresses:
+        header_footer_blocks.append("Official Office / Headquarters Addresses:\n" + "\n".join(f"• {a}" for a in list(extracted_addresses)[:4]))
+    if extracted_phones:
+        header_footer_blocks.append("Contact Phones & Helplines:\n" + "\n".join(f"• {p}" for p in list(extracted_phones)[:4]))
+    if extracted_emails:
+        header_footer_blocks.append("Official Contact Emails:\n" + "\n".join(f"• {e}" for e in list(extracted_emails)[:4]))
+    if header_footer_info:
+        header_footer_blocks.append("Header & Footer Key Details:\n" + "\n".join(f"• {inf}" for inf in header_footer_info[:6]))
+
+    combined_text = core_text
+    if header_footer_blocks:
+        combined_text += "\n\n=== Verified Header & Footer Information ===\n" + "\n\n".join(header_footer_blocks)
+
+    return combined_text, {
+        "phones": list(extracted_phones),
+        "emails": list(extracted_emails),
+        "addresses": list(extracted_addresses),
+        "header_footer_details": header_footer_info
     }
 
 def scrape_single_page(url: str, headers: dict) -> tuple[str, str, list[str], dict]:
@@ -475,26 +600,47 @@ def scrape_single_page(url: str, headers: dict) -> tuple[str, str, list[str], di
         for tag in soup(['script', 'style', 'noscript', 'svg', 'iframe']):
             tag.decompose()
 
-        # 5.1 Extract physical address candidates from DOM leaf blocks (p, div, li, span, section, address)
-        for block in soup.find_all(['p', 'div', 'li', 'span', 'section', 'address']):
-            if block.find(['p', 'div', 'section']):
+        # 5.1 Extract physical address candidates from DOM explicit address blocks
+        for block in soup.find_all(['address', 'footer', 'div', 'p']):
+            if block.find(['p', 'div', 'section']) and block.name != 'address':
+                continue
+            is_addr_elem = (
+                block.name == 'address' or
+                block.get('itemprop') == 'address' or
+                any(attr in ' '.join(block.get('class', [])).lower() for attr in ['address', 'location', 'headquarter', 'office-addr', 'contact-addr']) or
+                block.find_parent('address') is not None
+            )
+            if not is_addr_elem:
                 continue
             block_lines = [l.strip().rstrip(',') for l in block.get_text(separator='\n').splitlines() if l.strip()]
             if block_lines:
                 candidate = ", ".join(block_lines)
                 candidate = re.sub(r'\s+', ' ', candidate)
                 candidate = re.sub(r',\s*,+', ', ', candidate).strip(' ,')
-                if is_valid_address(candidate):
+                if is_valid_address(candidate) and candidate not in framework_data["addresses"]:
                     framework_data["addresses"].append(candidate)
 
-        # 6. Assemble all prose text
-        dom_text = soup.get_text(separator='\n')
-        lines = [line.strip() for line in dom_text.splitlines() if line.strip()]
+        # 6. Assemble prose text using Trafilatura & BeautifulSoup cleaning with Header/Footer preservation
+        cleaned_body, hf_data = clean_scraped_data(raw_html, url)
+        for p in hf_data.get("phones", []):
+            framework_data["phones"].append(p)
+        for em in hf_data.get("emails", []):
+            framework_data["emails"].append(em)
+        for ad in hf_data.get("addresses", []):
+            framework_data["addresses"].append(ad)
 
-        # Append framework data (Next.js RSC, decoded props, Schema.org)
+        lines = [cleaned_body] if cleaned_body else []
+        # Append framework data only if clean prose blocks exist and Trafilatura didn't already capture them
         if framework_data["text_blocks"]:
-            lines.append("\n=== Modern Framework & Client Component Data ===")
-            lines.extend(framework_data["text_blocks"])
+            unique_blocks = []
+            seen_clean = set(cleaned_body.lower().splitlines()) if cleaned_body else set()
+            for b in framework_data["text_blocks"]:
+                b_clean = b.strip()
+                if b_clean and b_clean.lower() not in seen_clean and b_clean not in unique_blocks:
+                    unique_blocks.append(b_clean)
+            if unique_blocks:
+                lines.append("\n=== Additional Verified Page Content ===")
+                lines.extend(unique_blocks[:30])
 
         clean_text = '\n'.join(lines)
 
@@ -556,6 +702,70 @@ def discover_sitemap_urls(base_url: str, headers: dict) -> list[str]:
 
     return discovered
 
+def resolve_smart_target_url(raw_url: str) -> tuple[str, str]:
+    """
+    Intelligently tests and resolves target URLs.
+    Handles missing protocols, www vs non-www mismatches, common brand typos (e.g. naykaa -> nykaa),
+    and fast TCP/DNS connect tests. Returns (resolved_url, display_domain).
+    """
+    import socket
+    clean = raw_url.strip()
+    if not clean.startswith(('http://', 'https://')):
+        clean = 'https://' + clean
+
+    parsed = urlparse(clean)
+    host = parsed.netloc.lower()
+    path = parsed.path or ''
+
+    candidate_hosts = [host]
+    if host.startswith('www.'):
+        candidate_hosts.append(host[4:])
+    else:
+        candidate_hosts.append('www.' + host)
+
+    typo_rules = {
+        'naykaa': 'nykaa',
+        'naikaa': 'nykaa',
+        'nayka': 'nykaa',
+        'amazonn': 'amazon',
+        'flipkartt': 'flipkart'
+    }
+    for typo, fix in typo_rules.items():
+        if typo in host:
+            fixed_h = host.replace(typo, fix)
+            candidate_hosts.extend([fixed_h, f'www.{fixed_h}' if not fixed_h.startswith('www.') else fixed_h[4:]])
+
+    # Dedup while preserving order
+    seen = set()
+    deduped = []
+    for ch in candidate_hosts:
+        if ch and ch not in seen:
+            seen.add(ch)
+            deduped.append(ch)
+
+    resolved_candidate = None
+    for cand_h in deduped:
+        try:
+            sock = socket.create_connection((cand_h, 443), timeout=1.5)
+            sock.close()
+            resolved_candidate = f'https://{cand_h}{path}'
+            break
+        except Exception:
+            pass
+        try:
+            sock = socket.create_connection((cand_h, 80), timeout=1.5)
+            sock.close()
+            resolved_candidate = f'http://{cand_h}{path}'
+            break
+        except Exception:
+            pass
+
+    if resolved_candidate:
+        cand_parsed = urlparse(resolved_candidate)
+        return resolved_candidate, cand_parsed.netloc
+
+    return clean, host
+
 def scrape_url_content(url: str, crawl_depth: int = 15) -> tuple[str, str, str]:
     """
     Intelligent Deep Web Scraper:
@@ -571,10 +781,12 @@ def scrape_url_content(url: str, crawl_depth: int = 15) -> tuple[str, str, str]:
         logo = "https://en.wikipedia.org/static/favicon/wikipedia.ico"
         return title, text, logo
 
-    if not url.startswith(('http://', 'https://')):
-        url = 'https://' + url
+    # Smart URL candidate resolution (fixes www typos, naykaa->nykaa, missing schemes)
+    resolved_url, domain = resolve_smart_target_url(url)
+    if resolved_url != url:
+        print(f"ℹ️ [Smart URL Auto-Resolved]: '{url}' -> '{resolved_url}' (domain: {domain})")
+    url = resolved_url
 
-    domain = urlparse(url).netloc
     logo_url = fetch_brand_logo(domain)
 
     headers = {
@@ -584,7 +796,15 @@ def scrape_url_content(url: str, crawl_depth: int = 15) -> tuple[str, str, str]:
     try:
         main_title, main_text, found_links, main_meta = scrape_single_page(url, headers)
         if not main_text:
-            raise Exception("No readable text found on the target website.")
+            # Try HTTP if HTTPS had no content or SSL error
+            if url.startswith('https://'):
+                http_fallback = 'http://' + url[8:]
+                main_title, main_text, found_links, main_meta = scrape_single_page(http_fallback, headers)
+                if main_text:
+                    url = http_fallback
+
+        if not main_text:
+            raise Exception(f"Unable to read or access content from '{url}'. Please verify that the website domain exists and is accessible.")
 
         collected_pages = [(url, main_title, main_text)]
         all_socials = dict(main_meta.get('social_links', {}))

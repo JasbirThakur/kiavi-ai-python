@@ -3,7 +3,7 @@ import re
 import base64
 import hashlib
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from pypdf import PdfReader
 
 DIAG_DIR = Path(__file__).resolve().parent.parent / "static" / "extracted_diagrams"
@@ -134,27 +134,141 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
 
     return "\n\n".join(extracted_text)
 
-def chunk_text(text: str, chunk_size: int = 200, chunk_overlap: int = 50) -> List[str]:
-    cleaned = clean_text(text)
-    if not cleaned:
-        return []
+from app.services.chunking import (
+    split_into_sentences,
+    semantic_chunking,
+    chunk_text,
+    estimate_tokens
+)
 
-    words = cleaned.split()
-    chunks = []
-    start = 0
+def decode_text_bytes(file_bytes: bytes) -> str:
+    """Decodes bytes to string supporting UTF-8 BOM, UTF-16 LE/BE BOM, UTF-8, CP1252, and Latin-1."""
+    if file_bytes.startswith(b'\xef\xbb\xbf'):
+        return file_bytes[3:].decode('utf-8', errors='replace')
+    if file_bytes.startswith(b'\xff\xfe'):
+        return file_bytes[2:].decode('utf-16le', errors='replace')
+    if file_bytes.startswith(b'\xfe\xff'):
+        return file_bytes[2:].decode('utf-16be', errors='replace')
+    for enc in ('utf-8', 'cp1252', 'latin-1'):
+        try:
+            return file_bytes.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return file_bytes.decode('utf-8', errors='replace')
 
-    while start < len(words):
-        end = start + chunk_size
-        chunk = " ".join(words[start:end])
-        chunks.append(chunk)
-        if end >= len(words):
-            break
-        start += (chunk_size - chunk_overlap)
+def extract_docx_paragraphs(file_bytes: bytes) -> str:
+    """Native pure-Python standard-library DOCX parser using zipfile and xml.etree.ElementTree."""
+    try:
+        import docx
+        doc = docx.Document(io.BytesIO(file_bytes))
+        texts = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+        for table in doc.tables:
+            for row in table.rows:
+                r_txt = " | ".join(c.text.strip() for c in row.cells if c.text.strip())
+                if r_txt:
+                    texts.append(r_txt)
+        if texts:
+            return "\n\n".join(texts)
+    except Exception:
+        pass
 
-    return chunks
+    try:
+        import zipfile
+        import xml.etree.ElementTree as ET
+        with zipfile.ZipFile(io.BytesIO(file_bytes)) as z:
+            if "word/document.xml" in z.namelist():
+                xml_data = z.read("word/document.xml")
+                tree = ET.fromstring(xml_data)
+                paragraphs = []
+                for p in tree.iter():
+                    if p.tag.endswith("}p"):
+                        texts = [t.text for t in p.iter() if t.tag.endswith("}t") and t.text]
+                        if texts:
+                            p_str = "".join(texts).strip()
+                            if p_str:
+                                paragraphs.append(p_str)
+                if paragraphs:
+                    return "\n\n".join(paragraphs)
+    except Exception as e:
+        print(f"[Native DOCX Parse Error]: {e}")
+    return ""
+
+def extract_xlsx_tables(file_bytes: bytes, filename: str = "") -> str:
+    """Native pure-Python standard-library XLSX parser using zipfile and xml.etree.ElementTree."""
+    try:
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
+        sheets_out = []
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            rows = []
+            for row in ws.iter_rows(values_only=True):
+                non_empty = [str(c).strip() for c in row if c is not None and str(c).strip()]
+                if non_empty:
+                    rows.append([str(c).strip() if c is not None else "" for c in row])
+            if rows:
+                header = rows[0]
+                lines = [f"=== Excel Sheet: {sheet_name} ===", f"Columns: {', '.join(header)}"]
+                for r_idx, r in enumerate(rows[1:1000], 1):
+                    items = [f"{header[c_idx] if c_idx < len(header) else f'Col_{c_idx+1}'}: {cell}" for c_idx, cell in enumerate(r) if cell]
+                    if items:
+                        lines.append(f"[Row {r_idx}]: " + " | ".join(items))
+                sheets_out.append("\n".join(lines))
+        if sheets_out:
+            return "\n\n".join(sheets_out)
+    except Exception:
+        pass
+
+    try:
+        import zipfile
+        import xml.etree.ElementTree as ET
+        with zipfile.ZipFile(io.BytesIO(file_bytes)) as z:
+            shared_strings = []
+            if "xl/sharedStrings.xml" in z.namelist():
+                ss_tree = ET.fromstring(z.read("xl/sharedStrings.xml"))
+                for si in ss_tree.iter():
+                    if si.tag.endswith("}si"):
+                        texts = [t.text for t in si.iter() if t.tag.endswith("}t") and t.text]
+                        shared_strings.append("".join(texts))
+
+            sheet_files = [n for n in z.namelist() if n.startswith("xl/worksheets/sheet") and n.endswith(".xml")]
+            sheets_out = []
+            for sf in sheet_files:
+                s_tree = ET.fromstring(z.read(sf))
+                sheet_rows = []
+                for row in s_tree.iter():
+                    if row.tag.endswith("}row"):
+                        r_vals = []
+                        for c in row.iter():
+                            if c.tag.endswith("}c"):
+                                c_type = c.attrib.get("t")
+                                v_el = c.find("{*}v")
+                                val = v_el.text if (v_el is not None and v_el.text) else ""
+                                if c_type == "s" and val.isdigit() and int(val) < len(shared_strings):
+                                    val = shared_strings[int(val)]
+                                elif c_type == "inlineStr":
+                                    t_el = c.find(".//{*}t")
+                                    if t_el is not None and t_el.text:
+                                        val = t_el.text
+                                r_vals.append(val.strip() if val else "")
+                        if any(r_vals):
+                            sheet_rows.append(r_vals)
+                if sheet_rows:
+                    header = sheet_rows[0]
+                    lines = [f"=== Excel Sheet: {sf.split('/')[-1]} ===", f"Columns: {', '.join(header)}"]
+                    for r_idx, r in enumerate(sheet_rows[1:1000], 1):
+                        items = [f"{header[c_idx] if c_idx < len(header) else f'Col_{c_idx+1}'}: {cell}" for c_idx, cell in enumerate(r) if cell]
+                        if items:
+                            lines.append(f"[Row {r_idx}]: " + " | ".join(items))
+                    sheets_out.append("\n".join(lines))
+            if sheets_out:
+                return "\n\n".join(sheets_out)
+    except Exception as e:
+        print(f"[Native XLSX Parse Error]: {e}")
+    return ""
 
 def extract_file_text(file_bytes: bytes, filename: str = "") -> str:
-    """Extracts text from PDF, DOCX, CSV, images (PNG, JPG, WEBP), ZIP/VSIX packages, or raw text files."""
+    """Extracts text from PDF, DOCX, XLSX, CSV, images (PNG, JPG, WEBP), ZIP/VSIX packages, or raw text files."""
     name = filename.lower()
 
     # 1. PDF Detection (by extension or magic byte header)
@@ -163,41 +277,74 @@ def extract_file_text(file_bytes: bytes, filename: str = "") -> str:
 
     # 2. DOCX Detection
     if name.endswith(".docx") or (file_bytes.startswith(b"PK\x03\x04") and name.endswith(".docx")):
-        try:
-            import docx
-            doc = docx.Document(io.BytesIO(file_bytes))
-            return "\n".join([p.text for p in doc.paragraphs if p.text])
-        except Exception as e:
-            print(f"[DOCX Parse Error]: {e}")
+        res = extract_docx_paragraphs(file_bytes)
+        if res:
+            return res
 
-    # 3. CSV Tabular Detection
-    if name.endswith(".csv"):
+    # 3. Excel Spreadsheet (.xlsx, .xlsm, .xls)
+    if name.endswith((".xlsx", ".xlsm", ".xls")) or (file_bytes.startswith(b"PK\x03\x04") and name.endswith((".xlsx", ".xlsm"))):
+        res = extract_xlsx_tables(file_bytes, filename)
+        if res:
+            return res
+
+    # 4. CSV / TSV Tabular Detection
+    if name.endswith((".csv", ".tsv")):
         try:
             import csv
-            content_str = file_bytes.decode("utf-8", errors="ignore")
-            reader = csv.reader(io.StringIO(content_str))
-            rows = list(reader)
-            if not rows:
-                return ""
-            header = [h.strip() for h in rows[0]]
-            formatted_lines = [f"=== CSV Table: {filename} ===", f"Columns: {', '.join(header)}"]
-            for idx, row in enumerate(rows[1:], 1):
-                row_items = []
-                for col_idx, val in enumerate(row):
-                    col_name = header[col_idx] if col_idx < len(header) else f"Col_{col_idx+1}"
-                    val_str = val.strip()
-                    if val_str:
-                        row_items.append(f"{col_name}: {val_str}")
-                if row_items:
-                    formatted_lines.append(f"[Row {idx}]: " + " | ".join(row_items))
-            return "\n".join(formatted_lines)
+            content_str = decode_text_bytes(file_bytes)
+            sample = content_str[:4096]
+            delim = ','
+            if '\t' in sample and sample.count('\t') > sample.count(','):
+                delim = '\t'
+            elif ';' in sample and sample.count(';') > sample.count(','):
+                delim = ';'
+            elif '|' in sample and sample.count('|') > sample.count(','):
+                delim = '|'
+
+            reader = csv.reader(io.StringIO(content_str), delimiter=delim)
+            rows = []
+            for r in reader:
+                if r and any(c.strip() for c in r):
+                    rows.append(r)
+                if len(rows) >= 3000:
+                    break
+
+            if rows:
+                raw_header = [h.strip() for h in rows[0]]
+                skip_or_truncate_cols = set()
+                for c_idx, h in enumerate(raw_header):
+                    h_l = h.lower()
+                    if any(k in h_l for k in ['imageurl', 'image_url', 'sourceurl', 'source_url', 'keys', 'asins']):
+                        skip_or_truncate_cols.add(c_idx)
+
+                formatted_lines = [f"=== CSV Table: {filename} ===", f"Columns: {', '.join(raw_header)}"]
+                for idx, row in enumerate(rows[1:], 1):
+                    row_items = []
+                    for col_idx, val in enumerate(row):
+                        col_name = raw_header[col_idx] if col_idx < len(raw_header) else f"Col_{col_idx+1}"
+                        val_str = val.strip()
+                        if not val_str:
+                            continue
+                        if col_idx in skip_or_truncate_cols:
+                            if ',' in val_str or ';' in val_str:
+                                first_u = re.split(r'[,;]', val_str)[0].strip()
+                                val_str = first_u[:120]
+                            else:
+                                val_str = val_str[:120]
+                        else:
+                            val_str = val_str[:250]
+                        if val_str:
+                            row_items.append(f"{col_name}: {val_str}")
+                    if row_items:
+                        formatted_lines.append(f"[Row {idx}]: " + " | ".join(row_items))
+                return "\n".join(formatted_lines)
         except Exception as e:
             print(f"[CSV Parse Error]: {e}")
-            return file_bytes.decode("utf-8", errors="ignore")
+            return decode_text_bytes(file_bytes)
 
-    # 4. ZIP & Package Archive Detection (.zip, .vsix, .vsixpackage, .nupkg, .jar, .war, .apk, etc. or PK magic bytes)
+    # 5. ZIP & Package Archive Detection (.zip, .vsix, .vsixpackage, .nupkg, .jar, .war, .apk, etc. or PK magic bytes)
     is_archive = name.endswith((".zip", ".vsix", ".vsixpackage", ".nupkg", ".jar", ".war", ".apk"))
-    if not is_archive and file_bytes.startswith(b"PK\x03\x04"):
+    if not is_archive and file_bytes.startswith(b"PK\x03\x04") and not name.endswith((".docx", ".xlsx", ".xlsm")):
         try:
             import zipfile
             is_archive = zipfile.is_zipfile(io.BytesIO(file_bytes))
@@ -304,3 +451,4 @@ def extract_file_text(file_bytes: bytes, filename: str = "") -> str:
 
 # routers/knowledge.py compatibility alias
 get_chunks_from_text = chunk_text
+split_into_semantic_chunks = semantic_chunking

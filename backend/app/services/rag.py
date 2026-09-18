@@ -10,6 +10,7 @@ from app.config.settings import (
     PROMPTS_DIR
 )
 from app.services.embedding import get_embedding
+from app.services.reranker import rerank_chunks
 from app.db import models
 
 nvidia_client = OpenAI(
@@ -360,8 +361,8 @@ def get_source_bullet_and_pill(s, bot_name: str = "") -> tuple[str, str]:
     elif 'refund' in tl:
         bullet = "• **Enterprise Refund Policy:** Official refund terms, cancellation conditions, and customer billing policies."
     elif bot_name and bot_name.lower() in tl:
-        bullet = f"• **{bot_name} AI Solutions:** Enterprise conversational AI, intelligent assistants, knowledge base search, and customer workflow automation."
-        pill = f"{bot_name} AI Solutions"
+        bullet = f"• **{src_title}:** Official verified documentation and service records."
+        pill = f"Explore {src_title}"
     else:
         clean_name = pill.replace("Explore ", "").strip()
         bullet = f"• **{clean_name}:** Verified technical documentation, database records, and operational reference material."
@@ -389,7 +390,7 @@ def generate_llm_response(messages: list, knowledge_chunks: list = None, is_pric
                 "model": nv_model,
                 "messages": messages,
                 "temperature": 0.35,
-                "max_tokens": 650,
+                "max_tokens": 1500,
                 "timeout": 28.0
             }
             resp = nvidia_client.chat.completions.create(**kwargs)
@@ -409,7 +410,7 @@ def generate_llm_response(messages: list, knowledge_chunks: list = None, is_pric
                     model=groq_model,
                     messages=messages,
                     temperature=0.35,
-                    max_tokens=600,
+                    max_tokens=1500,
                     timeout=5.0
                 )
                 raw = resp.choices[0].message.content or ""
@@ -749,13 +750,144 @@ def generate_llm_response(messages: list, knowledge_chunks: list = None, is_pric
 
     return "Here are the verified details from our knowledge base:\n\n• **Certified Grounding:** All parameters and specifications are verified directly against official documentation.\n• **Full Documentation:** Detailed catalogues and technical data sheets are available on request.", "Default Knowledge Fallback"
 
+def classify_conversational_intent(normalized_q: str, bot_name: str = "") -> tuple[bool, str]:
+    """
+    Classifies conversational chit-chat queries:
+    Returns (True, intent_type) where intent_type is one of:
+    - 'greeting': 'hi', 'hello', 'hlo', 'hy', 'hey', 'namaste', 'good morning', etc.
+    - 'wellbeing': 'how are you', 'how r u', 'kaise ho', 'kaisa hai', 'whats up', etc.
+    - 'assistance': 'can you help me', 'what can you do', 'i need help', etc.
+    - 'gratitude': 'thank you', 'thanks', 'thx', 'shukriya', 'dhanyawad', etc.
+    - 'farewell': 'bye', 'goodbye', 'see you', 'alvida', etc.
+    - 'identity': 'who are you', 'who created you', 'what are you', 'kaun ho', etc.
+    Returns (False, '') if the query contains factual questions or documentation inquiries.
+    """
+    q = normalized_q.strip().lower()
+    clean = re.sub(r'[^a-z0-9\s]', ' ', q).strip()
+    clean = re.sub(r'\s+', ' ', clean)
+    tokens = clean.split()
+
+    if not tokens:
+        return False, ""
+
+    factual_keywords = [
+        'detail', 'details', 'pricing', 'price', 'cost', 'feature', 'features',
+        'product', 'products', 'services', 'service', 'refund', 'return', 'policy',
+        'shipping', 'order', 'doc', 'docs', 'documentation', 'api', 'spec', 'specs',
+        'download', 'install', 'setup', 'contact', 'email', 'phone', 'address',
+        'office', 'headquarters', 'ceo', 'revenue', 'search engine',
+        'catalogue', 'catalog', 'cetalouge', 'vsix', 'python', 'nykaa', 'flipkart', 'steel',
+        'diagram', 'flowchart', 'chart', 'summary', 'overview', 'explain', 'compare'
+    ]
+
+    is_about_self_or_help = any(phrase in clean for phrase in [
+        'yourself', 'about you', 'about urself', 'kya karte ho', 'kaun ho', 'who are you',
+        'who r u', 'what are you', 'what do you do', 'who is this bot', 'what is this bot',
+        'who made you', 'who created you', 'who built you', 'kisne banaya', 'what is your purpose',
+        'can you help', 'i need help', 'help me', 'assist me', 'what can you do', 'how can you help',
+        'can i ask', 'have a question', 'madad'
+    ])
+
+    has_factual_kw = any(kw in clean for kw in factual_keywords)
+    if has_factual_kw and not is_about_self_or_help:
+        return False, ""
+
+    if len(tokens) > 10 and not is_about_self_or_help:
+        return False, ""
+
+    greeting_tokens = {
+        'hi', 'hii', 'hiii', 'hey', 'heyy', 'hello', 'hlo', 'hlw', 'hy', 'howdy',
+        'hola', 'sup', 'yo', 'namaste', 'namaskar', 'pranam', 'salaam', 'salam', 'adaab'
+    }
+    greeting_phrases = [
+        'good morning', 'good afternoon', 'good evening', 'good day', 'greetings',
+        'hey there', 'hi there', 'hello there', 'namaste ji', 'namaskar ji', 'pranam ji'
+    ]
+
+    wellbeing_phrases = [
+        'how are you', 'how are u', 'how r u', 'how do you do', 'how is it going',
+        'hows it going', 'how are you doing', 'how have you been', 'hope you are doing well',
+        'kaise ho', 'kaisa hai', 'kaisi ho', 'aap kaise ho', 'aap kaise hain',
+        'kya haal hai', 'kya haal', 'kya hal hai', 'kya hal', 'sab theek', 'sab thik',
+        'sab badiya', 'aur batao', 'kya chal raha hai', 'whats up', 'what is up', 'sup'
+    ]
+
+    assistance_phrases = [
+        'can you help me', 'can u help me', 'i need help', 'need help', 'help me', 'help me out',
+        'assist me', 'can you assist', 'could you help me', 'what can you do', 'how can you help',
+        'tell me what you can do', 'what do you do', 'kya kar sakte ho', 'kya madad kar sakte ho',
+        'madad chahiye', 'kuch poochhna hai', 'can i ask a question', 'i have a question'
+    ]
+
+    gratitude_tokens = {'thanks', 'thankyou', 'thx', 'ty', 'dhanyawad', 'shukriya'}
+    gratitude_phrases = [
+        'thank you', 'thank u', 'appreciate it', 'thanks a lot', 'thank you so much',
+        'bahut shukriya', 'bahut dhanyawad', 'great job', 'good job', 'nice to meet you'
+    ]
+
+    farewell_tokens = {'bye', 'goodbye', 'cya', 'alvida', 'tata'}
+    farewell_phrases = [
+        'see you', 'see ya', 'good night', 'take care', 'talk to you later',
+        'ttyl', 'phir milenge', 'have a good day'
+    ]
+
+    identity_phrases = [
+        'who are you', 'who r u', 'what are you', 'what do you do', 'tell me about yourself',
+        'about yourself', 'who is this bot', 'what is this bot', 'kaun ho', 'kya ho',
+        'kya karte ho', 'kon ho', 'tum kaun ho', 'aap kaun ho', 'who made you',
+        'who created you', 'who built you', 'what is your purpose', 'what is your name',
+        'kisne banaya', 'kya naam hai'
+    ]
+
+    for p in wellbeing_phrases:
+        if p in clean:
+            return True, 'wellbeing'
+
+    for p in assistance_phrases:
+        if p in clean:
+            return True, 'assistance'
+
+    for p in identity_phrases:
+        if p in clean:
+            return True, 'identity'
+
+    for p in gratitude_phrases:
+        if p in clean:
+            return True, 'gratitude'
+
+    for p in farewell_phrases:
+        if p in clean:
+            return True, 'farewell'
+
+    for p in greeting_phrases:
+        if p in clean:
+            return True, 'greeting'
+
+    b_words = {w for w in re.split(r'[^a-z0-9]+', bot_name.lower()) if w}
+    filler_words = {'bot', 'agent', 'assistant', 'there', 'ai', 'bro', 'sir', 'ji', 'maam', 'madam', 'bhai', 'buddy', 'friend', 'team', 'yaar'}
+    allowed_words = b_words | filler_words
+
+    rem_tokens = [t for t in tokens if t not in allowed_words]
+
+    if rem_tokens and all(t in greeting_tokens for t in rem_tokens):
+        return True, 'greeting'
+
+    if rem_tokens and all(t in gratitude_tokens for t in rem_tokens):
+        return True, 'gratitude'
+
+    if rem_tokens and all(t in farewell_tokens for t in rem_tokens):
+        return True, 'farewell'
+
+    return False, ""
+
 async def stream_rag_pipeline(
     bot_id: str,
     question: str,
     db: Session,
     conversation_id: str = None,
     message_id: str = None,
-    user_name: str = None
+    user_name: str = None,
+    user: models.User = None
 ) -> AsyncGenerator[str, None]:
     print(f"\n🔍 [RAG Query]: '{question}'")
 
@@ -815,7 +947,50 @@ async def stream_rag_pipeline(
         except Exception as err:
             print(f"⚠️ [History Fetch Warning]: {err}")
 
-    # Industry / Category Intent Detection
+    # 2. Scope sources: strictly isolate bot proprietary sources and universal sources for this organization
+    from sqlalchemy import or_, and_
+    bot = db.query(models.Bot).filter(models.Bot.id == bot_id).first()
+    bot_org_id = bot.orgId if bot else None
+
+    # Strict multi-tenant isolation: A bot only accesses its own sources or universal sources of its organization
+    prop_sources = []
+    if bot:
+        prop_sources = db.query(models.BotSource).filter(models.BotSource.botId == bot.id).all()
+        source_scope = or_(
+            models.BotSource.botId == bot.id,
+            and_(models.BotSource.isUniversal == True, models.BotSource.orgId == bot_org_id)
+        )
+        available_sources = db.query(models.BotSource).filter(source_scope).all()
+    else:
+        source_scope = (models.BotSource.isUniversal == True)
+        available_sources = db.query(models.BotSource).filter(source_scope).all()
+
+    # Determine which categories genuinely exist in THIS bot's verified knowledge base:
+    valid_industries = set()
+    for s in (available_sources or []):
+        st = (s.title or '').lower()
+        if any(k in st for k in ['steel', 'metal']):
+            valid_industries.add('steel')
+        elif any(k in st for k in ['sport', 'shoe', 'footwear', 'badminton', 'running']):
+            valid_industries.add('sports')
+        elif any(k in st for k in ['nykaa', 'cosmetic', 'beauty', 'skincare']):
+            valid_industries.add('cosmetics')
+        elif any(k in st for k in ['alorica', 'cx leader', 'bpo']):
+            valid_industries.add('alorica')
+        elif any(k in st for k in ['python', 'mrcet']):
+            valid_industries.add('python')
+        elif any(k in st for k in ['vsix', 'visual studio']):
+            valid_industries.add('vsix')
+        elif any(k in st for k in ['catheter', 'surgical', 'sterilization', 'medical']):
+            valid_industries.add('healthcare')
+        elif any(k in st for k in ['turbofan', 'fastener', 'aerospace', 'aviation']):
+            valid_industries.add('aerospace')
+        elif any(k in st for k in ['brake', 'caliper', 'automotive', 'iatf']):
+            valid_industries.add('automotive')
+        elif any(k in st for k in ['vedaone', 'valuation']):
+            valid_industries.add('financial')
+
+    # Industry / Category Intent Detection (ONLY for industries that ACTUALLY exist in this bot's knowledge base)
     industry_keywords = {
         'vsix': [
             'vsix', 'visual studio', 'visual studio extension', 'visual studio extensions',
@@ -831,19 +1006,31 @@ async def stream_rag_pipeline(
             'python', 'guido van rossum', 'programming notes', 'data types', 'tuple', 'lambda',
             'dictionary in python', 'list comprehension', 'r17a0554', 'mrcet', 'lecture notes'
         ],
-        'steel': ['steel', 'metal', 'iron', 'pipe', 'sheet', 'alloy', 'cross-section', 'astm', '7304', 'seamless pipe'],
+        'steel': ['structural steel', 'steel pipe', 'carbon steel', 'metal sheet', 'steel alloy', 'cross-section', 'astm a36', 'astm a572', '7304', 'seamless steel pipe'],
         'sports': ['sport', 'sports', 'shoe', 'shoes', 'footwear', 'sneaker', 'badminton', 'racket', 'running shoes', 'athletic', 'fitness'],
         'cosmetics': ['cosmetic', 'cosmetics', 'beauty', 'skincare', 'makeup', 'nykaa', 'lipstick', 'serum', 'lotion', 'cream'],
         'financial': ['financial', 'valuation', 'projections', 'vedaone', 'dcf'],
         'software': [
             'appdeft', 'app-deft', 'starter ai agent', 'growth suite', 'vinnisoft', 'app deft',
             'custom software development', 'software engineering', 'ai chatbot platform'
+        ],
+        'healthcare': [
+            'medical', 'healthcare', 'catheter', 'surgical', 'sterilization', 'autoclave', 'eu mdr', 'mdr',
+            'udi', 'bone screw', 'tray', 'gspr', 'ce 0123', 'endoscope', 'lumen', 'disinfection', 'implant'
+        ],
+        'aerospace': [
+            'aerospace', 'aircraft', 'aviation', 'easa', 'turbofan', 'fastener', 'pylon', 'actuator',
+            'skydrol', 'flight control', 'servo', 'rivet', 'ti-6al-4v', 'torque', 'part 145', 'part 21', 'en 9100', 'as9100'
+        ],
+        'automotive': [
+            'automotive', 'vehicle', 'hardware', 'brake', 'caliper', 'iatf', 'iatf 16949', 'en 1125',
+            'panic exit', 'mortise lock', 'fire rating', 'fire door', 'imds', 'bolt', 'cpr', 'en 1634', 'ceramic brake'
         ]
     }
 
     matched_industry = None
     for ind, kws in industry_keywords.items():
-        if any(kw in normalized_q for kw in kws):
+        if ind in valid_industries and any(kw in normalized_q for kw in kws):
             matched_industry = ind
             break
 
@@ -856,7 +1043,7 @@ async def stream_rag_pipeline(
     if not matched_industry and not is_switch_catalogue and recent_history_texts:
         combined_prev = " ".join(recent_history_texts)
         for ind, kws in industry_keywords.items():
-            if any(kw in combined_prev for kw in kws):
+            if ind in valid_industries and any(kw in combined_prev for kw in kws):
                 matched_industry = ind
                 print(f"🔄 [Conversational Context Resolved]: matched_industry='{ind}' from previous conversation history")
                 break
@@ -908,25 +1095,6 @@ async def stream_rag_pipeline(
     if matched_industry:
         expanded_keywords.update(industry_keywords.get(matched_industry, []))
 
-    # 2. Scope sources: include bot-specific sources + universal knowledge sources for this organization
-    from sqlalchemy import or_, and_
-    bot = db.query(models.Bot).filter(models.Bot.id == bot_id).first()
-    bot_org_id = bot.orgId if bot else None
-
-    if bot_org_id:
-        source_scope = or_(
-            models.BotSource.botId == bot_id,
-            and_(models.BotSource.isUniversal == True, models.BotSource.orgId == bot_org_id),
-            and_(models.BotSource.isUniversal == True, models.BotSource.orgId == None)
-        )
-    else:
-        source_scope = or_(
-            models.BotSource.botId == bot_id,
-            models.BotSource.isUniversal == True
-        )
-
-    available_sources = db.query(models.BotSource).filter(source_scope).all()
-
     # ----------------------------------------------------
     # 0. SMART USER RECOGNITION (ANY USER: SAHIL, JASBIR, OR GUEST)
     # ----------------------------------------------------
@@ -976,7 +1144,7 @@ async def stream_rag_pipeline(
 
     user_first_name = detected_user_name.split()[0].capitalize() if detected_user_name else ""
     is_first_turn = (len(prior_messages) == 0)
-    user_salutation = f"Hey {user_first_name}! 👋 " if (is_first_turn and user_first_name) else ""
+    user_salutation = f"Hi {user_first_name}. " if (is_first_turn and user_first_name) else ""
     if user_first_name:
         print(f"👤 [User Recognized]: '{user_first_name}' (First Turn: {is_first_turn})")
 
@@ -991,146 +1159,199 @@ async def stream_rag_pipeline(
     b_name_words = [w for w in re.split(r'[^a-z0-9]+', b_name.lower()) if len(w) >= 3]
     b_domain_clean = re.sub(r'^(https?://)?(www\.)?', '', b_domain.lower()).split('/')[0].split('.')[0]
 
-    is_name_match = (
-        (len(b_name_clean) >= 3 and b_name_clean in q_clean) or
-        any(w in normalized_q for w in b_name_words) or
-        (len(b_domain_clean) >= 3 and b_domain_clean in normalized_q)
-    )
+    is_conv, conv_type = classify_conversational_intent(normalized_q, b_name)
 
-    identity_triggers = [
-        'who are you', 'who r u', 'what are you', 'what do you do', 'tell me about yourself',
-        'about yourself', 'your company', 'about company', 'tell me about your company',
-        'what is this bot', 'who is this bot', 'kaun ho', 'kya ho', 'kya karte ho', 'kon ho',
-        'tum kaun ho', 'aap kaun ho'
-    ]
-    is_identity_query = is_name_match or any(trig in normalized_q for trig in identity_triggers)
+    if is_conv:
+        print(f"💬 [Conversational Intent Detected]: type='{conv_type}' for '{question}' (bot: {b_name})")
 
-    if is_identity_query:
-        print(f"🤖 [Self-Identity Query Detected]: '{question}' for bot '{b_name}' ({b_domain})")
-        if matched_industry is None:
-            matched_industry = 'software'
+        if conv_type == 'greeting':
+            if is_user_hindi:
+                body = f"{user_salutation}Namaste! Main {b_name} ka AI assistant hoon. Main aaj aapki kis tarah madad kar sakta hoon?"
+                prompt_followup = f"{b_name} ke baare mein aap kya dekhna chahenge?"
+            else:
+                body = f"{user_salutation}Hello! I am the AI assistant for {b_name}. How can I assist you today?"
+                prompt_followup = f"How can I assist you with {b_name} today?"
+            options = [f"Tell me about {b_name}", "Documentation & FAQs", "Contact Support"]
 
-        # Check if bot has proprietary sources
-        prop_sources = [s for s in available_sources if str(s.botId or '') == str(bot_id) and not s.isUniversal]
-        has_prop_match = False
-        if prop_sources:
-            prop_results = (
-                db.query(
-                    models.DocumentChunk,
-                    models.DocumentChunk.embedding.cosine_distance(query_vec).label("distance")
-                )
-                .join(models.BotSource)
-                .filter(models.BotSource.botId == bot_id, models.BotSource.isUniversal == False)
-                .order_by("distance")
-                .limit(5)
-                .all()
-            )
-            if prop_results:
-                best_prop_sim = 1.0 - float(prop_results[0][1])
-                if best_prop_sim >= 0.25:
-                    has_prop_match = True
-                    # Let the pipeline search solely inside proprietary chunks!
-                    source_scope = and_(models.BotSource.botId == bot_id, models.BotSource.isUniversal == False)
+        elif conv_type == 'wellbeing':
+            if is_user_hindi:
+                body = f"{user_salutation}Main bilkul theek hoon, poochne ke liye dhanyawad! Main {b_name} ka AI assistant hoon aur aapki poori madad karne ke liye ready hoon. Aap kya jaanna chahte hain?"
+                prompt_followup = f"{b_name} ke baare mein kya dekhna chahenge?"
+            else:
+                body = f"{user_salutation}I'm doing great, thank you for asking! I'm here as the AI assistant for {b_name}, ready to help you with information, documentation, and answers. How can I assist you today?"
+                prompt_followup = f"What would you like to explore regarding {b_name}?"
+            options = [f"What is {b_name}?", "Services & Features", "Contact Details"]
 
-        if not has_prop_match:
+        elif conv_type == 'assistance':
             if is_user_hindi:
                 body = (
-                    f"{user_salutation}Great to connect with you! Main **{b_name}** hoon, aapka personal AI companion aur consultant yahan **{b_domain or 'hamare enterprise'}** par. 🚀\n\n"
-                    f"**{b_name}** par hum cutting-edge enterprise conversational AI systems, autonomous workflows aur smart digital agents build karte hain:\n\n"
-                    f"• **Conversational AI Bots:** 24/7 intelligent customer engagement, multi-turn memory aur verified documentation se certified grounding.\n"
-                    f"• **Workflow Automation & RPA:** Autonomous lead qualification, ticket routing aur instant appointment scheduling.\n"
-                    f"• **Multilingual Voice & Chatbot Integration:** Real-time speech-to-text, ultra-low latency (<500ms) aur 20+ languages ka full support.\n"
-                    f"• **Enterprise CRM & ERP Connectors:** Salesforce, HubSpot, Zendesk aur SQL databases ke sath seamless turnkey sync.\n"
-                    f"• **Transparent Commercial Tiers:** $49/mo (Starter) se shuru hokar $199/mo (Growth) aur high-scale custom Enterprise tiers.\n\n"
-                    f"---\n📑 **Official Specifications & Product Catalogue (PDF)**\n*Kya aap iska complete certified documentation review ya download karna chahenge?*\n\n"
-                    f"[PDF_CARD:ai-software-development|{b_name} AI Software & Solutions Catalogue]"
+                    f"{user_salutation}Main {b_name} ka AI assistant hoon. Main aapki {b_name} se jude sabhi sawaalon, services, features aur official documentation ko samajhne mein poori madad kar sakta hoon.\n\n"
+                    f"Aap kis topic ke baare mein jaanna chahenge?"
                 )
-                prompt_followup = f"{user_first_name}, {b_name} ke baare mein aur kya explore karna chahenge aap?" if user_first_name else f"{b_name} ke baare mein aur kya explore karna chahenge aap?"
+                prompt_followup = f"Main {b_name} ke baare mein aapki kya madad kar sakta hoon?"
             else:
                 body = (
-                    f"{user_salutation}Great to connect with you! I'm **{b_name}**, your personal AI companion and expert consultant here at **{b_domain or 'our enterprise'}**! 🚀\n\n"
-                    f"At **{b_name}**, we specialize in building enterprise-grade conversational AI platforms, custom autonomous workflows, and intelligent digital agents:\n\n"
-                    f"• **Conversational AI Bots:** 24/7 intelligent customer engagement, multi-turn memory, and semantic grounding over verified documentation.\n"
-                    f"• **Workflow Automation & RPA:** Autonomous lead qualification, ticket routing, and appointment scheduling.\n"
-                    f"• **Multilingual Voice & Chatbot Integration:** Real-time speech-to-text, ultra-low latency synthesis (<500ms), and 20+ language support.\n"
-                    f"• **Enterprise CRM & ERP Connectors:** Turnkey bi-directional sync with Salesforce, HubSpot, Zendesk, and SQL databases.\n"
-                    f"• **Transparent Commercial Tiers:** From $49/mo (Starter) to $199/mo (Growth) and custom high-concurrency Enterprise clusters.\n\n"
-                    f"---\n📑 **Official Specifications & Product Catalogue (PDF)**\n*Would you like to review or download the complete certified documentation for this?*\n\n"
-                    f"[PDF_CARD:ai-software-development|{b_name} AI Software & Solutions Catalogue]"
+                    f"{user_salutation}I am the dedicated AI assistant for {b_name}. I can help answer your questions, explain our products and services, navigate documentation, and provide verified details directly from official records.\n\n"
+                    f"What would you like assistance with today?"
                 )
-                prompt_followup = f"What would you like to explore regarding {b_name}, {user_first_name}?" if user_first_name else f"What would you like to explore regarding {b_name}?"
+                prompt_followup = f"How can I help you regarding {b_name}?"
+            options = [f"Tell me about {b_name}", "Documentation & Specs", "Official Contact & Support"]
 
-            followup_data = {
-                "prompt": prompt_followup,
-                "options": ["AI Chatbot Capabilities", "Commercial Pricing & Plans", "CRM Integrations", "Schedule a Live Demo"]
-            }
+        elif conv_type == 'gratitude':
+            if is_user_hindi:
+                body = f"{user_salutation}Aapka bahut-bahut swagat hai! Mujhe khushi hui ki main aapki madad kar saka. Agar {b_name} ke baare mein koi aur sawaal ho, toh zaroor batayein."
+                prompt_followup = "Kya aapko kisi aur cheez mein sahayata chahiye?"
+            else:
+                body = f"{user_salutation}You're very welcome! I'm glad I could help. Please let me know if there is anything else you need assistance with regarding {b_name}."
+                prompt_followup = "Can I help you with anything else?"
+            options = [f"Tell me about {b_name}", "Explore Solutions", "Contact Us"]
 
-            if conversation_id:
-                try:
-                    bot_msg_db = models.Message(
-                        conversationId=conversation_id,
-                        role="BOT",
-                        content=body,
-                        unanswered=False
-                    )
-                    db.add(bot_msg_db)
-                    db.commit()
-                except Exception as e:
-                    print(f"Error saving bot response: {e}")
+        elif conv_type == 'farewell':
+            if is_user_hindi:
+                body = f"{user_salutation}Alvida! {b_name} ke saath connect karne ke liye dhanyawad. Aapka din shubh ho!"
+                prompt_followup = "Have a wonderful day!"
+            else:
+                body = f"{user_salutation}Goodbye! Thank you for connecting with {b_name}. Have a wonderful day ahead, and feel free to reach out anytime!"
+                prompt_followup = "Have a great day ahead!"
+            options = [f"Visit {b_name}", "Start New Query"]
 
-            yield f"data: {json.dumps({'type': 'start', 'confidence': 1.0})}\n\n"
-            for word in body.split(" "):
-                if word:
-                    yield f"data: {json.dumps({'type': 'token', 'content': word + ' '})}\n\n"
+        else:  # conv_type == 'identity'
+            b_desc = f" ({b_domain})" if b_domain else ""
+            if is_user_hindi:
+                body = (
+                    f"{user_salutation}Main {b_name} ka certified AI assistant hoon{b_desc}.\n\n"
+                    f"Mera kaam hai {b_name} ki verified documentation, product catalogue aur official records se aapko accurate aur factual jaankari provide karna.\n\n"
+                    f"Aap {b_name} ke kis topic ke baare mein explore karna chahte hain?"
+                )
+                prompt_followup = f"{b_name} ke baare mein kya dekhna chahenge?"
+            else:
+                body = (
+                    f"{user_salutation}I am the official AI assistant for {b_name}{b_desc}.\n\n"
+                    f"My purpose is to provide verified, grounded answers directly from {b_name}'s indexed documentation, service catalogues, and official records.\n\n"
+                    f"Which area would you like to explore regarding {b_name}?"
+                )
+                prompt_followup = f"What would you like to explore regarding {b_name}?"
+            options = [f"What is {b_name}?", "Explore Services", "Documentation", "Contact Support"]
 
-            yield f"data: {json.dumps({'type': 'sources', 'sources': [{'title': f'{b_name} Official Profile', 'kind': 'PAGE', 'url': f'https://{b_domain}' if b_domain else '', 'snippet': f'Verified AI assistant profile for {b_name}.'}]})}\n\n"
-            yield f"data: {json.dumps({'type': 'followup', 'prompt': followup_data['prompt'], 'options': followup_data['options']})}\n\n"
-            yield f"data: {json.dumps({'type': 'done', 'full_text': body, 'followup': followup_data})}\n\n"
-            return
+        followup_data = {
+            "prompt": prompt_followup,
+            "options": options
+        }
+
+        if conversation_id:
+            try:
+                bot_msg_db = models.Message(
+                    conversationId=conversation_id,
+                    role="BOT",
+                    content=body,
+                    unanswered=False
+                )
+                db.add(bot_msg_db)
+                db.commit()
+            except Exception as e:
+                print(f"Error saving bot response: {e}")
+
+        yield f"data: {json.dumps({'type': 'start', 'confidence': 1.0})}\n\n"
+        for word in body.split(" "):
+            if word:
+                yield f"data: {json.dumps({'type': 'token', 'content': word + ' '})}\n\n"
+
+        sources_list = [{'title': f'{b_name} Profile', 'kind': 'PAGE', 'url': f'https://{b_domain}' if b_domain else '', 'snippet': f'AI assistant profile for {b_name}.'}] if b_domain else []
+        yield f"data: {json.dumps({'type': 'sources', 'sources': sources_list})}\n\n"
+        yield f"data: {json.dumps({'type': 'followup', 'prompt': followup_data['prompt'], 'options': followup_data['options']})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'full_text': body, 'followup': followup_data})}\n\n"
+        return
+
+    # If the bot has no indexed sources (neither proprietary nor universal inherited sources)
+    if bot and not available_sources:
+        b_name_curr = (bot.name or "This agent").strip()
+        b_domain_curr = (bot.domain or "").strip()
+        domain_str = f" ({b_domain_curr})" if b_domain_curr else ""
+        empty_msg = f"No indexed knowledge records or documents are currently associated with {b_name_curr}{domain_str}. Please index your website or upload documents in the Knowledge tab to ground factual answers."
+        if conversation_id:
+            try:
+                bot_msg_db = models.Message(
+                    conversationId=conversation_id,
+                    role="BOT",
+                    content=empty_msg,
+                    unanswered=False
+                )
+                db.add(bot_msg_db)
+                db.commit()
+            except Exception as e:
+                print(f"Error saving bot response: {e}")
+
+        yield f"data: {json.dumps({'type': 'start', 'confidence': 1.0})}\n\n"
+        for word in empty_msg.split(" "):
+            if word:
+                yield f"data: {json.dumps({'type': 'token', 'content': word + ' '})}\n\n"
+        yield f"data: {json.dumps({'type': 'sources', 'sources': []})}\n\n"
+        yield f"data: {json.dumps({'type': 'lead_form'})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'full_text': empty_msg})}\n\n"
+        return
+
+    is_asking_details = any(w in normalized_q for w in [
+        'detail', 'details', 'tell me about', 'explain', 'what is', 'what are',
+        'summary', 'overview of', 'points', 'point', 'feature', 'features',
+        'role', 'roles', 'all', 'full', 'about', 'how does', 'how to', 'how can',
+        'project', 'document', 'documents', 'spec', 'specs', 'understanding',
+        'platform', 'system', 'architecture', 'module', 'modules', 'phase',
+        'phases', 'information', 'info', 'database', 'know about'
+    ])
+
+    has_knowledge_match = False
+    if available_sources:
+        match_results = (
+            db.query(
+                models.DocumentChunk,
+                models.DocumentChunk.embedding.cosine_distance(query_vec).label("distance")
+            )
+            .join(models.BotSource, models.DocumentChunk.sourceId == models.BotSource.id)
+            .filter(source_scope)
+            .order_by("distance")
+            .limit(5)
+            .all()
+        )
+        if match_results:
+            best_sim = 1.0 - float(match_results[0][1])
+            if best_sim >= 0.22:
+                has_knowledge_match = True
 
     is_catalogue_mention = any(k in normalized_q for k in ['catalogue', 'catalog', 'cetalouge', 'cataloge', 'products', 'inventory', 'brochure'])
-    is_general_catalogue_query = (is_catalogue_mention or is_switch_catalogue) and (matched_industry is None) and not is_pricing_query
+    is_general_catalogue_query = (is_catalogue_mention or is_switch_catalogue) and (matched_industry is None) and not is_pricing_query and not is_asking_details and not has_knowledge_match
 
     # If the user asks broadly about the catalogue without selecting a specific category:
-    # Present the verified Catalogue Directory Menu with all available industries and prompt them to choose!
+    # Present the verified Catalogue Directory Menu strictly from available knowledge sources:
     if is_general_catalogue_query:
         b_name = (bot.name if bot else "Our Company").strip()
         bullets = []
         options = []
         seen_pills = set()
 
-        # 1. Bot Proprietary Core Solutions
-        bot_pill = f"{b_name} AI Solutions"
-        bullets.append(f"• **{b_name} AI Solutions:** Custom conversational AI bots, intelligent virtual assistants, enterprise software platforms, and workflow automation.")
-        options.append(bot_pill)
-        seen_pills.add(bot_pill.lower())
-
-        # 2. Dynamically enumerate ALL verified database sources from PostgreSQL
+        # Dynamically enumerate ALL verified database sources from PostgreSQL for THIS bot
         for s in (available_sources or []):
             b_text, p_pill = get_source_bullet_and_pill(s, b_name)
+            clean_b_text = re.sub(r'\*\*([^*]+)\*\*', r'\1', b_text)
             if p_pill.lower() not in seen_pills:
                 seen_pills.add(p_pill.lower())
-                bullets.append(b_text)
+                bullets.append(clean_b_text)
                 options.append(p_pill)
 
-        summary = f"Our central database maintains certified technical catalogues for both our {b_name} enterprise solutions and universal industry categories. Please select which catalogue or industry you would like to explore below."
+        if not options:
+            options = [f"Explore {b_name}", "Pricing & Specifications", "Official Contact & Support"]
 
         if is_user_hindi:
-            cat_closing_hi = f"Inme se sabse pehle kis category mein dive karna chahenge aap, {user_first_name}? Niche diye gaye options par tap karein ya search karke select karein, main poori detail share karunga! 😊" if user_first_name else "Inme se sabse pehle kis category mein dive karna chahenge aap? Niche diye gaye options par tap karein ya search karke select karein, main poori detail share karunga! 😊"
+            cat_closing_hi = f"Inme se kis topic ko explore karna chahenge aap, {user_first_name}? Niche option select karein ya direct poochiye." if user_first_name else "Inme se kis topic ko explore karna chahenge aap? Niche option select karein ya direct poochiye."
             body = (
-                f"{user_salutation}Chaliye hamare certified product catalogues explore karte hain! 🚀\n\n"
-                f"**Hamari Verified Catalogues Directory:**\n\n"
-                f"Hamare central knowledge base mein **{b_name}** ke enterprise solutions se lekar universal industry categories tak ka certified collection maujood hai. Dekhiye hum kya-kya offer karte hain:\n\n"
+                f"{user_salutation}Hamare verified product catalogues aur documentation ka collection:\n\n"
                 + "\n".join(bullets) + "\n\n"
                 + f"{cat_closing_hi}"
             )
-            followup_prompt = f"{user_first_name}, aap sabse pehle kaunsa catalogue explore karna chahenge?" if user_first_name else "Aap sabse pehle kaunsa catalogue explore karna chahenge?"
+            followup_prompt = f"{user_first_name}, aap kaunsa catalogue explore karna chahenge?" if user_first_name else "Aap kaunsa catalogue explore karna chahenge?"
         else:
-            cat_closing_en = f"Which of these categories would you love to dive into first, {user_first_name}? Just tap an option below, expand for more topics, or ask me directly!" if user_first_name else "Which of these categories would you love to dive into first? Just tap an option below, expand for more topics, or ask me directly!"
+            cat_closing_en = f"Which of these categories would you like to explore first, {user_first_name}? Select an option below or ask directly." if user_first_name else "Which of these categories would you like to explore first? Select an option below or ask directly."
             body = (
-                f"{user_salutation}Welcome to our verified product catalogue directory! 🚀\n\n"
-                f"**Explore Our Complete Product & Solutions Directory**\n\n"
-                f"We maintain an extensive, certified collection covering both **{b_name}** enterprise AI systems and universal industry specifications. Here's a look at what you can explore:\n\n"
+                f"{user_salutation}Here is our verified documentation and product catalogue directory:\n\n"
                 + "\n".join(bullets) + "\n\n"
                 + f"{cat_closing_en}"
             )
@@ -1183,12 +1404,16 @@ async def stream_rag_pipeline(
         .join(models.BotSource, models.DocumentChunk.sourceId == models.BotSource.id)
         .filter(source_scope)
         .order_by("distance")
-        .limit(30)
+        .limit(40)
         .all()
     )
 
-    # 3. Direct SQL Lexical Search to ensure high-intent keywords (address, phone, contact, pricing) are never missed
-    high_intent_terms = [kw for kw in expanded_keywords if kw in ['address', 'location', 'phone', 'email', 'contact', 'headquarters', 'office', 'price', 'pricing', 'rate', 'cost']]
+    # 3. Direct SQL Lexical Search to ensure high-intent and European compliance keywords are never missed
+    high_intent_terms = [kw for kw in expanded_keywords if kw in [
+        'address', 'location', 'phone', 'email', 'contact', 'headquarters', 'office', 'price', 'pricing', 'rate', 'cost',
+        'sterilization', 'autoclave', 'catheter', 'fastener', 'torque', 'easa', 'mdr', 'iatf', 'caliper', 'panic',
+        'skydrol', 'imds', 'titanium', 'cpr', 'en 1125', 'en 1634', 'udi', 'gspr', 'ce 0123'
+    ]]
     lexical_results = []
     if high_intent_terms:
         lexical_results = (
@@ -1242,7 +1467,7 @@ async def stream_rag_pipeline(
         intent_boost = 0.35 if any(k in content_lower for k in ['address', 'location', 'phone', 'email', 'contact', 'headquarters']) and any(k in normalized_q for k in ['address', 'where', 'location', 'contact', 'reach', 'phone', 'email']) else 0.0
         kw_boost = min(0.40, kw_hits * 0.15) + intent_boost
 
-        # Priority boost for bot's own proprietary sources
+        # Priority boost strictly for bot's own proprietary sources
         bot_priority_boost = 0.85 if is_bot_proprietary else 0.0
 
         # Targeted Industry Boost & Cross-Industry Strict Isolation
@@ -1278,10 +1503,10 @@ async def stream_rag_pipeline(
             else:
                 industry_boost = -1.20
         elif matched_industry == 'software':
-            if is_bot_proprietary or any(k in content_lower for k in ['software', 'chatbot', 'ai ', 'nlp', 'development', 'machine learning', 'appdeft', 'vinnisoft', 'automation', 'crm', 'enterprise']):
+            if is_bot_proprietary or is_universal or any(k in content_lower for k in ['software', 'chatbot', 'ai ', 'nlp', 'development', 'machine learning', 'appdeft', 'vinnisoft', 'automation', 'crm', 'enterprise', 'platform', 'kiavi', 'kiaviiq']):
                 industry_boost = 0.60
             else:
-                industry_boost = -1.20
+                industry_boost = 0.0
         elif matched_industry is None and not is_catalogue_mention:
             # When the user is NOT asking about a specific catalogue or exploring catalogues,
             # universal shared catalogue chunks (steel, footwear, cosmetics, alorica) must NOT leak into general company inquiries!
@@ -1320,7 +1545,45 @@ async def stream_rag_pipeline(
     best_score = scored_chunks[0][0] if scored_chunks else 0.0
     print(f"📊 [RAG Hybrid Confidence]: {best_score} (Top Vec: {scored_chunks[0][2]:.4f})")
 
-    passed_chunks = [c[1] for c in scored_chunks if c[0] >= 0.28]
+    # Cross-encoder Reranking with FlashRank
+    candidates_for_rerank = [
+        {
+            "id": idx,
+            "text": sc[1],
+            "title": sc[3],
+            "url": sc[4],
+            "original_score": sc[0],
+            "vec_sim": sc[2]
+        }
+        for idx, sc in enumerate(scored_chunks[:40])
+    ]
+
+    try:
+        reranked = rerank_chunks(question, candidates_for_rerank, top_k=TOP_K_CHUNKS, min_score=0.002)
+        if reranked:
+            top_rr = reranked[0].get("rerank_score", 0.0)
+            if top_rr < 0.002:
+                # If query is in Hindi/Hinglish or has strong vector confidence, cross-encoder may fail due to language mismatch. Fallback to vector candidates!
+                if (is_user_hindi or (scored_chunks and scored_chunks[0][2] >= 0.38)) and scored_chunks and scored_chunks[0][2] >= 0.30:
+                    print(f"🔄 [Cross-Encoder Hinglish/Vector Fallback]: Top rerank score {top_rr:.6f} was low, but high vector confidence ({scored_chunks[0][2]:.4f}). Keeping vector candidates.")
+                    passed_chunks = [c[1] for c in scored_chunks if c[2] >= 0.28][:TOP_K_CHUNKS]
+                    best_score = max(0.55, scored_chunks[0][2])
+                else:
+                    print(f"⚠️ [Cross-Encoder Rejection]: Top rerank score {top_rr:.6f} < 0.002. Query ungrounded.")
+                    passed_chunks = []
+                    best_score = 0.0
+            else:
+                passed_chunks = [c["text"] for c in reranked if c.get("rerank_score", 0.0) >= 0.002]
+                best_score = max(0.60, scored_chunks[0][2] if scored_chunks else 0.5)
+        else:
+            passed_chunks = [c[1] for c in scored_chunks if c[2] >= 0.35 and c[0] >= 0.40]
+            if not passed_chunks:
+                best_score = 0.0
+    except Exception as rr_err:
+        print(f"⚠️ [Reranker Fallback]: {rr_err}")
+        passed_chunks = [c[1] for c in scored_chunks if c[2] >= 0.35 and c[0] >= 0.40]
+        if not passed_chunks:
+            best_score = 0.0
 
     # Ground Truth Source Lock: The actual top retrieved document source ALWAYS dictates the active category/industry
     if scored_chunks and best_score >= 0.25:
@@ -1328,72 +1591,72 @@ async def stream_rag_pipeline(
         top_content_lower = scored_chunks[0][1].lower()
 
         # 1. Authoritative Source Title Matching (Ground Truth Database Identity)
-        if any(k in top_src_title for k in ['vsix', 'visualstudio', 'visual studio']):
+        if any(k in top_src_title for k in ['vsix', 'visualstudio', 'visual studio']) and 'vsix' in valid_industries:
             matched_industry = 'vsix'
             print(f"🎯 [Ground Truth Source Lock]: matched_industry='vsix' from source title '{scored_chunks[0][3]}'")
-        elif any(k in top_src_title for k in ['python', 'mrcet']):
+        elif any(k in top_src_title for k in ['python', 'mrcet']) and 'python' in valid_industries:
             matched_industry = 'python'
             print(f"🎯 [Ground Truth Source Lock]: matched_industry='python' from source title '{scored_chunks[0][3]}'")
-        elif any(k in top_src_title for k in ['steel', 'metal']):
+        elif any(k in top_src_title for k in ['steel', 'metal']) and 'steel' in valid_industries:
             matched_industry = 'steel'
             print(f"🎯 [Ground Truth Source Lock]: matched_industry='steel' from source title '{scored_chunks[0][3]}'")
-        elif any(k in top_src_title for k in ['sport', 'shoe', 'archive.zip', 'ecommerce-products']):
+        elif any(k in top_src_title for k in ['sport', 'shoe', 'archive.zip', 'ecommerce-products']) and 'sports' in valid_industries:
             matched_industry = 'sports'
             print(f"🎯 [Ground Truth Source Lock]: matched_industry='sports' from source title '{scored_chunks[0][3]}'")
-        elif any(k in top_src_title for k in ['nykaa', 'cosmetic']):
+        elif any(k in top_src_title for k in ['nykaa', 'cosmetic']) and 'cosmetics' in valid_industries:
             matched_industry = 'cosmetics'
             print(f"🎯 [Ground Truth Source Lock]: matched_industry='cosmetics' from source title '{scored_chunks[0][3]}'")
-        elif any(k in top_src_title for k in ['alorica', 'cx leader']):
+        elif any(k in top_src_title for k in ['alorica', 'cx leader']) and 'alorica' in valid_industries:
             matched_industry = 'alorica'
             print(f"🎯 [Ground Truth Source Lock]: matched_industry='alorica' from source title '{scored_chunks[0][3]}'")
-        elif any(k in top_src_title for k in ['vedaone']):
+        elif any(k in top_src_title for k in ['vedaone']) and 'financial' in valid_industries:
             matched_industry = 'financial'
             print(f"🎯 [Ground Truth Source Lock]: matched_industry='financial' from source title '{scored_chunks[0][3]}'")
-        elif any(k in top_src_title for k in ['appdeft', 'app-deft', 'vinnisoft', 'vasudev']):
+        elif any(k in top_src_title for k in ['appdeft', 'app-deft', 'vinnisoft', 'vasudev']) and 'software' in valid_industries:
             matched_industry = 'software'
             print(f"🎯 [Ground Truth Source Lock]: matched_industry='software' from source title '{scored_chunks[0][3]}'")
         # 2. Content fallback ONLY if title was generic
-        elif any(k in top_content_lower for k in ['visual studio', 'vsix', 'extension package', 'manage extensions']):
+        elif any(k in top_content_lower for k in ['visual studio', 'vsix', 'extension package', 'manage extensions']) and 'vsix' in valid_industries:
             matched_industry = 'vsix'
             print(f"🎯 [Ground Truth Source Lock]: matched_industry='vsix' from content")
-        elif any(k in top_content_lower for k in ['python programming', 'guido van rossum', 'mrcet']):
+        elif any(k in top_content_lower for k in ['python programming', 'guido van rossum', 'mrcet']) and 'python' in valid_industries:
             matched_industry = 'python'
             print(f"🎯 [Ground Truth Source Lock]: matched_industry='python' from content")
-        elif any(k in top_content_lower for k in ['cx consulting', 'evoai', 'revolt', 'alorica, inc']):
+        elif any(k in top_content_lower for k in ['cx consulting', 'evoai', 'revolt', 'alorica, inc']) and 'alorica' in valid_industries:
             matched_industry = 'alorica'
             print(f"🎯 [Ground Truth Source Lock]: matched_industry='alorica' from content")
-        elif any(k in top_content_lower for k in ['astm a36', 'astm a572', '7304']):
+        elif any(k in top_content_lower for k in ['astm a36', 'astm a572', '7304']) and 'steel' in valid_industries:
             matched_industry = 'steel'
             print(f"🎯 [Ground Truth Source Lock]: matched_industry='steel' from content")
-        elif any(k in top_content_lower for k in ['badminton', 'running shoes', 'li-ning']):
+        elif any(k in top_content_lower for k in ['badminton', 'running shoes', 'li-ning']) and 'sports' in valid_industries:
             matched_industry = 'sports'
             print(f"🎯 [Ground Truth Source Lock]: matched_industry='sports' from content")
-        elif any(k in top_content_lower for k in ['nykaa', 'lipstick', 'skincare', 'serum']):
+        elif any(k in top_content_lower for k in ['nykaa', 'lipstick', 'skincare', 'serum']) and 'cosmetics' in valid_industries:
             matched_industry = 'cosmetics'
             print(f"🎯 [Ground Truth Source Lock]: matched_industry='cosmetics' from content")
 
     # Dynamic Industry Recovery: If matched_industry is None, infer from the top passed chunk or bot identity
     if matched_industry is None and passed_chunks:
         top_content = passed_chunks[0].lower()
-        if any(k in top_content for k in ['visual studio', 'vsix', 'extension package', 'manage extensions']):
+        if 'vsix' in valid_industries and any(k in top_content for k in ['visual studio', 'vsix', 'extension package', 'manage extensions']):
             matched_industry = 'vsix'
             print(f"🔄 [Inferred Category from Top Chunk]: matched_industry='vsix'")
-        elif any(k in top_content for k in ['python', 'programming notes', 'data types', 'variables', 'guido van rossum']):
+        elif 'python' in valid_industries and any(k in top_content for k in ['python', 'programming notes', 'data types', 'variables', 'guido van rossum']):
             matched_industry = 'python'
             print(f"🔄 [Inferred Category from Top Chunk]: matched_industry='python'")
-        elif any(k in top_content for k in ['cx consulting', 'alorica, inc', 'evoai', 'revolt']):
+        elif 'alorica' in valid_industries and any(k in top_content for k in ['cx consulting', 'alorica, inc', 'evoai', 'revolt']):
             matched_industry = 'alorica'
             print(f"🔄 [Inferred Category from Top Chunk]: matched_industry='alorica'")
-        elif any(k in top_content for k in ['steel', 'metal', 'astm', '7304', 'pipe', 'carbon steel']):
+        elif 'steel' in valid_industries and any(k in top_content for k in ['structural steel', 'astm a36', 'astm a572', '7304', 'seamless carbon steel']):
             matched_industry = 'steel'
             print(f"🔄 [Inferred Category from Top Chunk]: matched_industry='steel'")
-        elif any(k in top_content for k in ['running shoes', 'badminton', 'footwear', 'shoe', 'sports']):
+        elif 'sports' in valid_industries and any(k in top_content for k in ['running shoes', 'badminton court', 'athletic footwear']):
             matched_industry = 'sports'
             print(f"🔄 [Inferred Category from Top Chunk]: matched_industry='sports'")
-        elif any(k in top_content for k in ['nykaa', 'cosmetic', 'serum', 'skincare', 'beauty']):
+        elif 'cosmetics' in valid_industries and any(k in top_content for k in ['nykaa', 'facial serum', 'matte foundation']):
             matched_industry = 'cosmetics'
             print(f"🔄 [Inferred Category from Top Chunk]: matched_industry='cosmetics'")
-        elif any(k in top_content for k in ['appdeft', 'app-deft', 'starter ai agent', 'vinnisoft']):
+        elif 'software' in valid_industries and any(k in top_content for k in ['appdeft', 'app-deft', 'starter ai agent', 'vinnisoft']):
             matched_industry = 'software'
             print(f"🔄 [Inferred Category from Top Chunk]: matched_industry='software'")
         elif bot and ('appdeft' in (bot.domain or '').lower() or 'app-deft' in (bot.name or '').lower()) and any(k in normalized_q for k in ['software', 'appdeft', 'app-deft', 'bot', 'agent', 'pricing', 'crm', 'demo', 'platform']):
@@ -1403,9 +1666,9 @@ async def stream_rag_pipeline(
     if not passed_chunks or best_score < 0.28:
         print(f"⚠️ [Unanswered Query]: Best score {best_score} < RELEVANCE_FLOOR (0.28). Flagging as content gap.")
         if is_user_hindi:
-            fallback_text = "Mere paas available knowledge mein iske baare mein poori jaankari nahi hai. Agar aap chahein, toh niche apna contact detail chhod sakte hain aur hamari team aapse connect kar legi."
+            fallback_text = "Main diye gaye documents mein iska uttar nahi dhoondh pa raha hoon. Agar aap chahein, toh niche apna contact detail chhod sakte hain aur hamari team aapse connect kar legi."
         else:
-            fallback_text = "I don't have enough information about that in the available knowledge. If you'd like, you can leave your contact details below, and our team will be happy to follow up with you."
+            fallback_text = "I cannot find the answer in the provided documents. If you'd like, you can leave your contact details below, and our team will be happy to follow up with you."
 
         if message_id:
             try:
@@ -1489,7 +1752,42 @@ async def stream_rag_pipeline(
             "• Treat this as an ongoing dialogue with the user. Be warm, calm, helpful, and natural."
         )
 
-    if is_user_hindi:
+    # European & Global Multilingual Directive
+    is_german = any(k in normalized_q.split() for k in ['ist', 'und', 'der', 'die', 'das', 'nicht', 'wie', 'kann', 'bitte', 'gibt', 'was', 'wo', 'deutsch', 'guten'])
+    is_french = any(k in normalized_q.split() for k in ['est', 'que', 'comment', 'pourquoi', 'avec', 'dans', 'pour', 'bonjour', 'merci', 'français'])
+    is_spanish = any(k in normalized_q.split() for k in ['como', 'donde', 'porque', 'para', 'hola', 'gracias', 'que', 'los', 'las', 'español'])
+    is_italian = any(k in normalized_q.split() for k in ['come', 'dove', 'perche', 'ciao', 'grazie', 'questo', 'questa', 'italiano'])
+    is_dutch = any(k in normalized_q.split() for k in ['hoe', 'waar', 'waarom', 'als', 'hallo', 'bedankt', 'nederlands'])
+
+    if is_german:
+        language_directive = (
+            "### LANGUAGE & STYLE DIRECTIVE (GERMAN / DEUTSCH - DACH MARKET)\n"
+            "• The user asked in German. Respond in natural, professional, clear, and warm German (Sie/Ihnen).\n"
+            "• Use standard German engineering terminology while remaining conversational and direct."
+        )
+    elif is_french:
+        language_directive = (
+            "### LANGUAGE & STYLE DIRECTIVE (FRENCH / FRANÇAIS)\n"
+            "• The user asked in French. Respond in natural, professional, and clear French (Vous).\n"
+            "• Maintain high technical precision for European standards."
+        )
+    elif is_spanish:
+        language_directive = (
+            "### LANGUAGE & STYLE DIRECTIVE (SPANISH / ESPAÑOL)\n"
+            "• The user asked in Spanish. Respond in natural, warm, and professional Spanish (Usted).\n"
+            "• Keep it direct and factual."
+        )
+    elif is_italian:
+        language_directive = (
+            "### LANGUAGE & STYLE DIRECTIVE (ITALIAN / ITALIANO)\n"
+            "• The user asked in Italian. Respond in natural, professional, and clear Italian."
+        )
+    elif is_dutch:
+        language_directive = (
+            "### LANGUAGE & STYLE DIRECTIVE (DUTCH / NEDERLANDS)\n"
+            "• The user asked in Dutch. Respond in natural, professional, and clear Dutch."
+        )
+    elif is_user_hindi:
         language_directive = (
             "### LANGUAGE & STYLE DIRECTIVE (HINDI / HINGLISH)\n"
             "• The user asked in Hindi or Hinglish.\n"
@@ -1504,12 +1802,146 @@ async def stream_rag_pipeline(
             "• Avoid dry corporate jargon or robotic phrasing."
         )
 
+    # EU AI Act Article 50 Transparency & Watermarking Directive
+    eu_ai_directive = (
+        "\n### EU AI ACT ARTICLE 50 COMPLIANCE & TRANSPARENCY\n"
+        "• Under EU AI Act Article 50, user transparency is mandatory. Provide clear, direct, grounded facts.\n"
+        "• If relying on documents tagged as '[AI-Translated / Pending Formal Review]', clearly disclose that the technical reference is a draft machine-translation awaiting final corporate compliance sign-off."
+    )
+    language_directive += eu_ai_directive
+
+    # SKU Catalog Intelligence: Retrieve matching physical SKUs for hardware/medical/aerospace grounding
+    sku_matches = []
+    is_product_hardware_query = any(k in normalized_q for k in [
+        'sku', 'part', 'model', 'hardware', 'lock', 'mortise', 'catheter', 'fastener',
+        'torque', 'brake', 'caliper', 'actuator', 'titanium', 'specification', 'order code'
+    ])
+    if bot_org_id and (is_product_hardware_query or matched_industry in ['healthcare', 'aerospace', 'automotive']):
+        term_filters = []
+        sku_query_terms = [w for w in normalized_q.split() if len(w) >= 3 and w not in stopwords]
+        for term in sku_query_terms[:4]:
+            term_filters.append(models.Product.name.ilike(f"%{term}%"))
+            term_filters.append(models.Product.sku.ilike(f"%{term}%"))
+            term_filters.append(models.Product.description.ilike(f"%{term}%"))
+        if matched_industry == 'healthcare':
+            term_filters.append(models.Product.category.ilike("%Healthcare%"))
+        elif matched_industry == 'aerospace':
+            term_filters.append(models.Product.category.ilike("%Aerospace%"))
+        elif matched_industry == 'automotive':
+            term_filters.append(models.Product.category.ilike("%Automotive%"))
+        
+        if term_filters:
+            from sqlalchemy import or_, and_
+            db_skus = db.query(models.Product).filter(and_(models.Product.orgId == bot_org_id, or_(*term_filters))).limit(4).all()
+            for p in db_skus:
+                attr_dict = {}
+                try:
+                    attr_dict = json.loads(p.attributesJson) if p.attributesJson else {}
+                except Exception:
+                    pass
+                attr_summary = ", ".join([f"{k}: {v}" for k, v in list(attr_dict.items())[:5]])
+                certs = ""
+                try:
+                    certs = ", ".join(json.loads(p.certificationsJson)) if p.certificationsJson else ""
+                except Exception:
+                    pass
+                sku_matches.append(
+                    f"• SKU: {p.sku} | Name: {p.name} | Category: {p.category}\n"
+                    f"  Parameters: {attr_summary}\n"
+                    f"  Certifications: {certs}"
+                    + (f" | UDI-DI: {p.udiDi}" if p.udiDi else "")
+                    + (f" | IMDS: {p.imdsId}" if p.imdsId else "")
+                )
+
+    if sku_matches:
+        sku_header = (
+            "=== APPROVED PHYSICAL HARDWARE & PRODUCT SKUS (OFFICIAL CATALOG) ===\n"
+            "When answering questions about procedures, equipment, or components, recommend the matching physical SKU(s) below with part number, parameters, and European certifications:\n"
+            + "\n".join(sku_matches)
+        )
+        knowledge_ctx = f"{sku_header}\n\n---\n\n{knowledge_ctx}"
+
     system_prompt = (
         get_chat_system_prompt()
         .replace("{user_personalization_directive}", user_personalization_directive)
         .replace("{language_directive}", language_directive)
         .replace("{knowledge}", knowledge_ctx)
     )
+
+    is_diagram_requested = any(kw in normalized_q for kw in [
+        'diagram', 'flowchart', 'flow chart', 'decision tree', 'schematic',
+        'process map', 'workflow', 'sequence', 'architecture', 'banao diagram', 'flowchart banao'
+    ])
+    if is_diagram_requested:
+        diagram_directive = (
+            "\n\n### MANDATORY INTERACTIVE DIAGRAM DIRECTIVE (MERMAID.JS)\n"
+            "The user explicitly requested an interactive diagram, flowchart, or technical workflow.\n"
+            "Structure your response in this complete, professional sequence:\n"
+            "1. EXECUTIVE TECHNICAL SPECIFICATIONS (First 2-3 sentences): Directly state the verified European regulatory parameters, standard numbers (e.g. EN 285, EU MDR, EASA Part 145, EN 1125), temperatures, pressures, and engineering tolerances.\n"
+            "2. INTERACTIVE MERMAID DIAGRAM: Provide a valid Mermaid.js flowchart using ```mermaid code block.\n"
+            "   - Put `graph TD` on the first line.\n"
+            "   - Put each node connection on its own line.\n"
+            "   - Enclose ALL node labels in double quotes inside brackets: `NodeId[\"Stage Name (Exact Parameter)\"]`.\n"
+            "   - Never use unquoted parentheses or special characters inside node labels.\n"
+            "3. STEP-BY-STEP STAGE SPECIFICATIONS: Detail each stage in numbered bullet points explaining operational limits, holding times, and pass/fail criteria.\n"
+            "4. GROUNDED EUROPEAN SKU RECOMMENDATION: Explicitly name the matching approved physical European SKU(s) from the catalog (e.g. `MD-CATH-200-EUMDR`, `MD-STER-TRAY-90`, `DL-908-FIRE-EN1125`), including material grade and CE/UDI-DI/IMDS compliance.\n"
+            "5. OFFICIAL ACTION CARDS: Include the verified PDF and DOCX download cards at the end.\n"
+            "Example Diagram Syntax:\n"
+            "```mermaid\n"
+            "graph TD\n"
+            "    A[\"Stage 1: Pre-Vacuum (3 Pulses @ -0.85 bar)\"] --> B[\"Stage 2: Steam Ramp (Saturated Steam)\"]\n"
+            "    B --> C[\"Stage 3: Sterilization Hold (134°C @ 3.1 bar, 18 min)\"]\n"
+            "    C --> D[\"Stage 4: Vacuum Drying (15 min @ -0.90 bar)\"]\n"
+            "    D --> E[\"Stage 5: EUDAMED UDI-DI Scan & Audit Log\"]\n"
+            "```\n"
+        )
+        system_prompt += diagram_directive
+
+    is_chart_requested = any(kw in normalized_q for kw in [
+        'chart', 'graph', 'bar chart', 'line chart', 'line graph', 'comparison chart', 'parametric chart', 'chart banao'
+    ])
+    if is_chart_requested:
+        is_line_chart = any(k in normalized_q for k in ['line', 'trend', 'drop', 'over time', 'pressure drop', 'temperature drop', 'history', 'curve'])
+        default_type = "line" if is_line_chart else "bar"
+        chart_directive = (
+            f"\n\n### MANDATORY INTERACTIVE CHART DIRECTIVE (CHART.JS)\n"
+            f"The user explicitly requested an interactive chart or graph.\n"
+            f"Structure your response in this complete, professional sequence:\n"
+            f"1. EXECUTIVE PARAMETRIC SUMMARY: State the operational metrics, European standard requirements, and values in 2-3 clear sentences.\n"
+            f"2. INTERACTIVE CHART: Provide a valid Chart.js specification inside a ```chart ... ``` fenced code block with valid JSON containing:\n"
+            f"   - \"type\": \"{default_type}\"\n"
+            f"   - \"labels\": [list of strings, e.g. [\"0m\", \"3m\", \"6m\", \"9m\", \"12m\", \"15m\"] or SKU codes]\n"
+            f"   - \"datasets\": [{{ \"label\": \"Metric Name\", \"data\": [numerical data values] }}]\n"
+            f"   Format Example for line chart:\n"
+            f"   ```chart\n"
+            f"   {{\n"
+            f"     \"type\": \"line\",\n"
+            f"     \"labels\": [\"0m\", \"3m\", \"6m\", \"9m\", \"12m\", \"15m\"],\n"
+            f"     \"datasets\": [\n"
+            f"       {{\n"
+            f"         \"label\": \"Chamber Pressure (bar)\",\n"
+            f"         \"data\": [3.1, 2.8, 1.9, 0.8, -0.2, -0.85]\n"
+            f"       }}\n"
+            f"     ]\n"
+            f"   }}\n"
+            f"   ```\n"
+            f"   Format Example for bar chart:\n"
+            f"   ```chart\n"
+            f"   {{\n"
+            f"     \"type\": \"bar\",\n"
+            f"     \"labels\": [\"DL-908-FIRE\", \"DL-902-STD\"],\n"
+            f"     \"datasets\": [\n"
+            f"       {{\n"
+            f"         \"label\": \"Fire Integrity (Minutes)\",\n"
+            f"         \"data\": [180, 60]\n"
+            f"       }}\n"
+            f"     ]\n"
+            f"   }}\n"
+            f"   ```\n"
+            f"3. TECHNICAL ANALYSIS: Explain the data curve, pressure drop rate, vacuum levels, or SKU comparison under European standards.\n"
+            f"4. GROUNDED SKU RECOMMENDATION & ACTION CARDS: Recommend matching European approved SKU(s) and include [PDF_CARD:...] and [DOCX_CARD:...].\n"
+        )
+        system_prompt += chart_directive
 
     messages = [
         {"role": "system", "content": system_prompt}
@@ -1547,7 +1979,7 @@ async def stream_rag_pipeline(
         if is_first_turn and user_first_name:
             first_line = raw_text.splitlines()[0] if raw_text else ""
             if user_first_name.lower() not in first_line.lower():
-                raw_text = f"Hi {user_first_name}! " + raw_text
+                raw_text = f"Hi {user_first_name}. " + raw_text
 
     if not raw_text:
         yield f"data: {json.dumps({'type': 'token', 'content': 'I am unable to process your request at the moment. '})}\n\n"
@@ -1595,8 +2027,58 @@ async def stream_rag_pipeline(
     # Strip any LLM-emitted PDF cards and banners so backend injects the authoritative, query-specific card
     clean_text = re.sub(r'---\s*📑[^\n]*\n\*[^\n]*\*', '', clean_text).strip()
     clean_text = re.sub(r'---\s*📑.*?(?=\n\n|$)', '', clean_text, flags=re.DOTALL).strip()
-    clean_text = re.sub(r'\[(?:PDF_CARD|VIEW_PDF|CSV_CARD):[^\]]*\]', '', clean_text).strip()
+    clean_text = re.sub(r'\[(?:PDF_CARD|VIEW_PDF|CSV_CARD|DOCX_CARD):[^\]]*\]', '', clean_text).strip()
     clean_text = re.sub(r'---\s*$', '', clean_text).strip()
+
+    # Strict Humanizer Sanitization (Enforces the 25 Conversational Principles in Post-Processing):
+    # 1. Straight quotes only (Rule 20)
+    clean_text = clean_text.replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
+
+    # 2. Remove all decorative emojis and signs (Rule 19)
+    clean_text = re.sub(r'[\U00010000-\U0010ffff]', '', clean_text)
+    clean_text = re.sub(r'[🚀✨💡🔥🎉🌐👋📑📊📁😊🤖]', '', clean_text)
+
+    # 3. Eliminate bold list headers (Rule 18: No bold labels as decoration on lists)
+    clean_text = re.sub(r'(?m)^(\s*[-*•]\s*)\*\*([^*:\n]+):\*\*\s*', r'\1\2: ', clean_text)
+
+    # 4. Eliminate em dashes and en dashes (Rule 8: No em dashes or en dashes)
+    clean_text = clean_text.replace('—', ', ').replace('–', ', ')
+
+    # 5. Strip AI cliché openers and staged run-ups (Rule 4, Rule 24, Rule 25)
+    staged_runups = [
+        r'^(?:great to connect with you[!,.]*\s*)',
+        r'^(?:let\'s dive in[!,.]*\s*)',
+        r'^(?:let\'s explore[!,.]*\s*)',
+        r'^(?:let\'s break this down[!,.]*\s*)',
+        r'^(?:here is what you need to know[!,.]*\s*)',
+        r'^(?:here\'s what you need to know[!,.]*\s*)',
+        r'^(?:i\'m happy to help with that[!,.]*\s*)',
+        r'^(?:in today\'s fast[- ]paced world[!,.]*\s*)',
+        r'^(?:in (?:the|today\'s) rapidly evolving (?:digital )?landscape[!,.]*\s*)',
+        r'^(?:when it comes to [^,.\n]+,\s*)',
+        r'^(?:based on the provided (?:documents|information|data|sources)[!,.]*\s*)',
+        r'^(?:according to the provided (?:documents|information|data|sources)[!,.]*\s*)',
+        r'^(?:certainly[!,.]*\s*)',
+        r'^(?:of course[!,.]*\s*)',
+        r'^(?:great question[!,.]*\s*)',
+        r'^(?:sure thing[!,.]*\s*)',
+        r'^(?:as an ai(?: language model)?[!,.]*\s*)'
+    ]
+    for sr in staged_runups:
+        clean_text = re.sub(sr, '', clean_text, flags=re.IGNORECASE).strip()
+
+    # 6. Strip trailing chatbot residue and dramatic closers (Rule 2, Rule 21)
+    chatbot_closers = [
+        r'(?:\s*I hope this helps[!,.]*)$',
+        r'(?:\s*Hope (?:that|this) helps[!,.]*)$',
+        r'(?:\s*Let me know if you (?:have any|need) (?:other |further )?questions[!,.]*)$',
+        r'(?:\s*Feel free to ask[!,.]*)$',
+        r'(?:\s*Let that sink in[!,.]*)$',
+        r'(?:\s*Read that again[!,.]*)$',
+        r'(?:\s*That is the real win[!,.]*)$'
+    ]
+    for cc in chatbot_closers:
+        clean_text = re.sub(cc, '', clean_text, flags=re.IGNORECASE).strip()
 
     # Ironclad Fallback: If clean_text was empty or completely stripped, synthesize a grounded answer directly from passed chunks
     if not clean_text or len(clean_text.strip()) < 15:
@@ -1609,15 +2091,15 @@ async def stream_rag_pipeline(
                         extracted_lines.append(line_s)
             if extracted_lines:
                 sum_line = extracted_lines[0]
-                bullets = [f"• **{l[:25]}:** {l}" for l in extracted_lines[1:4]]
-                hook = "Chaliye iski poori detail dekhte hain:\n\n" if is_user_hindi else "Here is the complete breakdown for you:\n\n"
-                closing = "Inme se aap kis option ke baare mein aur detail chahte hain? Niche diye gaye options par tap karein ya poochiye!" if is_user_hindi else "Which of these options would you like to explore further? Just tap an option below or ask me directly!"
-                clean_text = f"{hook}**{sum_line}**\n\n" + "\n".join(bullets) + f"\n\n{closing}"
+                bullets = [f"• {l}" for l in extracted_lines[1:4]]
+                hook = "Ye rahi iski poori jaankari:\n\n" if is_user_hindi else "Here are the details from the documentation:\n\n"
+                closing = "Inme se aap kis option ke baare mein aur jaanna chahte hain?" if is_user_hindi else "Which of these areas would you like to explore further?"
+                clean_text = f"{hook}{sum_line}\n\n" + "\n".join(bullets) + f"\n\n{closing}"
         if not clean_text or len(clean_text.strip()) < 15:
             if is_user_hindi:
-                clean_text = "Chaliye hamare verified documentation ki details dekhte hain:\n\n• **Certified Grounding:** Hamare saare technical parameters official records se verified hain.\n• **Full Catalogue:** Complete specifications aur commercial pricing request par available hain.\n\nAap kis specific topic ke baare mein jaanna chahenge?"
+                clean_text = "Verified documentation details:\n\n• Certified Grounding: Sabhi parameters official records se verified hain.\n• Full Catalogue: Complete specifications available hain.\n\nAap kis specific topic ke baare mein jaanna chahenge?"
             else:
-                clean_text = "Here are the verified details from our official records:\n\n• **Certified Grounding:** All parameters and specifications are verified directly against official documentation.\n• **Full Documentation:** Detailed catalogues and technical data sheets are available on request.\n\nWhich specific area would you like to explore further?"
+                clean_text = "Here are the verified details from our official records:\n\n• All parameters and specifications are verified directly against official documentation.\n• Detailed catalogues and technical data sheets are available on request.\n\nWhich specific area would you like to explore further?"
 
     # Dynamic Multi-Topic Follow-Up Generator (Fallback when LLM omitted structured tags)
     if not followup_data and not nothing_retrieved and not lead_form_required:
@@ -1629,7 +2111,7 @@ async def stream_rag_pipeline(
                 "options": cleaned_bullets
             }
 
-    if matched_industry and not nothing_retrieved and not lead_form_required:
+    if matched_industry and matched_industry in valid_industries and not nothing_retrieved and not lead_form_required:
         b_name = (bot.name if bot else "Our Company").strip()
         cat_options = []
         if matched_industry == 'software':
@@ -1670,7 +2152,7 @@ async def stream_rag_pipeline(
         elif matched_industry == 'vsix':
             cat_options = ["Manage Extensions in IDE", "Extension Manifest Specs", "Marketplace Deployment", "Debugging & Productivity Tools"]
         else:
-            cat_options = [f"{b_name} AI Solutions", "Pricing & Specifications", "Official Contact & Support", "Explore Other Catalogues"]
+            cat_options = [f"{b_name} Solutions", "Pricing & Specifications", "Official Contact & Support"]
 
         # Append other available database sources so the user can freely expand and explore
         extra_db_opts = []
@@ -1696,7 +2178,8 @@ async def stream_rag_pipeline(
         candidate_options = []
         seen_pills = set()
         b_name = (bot.name if bot else "Our Company").strip()
-        # Derive directly from all available database sources (offering other real departments/topics)
+
+        # 1. Derive directly from all available database sources for this bot
         if available_sources:
             for s in available_sources:
                 _, p_pill = get_source_bullet_and_pill(s, b_name)
@@ -1707,18 +2190,35 @@ async def stream_rag_pipeline(
                     seen_pills.add(p_lower)
                     candidate_options.append(p_pill)
 
-        if not any(k in question.lower() for k in ['catalogue', 'catalog']):
-            candidate_options.append("Explore Product Catalogue 📁")
-        if not any(k in question.lower() for k in ['price', 'pricing', 'cost']):
-            candidate_options.append("Pricing & Specifications")
-        if not any(k in question.lower() for k in ['contact', 'address', 'office', 'phone', 'reach']):
-            candidate_options.append("Official Contact & Support")
+        # 2. Extract grounded bullet sub-topics from LLM verified answer prose
+        extracted_topics = re.findall(r'(?:^|\n)\s*[-*•]\s*(?:\*\*)?([A-Z][A-Za-z0-9\s&/-]{3,30})(?:\*\*)?[:\n]', clean_text)
+        for top in extracted_topics:
+            top_clean = top.strip()
+            if top_clean and top_clean.lower() not in seen_pills and len(top_clean) < 32:
+                pill = f"Explore {top_clean}" if not top_clean.lower().startswith("explore ") else top_clean
+                if pill.lower() not in seen_pills:
+                    seen_pills.add(pill.lower())
+                    candidate_options.append(pill)
+
+        # 3. Grounded general actions strictly branded for this bot if products or pricing actually exist
+        has_pricing = any(k in (valid_industries or []) for k in ['steel', 'sports', 'cosmetics']) or any(
+            any(kw in (s.title or '').lower() for kw in ['price', 'pricing', 'rate', 'cost', 'store', 'product'])
+            for s in (available_sources or [])
+        )
+        if has_pricing:
+            if not any(k in question.lower() for k in ['catalogue', 'catalog']):
+                candidate_options.append(f"Explore {b_name} Catalogue")
+            if not any(k in question.lower() for k in ['price', 'pricing', 'cost', 'plan']):
+                candidate_options.append("Pricing & Specifications")
+        if any(any(kw in (s.title or '').lower() for kw in ['contact', 'support', 'office']) for s in (available_sources or [])):
+            if not any(k in question.lower() for k in ['contact', 'address', 'office', 'phone', 'reach']):
+                candidate_options.append("Official Contact & Support")
 
         filtered_options = [opt for opt in candidate_options if opt.lower() not in question.lower()]
         if filtered_options:
-            selected = list(dict.fromkeys(filtered_options))
+            selected = list(dict.fromkeys(filtered_options))[:6]
             followup_data = {
-                "prompt": "What would you like to explore next?",
+                "prompt": f"What would you like to explore next regarding {b_name}?",
                 "options": selected
             }
 
@@ -1760,13 +2260,13 @@ async def stream_rag_pipeline(
                 is_general_catalogue_query or
                 is_catalogue_mention or
                 any(normalized_q.startswith(prefix) for prefix in [
-                    'explore', 'tell me about', 'what is', 'what are', 'who is',
-                    'overview of', 'details of', 'poori detail', 'jaankari', 'information about'
+                    'explore', 'overview of', 'details of', 'poori detail', 'jaankari about', 'information about'
                 ]) or
                 any(k in normalized_q for k in [
                     'all services', 'all products', 'complete catalogue', 'full specifications',
                     'solutions overview', 'company overview', 'technical specifications'
-                ])
+                ]) or
+                (any(normalized_q.startswith(p) for p in ['tell me about', 'what is', 'what are', 'who is']) and any(w in normalized_q for w in [b_name.lower(), 'company', 'organization', 'platform', 'catalogue', 'all documents']))
             )
 
             is_narrow_specific_subquery = any(k in normalized_q for k in [
@@ -1848,6 +2348,15 @@ async def stream_rag_pipeline(
                     elif matched_industry == 'vsix':
                         topic_clean = "Visual Studio Extensions & Development Reference"
                         topic_slug = "visual-studio-extension"
+                    elif matched_industry == 'healthcare':
+                        topic_clean = "EU MDR Medical Devices & Autoclave Sterilization Protocol"
+                        topic_slug = "eu-mdr-medical-devices"
+                    elif matched_industry == 'aerospace':
+                        topic_clean = "EASA Turbofan Pylon Fasteners & Actuator Maintenance Manual"
+                        topic_slug = "easa-aerospace-maintenance"
+                    elif matched_industry == 'automotive':
+                        topic_clean = "IATF 16949 High-Performance Braking & EN 1125 Fire Hardware"
+                        topic_slug = "iatf-braking-fire-hardware"
                     elif matched_industry == 'software':
                         topic_clean = f"{b_name} AI Software & Solutions Catalogue"
                         topic_slug = "ai-software-development"
@@ -1859,27 +2368,35 @@ async def stream_rag_pipeline(
                         topic_slug = "product-catalogue"
 
                 if topic_clean and topic_slug:
-                    if is_both_requested:
+                    is_industrial = matched_industry in ['healthcare', 'aerospace', 'automotive']
+                    is_docx_requested = any(k in normalized_q for k in ['docx', 'word', 'doc', 'word file', 'audit brief', 'dossier'])
+                    if is_both_requested or (is_docx_requested and is_pdf_explicitly_requested):
+                        exp_title = "Official European Compliance & Technical Exports (PDF & DOCX)" if is_industrial else "Official Verified Knowledge & Technical Exports (PDF & DOCX)"
+                        exp_desc = "Certified documentation and audit briefs grounded directly from verified records:"
                         clean_text += (
-                            f"\n\n---\n📑 **Official Document & Data Exports (PDF & CSV)**\n"
-                            f"*Certified documentation and structured spreadsheet data grounded from verified records:*\n\n"
+                            f"\n\n---\n{exp_title}\n"
+                            f"{exp_desc}\n\n"
                             f"[PDF_CARD:{topic_slug}|{topic_clean}]\n"
+                            f"[DOCX_CARD:{topic_slug}|{topic_clean}]\n"
                             f"[CSV_CARD:{topic_slug}|{topic_clean}]"
                         )
+                    elif is_docx_requested:
+                        docx_banner = "Official European Compliance Audit Dossier (DOCX)\nDownload the verified audit-ready specification briefing:" if is_industrial else "Official Verified Knowledge Dossier (DOCX)\nDownload the verified summary briefing:"
+                        clean_text += f"\n\n---\n{docx_banner}\n\n[DOCX_CARD:{topic_slug}|{topic_clean}]"
                     elif is_csv_explicitly_requested:
                         csv_banner = (
-                            "📊 **Official Commercial Rate Matrix & Data Sheet (CSV)**\n*Would you like to download the certified spreadsheet data for this?*"
+                            "Official Commercial Rate Matrix and Data Sheet (CSV)\nWould you like to download the certified spreadsheet data for this?"
                             if is_pricing_query else
-                            "📊 **Official Specifications & Data Sheet (CSV)**\n*Would you like to download the certified spreadsheet data for this?*"
+                            "Official Specifications and Data Sheet (CSV)\nWould you like to download the certified spreadsheet data for this?"
                         )
                         clean_text += f"\n\n---\n{csv_banner}\n\n[CSV_CARD:{topic_slug}|{topic_clean}]"
                     else:
                         pdf_banner = (
-                            "📑 **Official Commercial Pricing & Rate Schedule (PDF)**\n*Would you like to review or download the complete certified rate schedule for this?*"
-                            if is_pricing_query else
-                            "📑 **Official Specifications & Product Catalogue (PDF)**\n*Would you like to review or download the complete certified documentation for this?*"
+                            "Official European Specifications and Technical Dossier (PDF & DOCX)\nReview or download the verified technical documentation and compliance briefing:"
+                            if is_industrial else
+                            "Official Verified Technical Dossier & Summary Document (PDF & DOCX)\nReview or download the verified documentation:"
                         )
-                        clean_text += f"\n\n---\n{pdf_banner}\n\n[PDF_CARD:{topic_slug}|{topic_clean}]"
+                        clean_text += f"\n\n---\n{pdf_banner}\n\n[PDF_CARD:{topic_slug}|{topic_clean}]\n[DOCX_CARD:{topic_slug}|{topic_clean}]"
 
     words = clean_text.split(" ")
     for word in words:

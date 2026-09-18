@@ -148,3 +148,65 @@ def resolve_gap(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/{bot_id}/traces")
+def get_bot_traces(
+    bot_id: str,
+    limit: int = 20,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    RAG Observability & Tracing Endpoint:
+    Returns query vector scores, FlashRank rerank scores, token counts, and guardrail verdicts.
+    """
+    try:
+        import json
+        from app.services.tracer import get_recent_traces
+        # 1. Fetch from fast in-memory ring buffer
+        mem_traces = get_recent_traces(bot_id=bot_id, limit=limit)
+        if mem_traces:
+            return {"status": "success", "traces": mem_traces}
+
+        # 2. Database fallback
+        traces_db = db.query(models.RAGTrace).filter(models.RAGTrace.botId == bot_id).order_by(models.RAGTrace.createdAt.desc()).limit(limit).all()
+        results = []
+        for t in traces_db:
+            c_json = {}
+            if t.candidatesJson:
+                try:
+                    c_json = json.loads(t.candidatesJson)
+                except Exception:
+                    pass
+            results.append({
+                "trace_id": str(t.id),
+                "bot_id": str(t.botId),
+                "conversation_id": str(t.conversationId),
+                "query": t.query,
+                "timestamp": t.createdAt.isoformat() if t.createdAt else "",
+                "timings_ms": {
+                    "rerank_ms": t.rerankLatencyMs,
+                    "total_ms": t.totalLatencyMs
+                },
+                "retrieval": {
+                    "total_candidates": t.retrievedCandidatesCount,
+                    "top_vector_score": t.topVectorScore,
+                    "candidates": c_json.get("retrieval", [])
+                },
+                "rerank": {
+                    "top_rerank_score": t.topRerankScore,
+                    "candidates": c_json.get("rerank", [])
+                },
+                "tokens": {
+                    "total_prompt_tokens": t.promptTokens,
+                    "context_tokens": t.contextTokens
+                },
+                "guardrail": {
+                    "status": t.guardrailStatus
+                }
+            })
+        return {"status": "success", "traces": results}
+    except Exception as e:
+        print(f"Error loading traces: {e}")
+        return {"status": "success", "traces": []}
+
+

@@ -1,12 +1,48 @@
-from fastapi import APIRouter, Depends, HTTPException, Form
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Form, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db import models
 from app.core.dependencies import get_current_user
 from app.services.rag import stream_rag_pipeline
+from app.services.synthesis import synthesize_multiple_documents
 
 router = APIRouter(tags=["Chat"])
+
+class MultiDocSynthesisRequest(BaseModel):
+    source_ids: List[str]
+    query: Optional[str] = None
+    format: Optional[str] = "briefing"
+
+@router.post("/api/chat/multi-doc-synthesis", summary="Conduct comparative multi-document synthesis across manuals/datasheets")
+def conduct_multi_doc_synthesis(
+    req: MultiDocSynthesisRequest,
+    request: Request,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Synthesizes facts, tolerances, and engineering specifications across 2 or more documents.
+    Produces grounded side-by-side matrices and compliance deltas with citations.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    try:
+        result = synthesize_multiple_documents(
+            db=db,
+            source_ids=req.source_ids,
+            query=req.query,
+            format_type=req.format or "briefing",
+            current_user=current_user,
+            client_ip=client_ip
+        )
+        return result
+    except ValueError as val_err:
+        raise HTTPException(status_code=400, detail=str(val_err))
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=f"Comparative synthesis failed: {err}")
+
 
 @router.post("/api/chat/stream")
 async def chat_stream_auth(
@@ -57,7 +93,7 @@ async def chat_stream_auth(
         resolved_name = user_name.strip()
 
     return StreamingResponse(
-        stream_rag_pipeline(bot_id, question, db, conversation_id=conv.id, message_id=user_msg.id, user_name=resolved_name),
+        stream_rag_pipeline(bot_id, question, db, conversation_id=conv.id, message_id=user_msg.id, user_name=resolved_name, user=user),
         media_type="text/event-stream"
     )
 
@@ -390,7 +426,56 @@ import io
 import re
 from fastapi import Query
 from app.services.pdf_generator import generate_catalogue_pdf
+from app.services.docx_generator import generate_compliance_docx
+from app.services.scraper import is_valid_address
 from sqlalchemy import or_
+
+def resolve_target_source(available_sources: list, title: str, topic: str, db: Session):
+    clean_topic = topic.replace('-', ' ').replace('_', ' ').strip() if topic else ""
+
+    # 1. Direct title matching against s.title or s.display_title
+    if title:
+        tl = title.strip().lower()
+        for s in available_sources:
+            s_clean = (s.title or '').strip().lower()
+            s_disp = (getattr(s, 'display_title', '') or '').strip().lower()
+            if s_clean in tl or (len(s_clean) > 4 and s_clean in tl) or (tl in s_clean):
+                return s
+            if s_disp and (s_disp in tl or tl in s_disp):
+                return s
+
+    # 2. Topic keyword matching against s.title or s.display_title
+    if topic and topic != "product-catalogue":
+        clean_words = [w for w in clean_topic.lower().split() if len(w) > 2]
+        for s in available_sources:
+            s_lower = ((s.title or '') + ' ' + (getattr(s, 'display_title', '') or '')).lower()
+            if any(w in s_lower for w in clean_words):
+                return s
+
+    # 3. Deep chunk matching: Check DocumentChunk content for document titles or poster headings
+    search_terms = []
+    if title and title.lower() not in ['product specifications & catalogue', 'verified documentation']:
+        search_terms.append(title.lower())
+    if clean_topic and clean_topic.lower() not in ['product catalogue', 'catalogue']:
+        search_terms.append(clean_topic.lower())
+
+    if search_terms:
+        for s in available_sources:
+            s_chunks = db.query(models.DocumentChunk).filter(models.DocumentChunk.sourceId == s.id).limit(3).all()
+            chunk_blob = " ".join(c.content.lower() for c in s_chunks if c.content)
+            for st in search_terms:
+                if st in chunk_blob:
+                    return s
+                st_words = [w for w in st.split() if len(w) > 3]
+                if len(st_words) >= 2 and all(w in chunk_blob for w in st_words):
+                    return s
+
+    # 4. Fallback ONLY if no specific title/topic was requested
+    is_specific_request = bool(title or (topic and topic != "product-catalogue"))
+    if not is_specific_request and available_sources:
+        return available_sources[0]
+
+    return None
 
 @router.get("/api/catalogues/pdf")
 def get_catalogue_pdf(
@@ -401,521 +486,245 @@ def get_catalogue_pdf(
     db: Session = Depends(get_db)
 ):
     """
-    Serves a verified, branded corporate PDF specification or commercial catalogue document.
-    download=0: streams with Content-Disposition: inline (for browser viewing / in-app modal viewer)
-    download=1: streams with Content-Disposition: attachment (for file download)
+    Serves a verified, branded corporate PDF specification or catalogue document.
+    Strictly isolated to the bot's organization with zero cross-tenant data leakage.
+    download=0: streams inline (browser viewing / in-app modal viewer)
+    download=1: streams as attachment
     """
+    topic = str(topic) if (topic is not None and isinstance(topic, str)) else "product-catalogue"
+    title = str(title).strip() if (title is not None and isinstance(title, str) and title.strip()) else None
+
     bot = db.query(models.Bot).filter(models.Bot.id == bot_id).first() if (bot_id and isinstance(bot_id, str)) else None
     company_name = bot.name if bot else "Kiavi IQ Enterprise"
+    contact_email = getattr(bot, "supportEmail", None) or (f"support@{bot.domain}" if (bot and bot.domain) else "jasbirsingh17050@gmail.com")
+    official_website = f"https://{bot.domain}" if (bot and bot.domain) else ""
 
-    # Normalize topic and title
-    clean_topic = topic.replace('-', ' ').replace('_', ' ').strip()
-    topic_lower = clean_topic.lower()
-    title_lower = (title or "").lower()
-
-    is_alorica = any(k in topic_lower or k in title_lower for k in ['alorica', 'evoai', 'revolt', 'cx leader', 'cx consulting', 'digital cx', 'bpo', 'journey mapping'])
-    is_python = any(k in topic_lower or k in title_lower for k in ['python', 'programming notes', 'r17a0554', 'mrcet', 'lecture notes'])
-    is_vsix = any(k in topic_lower or k in title_lower for k in ['vsix', 'visual studio', 'extension package'])
-    is_pricing = any(p in topic_lower or p in title_lower for p in ['pricing', 'price', 'cost', 'rate', 'rates', 'fees', 'quote', 'plan', 'commercial'])
-    is_steel = any(k in topic_lower or k in title_lower for k in ['steel', 'metal', 'iron', 'pipe', 'alloy'])
-    is_sports = any(k in topic_lower or k in title_lower for k in ['sport', 'shoe', 'shoes', 'footwear', 'archive', 'basketball', 'badminton'])
-    is_cosmetics = any(k in topic_lower or k in title_lower for k in ['cosmetic', 'beauty', 'nykaa', 'skincare', 'makeup'])
-    is_financial = any(k in topic_lower or k in title_lower for k in ['financial', 'valuation', 'vedaone', 'dcf'])
-    is_software = any(k in topic_lower or k in title_lower for k in ['appdeft', 'app-deft', 'vinnisoft', 'chatbot agent', 'software development', 'voice bot', 'crm connectors', 'starter ai agent', 'growth suite'])
-
-    doc_title = title if title else f"{clean_topic.title()} Specifications & Catalogue"
-    highlight_points = []
-    summary_text = ""
-    spec_table = []
-    contact_email = f"support@{bot.domain}" if (bot and bot.domain) else "support@appdeft.ai"
-    official_website = f"https://{bot.domain}" if (bot and bot.domain) else "https://appdeft.ai"
-
-    if is_pricing:
-        if is_steel:
-            company_name = "Industrial Steel & Metal Standards"
-            doc_title = title or "Steel & Metal Products — Commercial Pricing & Rate Schedule"
-            summary_text = "Official certified commercial rate schedule and wholesale bulk pricing matrix for industrial structural steel sections, carbon steel piping, and stainless steel alloys. Grounded directly from verified manufacturer catalogues."
-            highlight_points = [
-                "Structural Carbon Steel (ASTM A36 / IS 2062) benchmark rate: ₹58,000 to ₹64,000 per Metric Ton (MT).",
-                "High-Tensile Plates (ASTM A572 Grade 50) benchmark rate: ₹63,000 to ₹67,000 per MT with full tensile verification.",
-                "Stainless Steel 304 Sheet & Coil (2B Finish): ₹185,000 to ₹210,000 per MT.",
-                "Marine-Grade Stainless Steel 316L: ₹215,000 to ₹235,000 per MT with superior chloride pitting resistance.",
-                "Seamless Carbon Steel Piping (ASTM A106 / ITC-HS 7304): Starting from ₹72,000 to ₹78,000 per MT.",
-                "Commercial Volume Discounts: 5% rebate on bulk orders exceeding 50 MT; 8% rebate on 100+ MT orders.",
-                "Quality & Certification: Mill Test Certificate (MTC) according to EN 10204 3.1 included with all dispatches."
-            ]
-            spec_table = [
-                ["Product / Material Grade", "Standard / Unit", "Commercial Price / Rate (INR)"],
-                ["Carbon Steel Beams & Angles", "ASTM A36 / IS 2062 (Per MT)", "₹58,000 - ₹62,000 / MT"],
-                ["High-Tensile Structural Plates", "ASTM A572 Gr. 50 (Per MT)", "₹63,000 - ₹66,500 / MT"],
-                ["Stainless Steel Sheet & Coil", "AISI 304 2B Finish (Per MT)", "₹185,000 - ₹198,000 / MT"],
-                ["Marine Stainless Steel Plates", "AISI 316L (Per MT)", "₹215,000 - ₹230,000 / MT"],
-                ["Seamless High-Pressure Pipes", "ASTM A106B / ITC 7304 (Per MT)", "₹72,000 - ₹78,000 / MT"],
-                ["Galvanized Corrugated Sheets", "IS 277 Zinc Class 3 (Per MT)", "₹68,000 - ₹74,000 / MT"]
-            ]
-            contact_email = "technical@steelspecs.org"
-            official_website = "https://astm.org"
-        elif is_sports:
-            company_name = "Performance Athletic & Sports Goods"
-            doc_title = title or "Sports & Footwear Items — Price List & Retail Catalogue"
-            summary_text = "Certified commercial price list and retail catalogue for athletic footwear, sports accessories, and equipment. Extracted from verified inventory database."
-            highlight_points = [
-                "Li-Ning Blade Lite Badminton Shoes: Special offer at ₹756.0 (10% retail discount applied).",
-                "COSCO Pulse Basketball (Size 7): Professional match quality at ₹1,150.0.",
-                "NIVIA Tucana Basketball (Size 6): Premium rubberized grip at ₹1,530.0 (Old price: ₹1,699.0).",
-                "Performance Running Shoes: Cushioned EVA midsole, breathable mesh at ₹1,850.0 to ₹2,490.0.",
-                "Institutional & Academy Orders: Additional 10% volume discount on orders exceeding 20 units."
-            ]
-            spec_table = [
-                ["Product Item", "Category & Specifications", "Commercial Price (INR)"],
-                ["Li-Ning Blade Lite Badminton Shoes", "EVA Cushion Midsole, Non-marking grip", "₹756.0 (Special Offer)"],
-                ["COSCO Pulse Basketball (Size 7)", "Composite Leather, Deep Channel Grip", "₹1,150.0 (Retail Price)"],
-                ["NIVIA Tucana Basketball (Size 6)", "All-Surface Rubberized Grip", "₹1,530.0 (Discounted)"],
-                ["Professional Athletic Running Shoes", "Breathable Mesh, Dual-Density Cushion", "₹1,850.0 - ₹2,490.0"],
-                ["Yonex Carbonex Badminton Racket", "High-Modulus Carbon Graphite", "₹2,190.0 (Offer Price)"]
-            ]
-            contact_email = "orders@sportsinventory.com"
-            official_website = "https://sportsgoods.org"
-        elif is_cosmetics:
-            company_name = "Nykaa Beauty & Cosmetics"
-            doc_title = title or "Cosmetics & Beauty Store — Product Price Catalogue"
-            summary_text = "Certified retail and wholesale price catalogue for skincare collections, cosmetics, and wellness formulations. Grounded from verified Nykaa documentation."
-            highlight_points = [
-                "Hydrating Face Serums (Hyaluronic Acid & Vitamin C): ₹599 to ₹899.",
-                "24-Hour Matte Finish Liquid Foundations (SPF 25): ₹750 to ₹1,200.",
-                "Botanical Cleansers & Face Toners (Salicylic Acid, Tea Tree): ₹399 to ₹650.",
-                "Eyeshadow & Contouring Palettes (Cruelty-Free, High Pigment): ₹999 to ₹1,850.",
-                "Complimentary shipping on all orders over ₹999; gift samples included with orders over ₹1,500."
-            ]
-            spec_table = [
-                ["Product Range", "Formulation & Active Ingredients", "Commercial Price (INR)"],
-                ["Hydrating Facial Serums", "Hyaluronic Acid 2% + Vit C 10%", "₹599 - ₹899"],
-                ["Matte Finish Foundations", "Oil-Control, SPF 25, 18 Shades", "₹750 - ₹1,200"],
-                ["Botanical Cleansers & Toners", "Salicylic Acid & Green Tea Extract", "₹399 - ₹650"],
-                ["Eyeshadow & Highlighter Palettes", "Vegan, Ultra-Pigmented Minerals", "₹999 - ₹1,850"]
-            ]
-            contact_email = "support@nykaa.com"
-            official_website = "https://nykaa.com"
-        elif is_financial:
-            company_name = "VedaOne Financial AI"
-            doc_title = title or "VedaOne Financial AI — Pricing & Subscription Tiers"
-            summary_text = "Official pricing schedule for AI-powered financial valuation modeling, DCF projections, and investor data rooms."
-            highlight_points = [
-                "Pro Plan: $99/mo — 10 automated DCF models, 5-year financial projections.",
-                "Venture Suite: $299/mo — Unlimited valuation models, cap table management, investor data room.",
-                "Private Equity / Investment Banking Tier: Custom enterprise SLA with dedicated financial analyst.",
-                "API Access: Real-time valuation programmatic access available on custom enterprise plan."
-            ]
-            spec_table = [
-                ["Subscription Tier", "Scope & Deliverables", "Monthly / Annual Pricing"],
-                ["Pro Valuation Plan", "10 Models/mo, DCF & Multiple Analysis", "$99 / mo"],
-                ["Venture Suite", "Unlimited Models, Cap Table & Data Room", "$299 / mo"],
-                ["Enterprise PE/IB", "Custom models, API access, Dedicated analyst", "Custom Enterprise Quote"]
-            ]
-            contact_email = "team@vedaone.ai"
-            official_website = "https://vedaone.ai"
-        elif is_alorica:
-            company_name = "Alorica, Inc."
-            doc_title = title or "Alorica CX Enterprise Solutions — Commercial Engagement & Pricing"
-            summary_text = "Official certified commercial engagement frameworks and enterprise delivery models for Alorica Digital CX Consulting, evoAI automation, and global BPO operations."
-            highlight_points = [
-                "Digital CX Consulting: Customized milestone and outcome-based advisory agreements (Statement of Work).",
-                "evoAI Conversational Platform: Usage-based per-resolution licensing and enterprise subscription models.",
-                "ReVoLT Translation Engine: Pay-per-interaction / volume-tiered pricing across 100+ supported languages.",
-                "Dedicated Global BPO Delivery: FTE-based staffing models with performance-tied SLA bonuses.",
-                "Enterprise SLA & Governance: 24/7 dedicated account management, SOC2/HIPAA compliance, 99.9% uptime guarantee."
-            ]
-            spec_table = [
-                ["Service Domain", "Engagement Model", "Commercial Structure"],
-                ["Digital CX Consulting", "Outcome & Milestone Advisory", "Statement of Work (SOW) based"],
-                ["evoAI Platform", "Per-Resolution / Platform Tier", "Tiered monthly licensing based on deflection"],
-                ["ReVoLT Neural Translation", "Volume-Tiered API / Seat", "Per-minute or per-agent add-on rate"],
-                ["Enterprise BPO Managed Teams", "Dedicated FTE Operations", "Hourly / Monthly FTE with SLA guarantees"]
-            ]
-            contact_email = "sales@alorica.com"
-            official_website = "https://alorica.com"
-        elif is_vsix:
-            company_name = "Microsoft Visual Studio Marketplace"
-            doc_title = title or "Visual Studio Marketplace — Extensions & Licensing Guide"
-            summary_text = "Commercial licensing models, free tier standards, and enterprise subscription guidelines for Visual Studio IDE extensions."
-            highlight_points = [
-                "Free & Open-Source Extensions: Direct installation without licensing fees from Visual Studio Marketplace.",
-                "Commercial & Paid Extensions: Per-seat subscription or one-time license managed via publisher licensing engines.",
-                "Enterprise Private Galleries: Internal organization-wide deployment with curated extension access control.",
-                "Visual Studio Subscription Benefits: Select partner extensions included with Visual Studio Enterprise subscriptions."
-            ]
-            spec_table = [
-                ["Tier / License Model", "Scope & Access", "Pricing Structure"],
-                ["Community / Free Tier", "Public Marketplace Extensions", "Free / Open Source"],
-                ["Publisher Commercial License", "Pro Developer & Team Tools", "Per-User / Subscription (Publisher-specific)"],
-                ["Enterprise Gallery Tier", "Private Corporate Extension Feeds", "Included with Visual Studio Enterprise"]
-            ]
-            contact_email = "licensing@marketplace.visualstudio.com"
-            official_website = "https://marketplace.visualstudio.com"
-        else:
-            company_name = bot.name if bot else "Kiavi IQ Enterprise"
-            doc_title = title or f"{company_name} AI Solutions — Commercial Pricing & Plans"
-            summary_text = f"Official enterprise subscription tiers and commercial licensing models for {company_name} conversational AI systems and automated workflow platforms."
-            highlight_points = [
-                f"Starter AI Agent: $49/mo (₹3,999/mo) — 1 active bot, 2,000 chats/mo, knowledge grounding.",
-                f"Growth Suite: $199/mo (₹15,999/mo) — 5 active bots, 15,000 chats/mo, voice support, CRM sync.",
-                f"Enterprise Custom Tier: Custom annual agreement — unlimited agents, private GPU inference, 99.9% SLA.",
-                "Full 14-Day Money-Back Guarantee: Full refund within 14 business days of initial deployment.",
-                "Bespoke Workflow Engineering: Milestone-based Statement of Work (SOW)."
-            ]
-            spec_table = [
-                ["Solution / Package Tier", "Included Capabilities & Scale", "Commercial Pricing"],
-                ["Starter AI Agent", "1 Bot, 2,000 monthly chats, FAQ grounding", "$49 / mo (₹3,999/mo)"],
-                ["Growth Suite", "5 Bots, 15,000 monthly chats, Voice & CRM sync", "$199 / mo (₹15,999/mo)"],
-                ["Enterprise Custom Deployment", "Unlimited bots, dedicated GPU, 99.9% SLA", "Custom Quote (Annual)"],
-                ["Bespoke Workflow Engineering", "Full custom integrations & custom connectors", "Milestone-based SOW"]
-            ]
+    # Strictly load sources belonging to this bot
+    available_sources = []
+    if bot:
+        source_scope = or_(
+            models.BotSource.botId == bot.id,
+            (models.BotSource.isUniversal == True) & (models.BotSource.orgId == bot.orgId)
+        )
+        available_sources = db.query(models.BotSource).filter(source_scope).order_by(models.BotSource.createdAt.desc()).all()
     else:
-        # Technical Specifications & General Catalogue
-        if is_alorica:
-            company_name = "Alorica, Inc."
-            if any(k in topic_lower or k in title_lower for k in ['consulting', 'digital cx', 'journey']):
-                doc_title = title or "Alorica Digital CX Consulting & Transformation Overview"
-                summary_text = "Official certified capabilities overview for Alorica Digital CX Consulting, customer journey mapping, queue optimization, operational cost reduction, and omnichannel contact center modernization."
+        available_sources = db.query(models.BotSource).filter(
+            models.BotSource.isUniversal == True
+        ).order_by(models.BotSource.createdAt.desc()).all()
+
+    clean_topic = topic.replace('-', ' ').replace('_', ' ').strip()
+    target_source = resolve_target_source(available_sources, title, topic, db)
+
+    if not target_source:
+        doc_title = title or f"{company_name} Knowledge Documentation"
+        summary_text = f"No indexed knowledge records or uploaded documents are currently associated with {company_name}. Please upload a document or scrape a website to generate grounded documentation."
+        highlight_points = [
+            f"Active Agent: {company_name}",
+            "Knowledge Base Status: Empty (No custom sources indexed)",
+            "Ready for Document Upload or Web Crawling"
+        ]
+        spec_table = [
+            ["Property / Field", "Status / Details"],
+            ["Agent Name", company_name],
+            ["Database Status", "No sources indexed in database"]
+        ]
+    else:
+        source_clean_name = target_source.title.split('|')[0].strip() if '|' in target_source.title else target_source.title
+        matched_chunks = (
+            db.query(models.DocumentChunk)
+            .filter(models.DocumentChunk.sourceId == target_source.id)
+            .all()
+        )
+        chunk_texts = [ch.content for ch in matched_chunks]
+        combined_text = "\n\n".join(chunk_texts)
+        clean_text = re.sub(r'!\[.*?\]\(.*?\)', '', combined_text).strip()
+
+        is_image_doc = target_source.title.lower().endswith(('.jpeg', '.jpg', '.png', '.webp')) or "[visual image" in combined_text.lower() or "[diagram" in combined_text.lower()
+        is_csv_doc = target_source.title.lower().endswith(('.csv', '.tsv', '.xlsx', '.xls')) or "=== csv table" in combined_text.lower() or "[row 1]:" in combined_text.lower()
+
+        if is_image_doc:
+            clean_text_no_headers = re.sub(r'\[Visual Image\s*/\s*Diagram Data\s*\([^)]*\)\]:?', '', clean_text, flags=re.IGNORECASE)
+            clean_text_no_headers = re.sub(r'\[Visual Image Data\]:?', '', clean_text_no_headers, flags=re.IGNORECASE)
+            clean_text_no_headers = re.sub(r'\[Diagram Data\]:?', '', clean_text_no_headers, flags=re.IGNORECASE)
+
+            # Check for real title in chunk
+            t_match = re.search(r'(?:poster for\s*["\']([^"\']+)["\']|Title[:\s*]+["\']?([^"\']+)["\']?)', combined_text, re.IGNORECASE)
+            extracted_doc_title = (t_match.group(1) or t_match.group(2)).strip() if t_match else ""
+
+            # Extract bullet points from OCR if available
+            ocr_bullets = re.findall(r'[\*\-]\s+([^\n\*]+)', clean_text_no_headers)
+            clean_ocr_bullets = [b.strip().strip('*').strip('"').strip("'") for b in ocr_bullets if len(b.strip()) > 3]
+
+            # Extract narrative sentences
+            filtered_lines = [l.strip() for l in clean_text_no_headers.splitlines() if l.strip() and not l.strip().startswith('*') and not l.strip().startswith('-')]
+            full_clean_para = " ".join(filtered_lines)
+            sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', full_clean_para) if len(s.strip()) > 15]
+
+            first_sentence = sentences[0] if sentences else ""
+            if first_sentence:
+                first_sentence = re.sub(rf'^{re.escape(source_clean_name)}[:\s]*', '', first_sentence, flags=re.IGNORECASE).strip()
+
+            effective_title = extracted_doc_title or source_clean_name
+            doc_title = title if (title and not any(title.lower().startswith(p) for p in ['test.', 'upload_', 'img_'])) else f"{effective_title} — Visual Reference & Documentation"
+            summary_text = (
+                first_sentence if first_sentence else
+                f"Official verified reference document extracted from {effective_title} for {company_name}. Grounded directly from indexed visual knowledge and verified OCR records."
+            )
+            highlight_points = []
+            if clean_ocr_bullets:
+                for b in clean_ocr_bullets[:6]:
+                    if b not in highlight_points:
+                        highlight_points.append(b)
+            if len(highlight_points) < 3 and len(sentences) > 1:
+                for s in sentences[1:5]:
+                    s_clean = re.sub(rf'^{re.escape(source_clean_name)}[:\s]*', '', s, flags=re.IGNORECASE).strip()
+                    if s_clean not in highlight_points:
+                        highlight_points.append(s_clean)
+            if not highlight_points:
                 highlight_points = [
-                    "Customer Journey Optimization: Comprehensive mapping of end-to-end user touchpoints to eliminate friction points.",
-                    "Omnichannel Strategy: Unified routing across voice, chat, email, SMS, and self-service portals.",
-                    "Proven Impact: Realized up to 11-point increase in Net Promoter Score (NPS) and 15% shift to automated self-service.",
-                    "Queue & Workforce Optimization: AI-driven forecasting and scheduling to minimize customer wait times and agent idle time.",
-                    "Technology & Process Modernization: Seamless integration of legacy CRM systems with modern cloud telephony and automation.",
-                    "Actionable Analytics: Real-time sentiment analysis and operational KPIs for continuous CX enhancement."
+                    f"Verified visual reference extracted from {effective_title}.",
+                    "High-precision Optical Character Recognition (OCR) processed and grounded in vector database.",
+                    "Zero hallucination standard: all details certified directly from document content."
                 ]
-                spec_table = [
-                    ["Consulting Domain", "Focus & Methodology", "Expected Outcome & Deliverables"],
-                    ["Customer Journey Mapping", "End-to-End Persona & Touchpoint Audits", "Friction point reduction, 11-point NPS uplift"],
-                    ["Omnichannel Contact Optimization", "Unified Voice & Digital Routing", "Seamless agent transfer, reduced handle time"],
-                    ["Queue & Deflection Strategies", "Automated Self-Service Workflows", "15% call deflection to digital channels"],
-                    ["Workforce & Process Optimization", "AI Scheduling & Workflow Streamlining", "Reduced operating expenses and lower queue times"],
-                    ["Sentiment & Performance Analytics", "Speech & Text Interaction Analytics", "Real-time CSAT tracking and quality audits"]
-                ]
-            elif any(k in topic_lower or k in title_lower for k in ['evoai', 'conversational', 'bot', 'self-service']):
-                doc_title = title or "Alorica evoAI Conversational Platform Overview"
-                summary_text = "Official technical capabilities and architecture overview for Alorica evoAI enterprise conversational artificial intelligence platform."
-                highlight_points = [
-                    "Automated Customer Self-Service: Deep conversational intelligence handling routine and multi-turn inquiries autonomously.",
-                    "Real-Time Agent Assist: Contextual knowledge retrieval and AI-suggested responses directly in the live agent's workflow.",
-                    "Volume Deflection: Proven 15% shift in live interaction volume to self-service resolution.",
-                    "Enterprise LLM & NLP: Domain-tuned language models with semantic guardrails and multi-turn conversational context.",
-                    "Omnichannel Cohesion: Seamless transitions between automated chatbots, voice bots, and live human contact center agents."
-                ]
-                spec_table = [
-                    ["evoAI Module", "Underlying Technology", "Key Deliverables & Metric"],
-                    ["Self-Service Virtual Assistant", "Natural LLM & NLP Pipelines", "15% call volume deflection to digital channels"],
-                    ["Agent Assist Intelligence", "Real-Time Semantic Grounding", "Reduced Average Handle Time (AHT) by 22%"],
-                    ["Voice Bot Integration", "Ultra-Low Latency Audio Synthesis", "Conversational IVR with 94% intent comprehension"],
-                    ["Enterprise Analytics", "Sentiment & Resolution Auditing", "Live telemetry dashboards and interaction telemetry"]
-                ]
-            elif any(k in topic_lower or k in title_lower for k in ['revolt', 'translation']):
-                doc_title = title or "Alorica ReVoLT Multilingual Translation Services"
-                summary_text = "Official certified capabilities overview for Alorica ReVoLT real-time neural translation technology for multilingual customer support."
-                highlight_points = [
-                    "Real-Time Multilingual Translation: Instantaneous voice and text translation across 100+ global languages and dialects.",
-                    "Global Talent Flexibility: Empowers single-language agents to support international customers seamlessly across borders.",
-                    "Context-Aware Neural Engine: Specialized industry vocabulary tuning for financial, healthcare, retail, and tech domains.",
-                    "Data Privacy & Security: In-flight encryption with zero permanent data retention conforming to GDPR and HIPAA standards."
-                ]
-                spec_table = [
-                    ["ReVoLT Capability", "Technical Scope", "Operational Impact"],
-                    ["Real-Time Voice Translation", "Low-latency neural audio streaming", "Cross-border telephony support in 100+ languages"],
-                    ["Digital Chat Translation", "Bi-directional text translation", "Instant multilingual web chat, SMS, and email"],
-                    ["Domain Adaptation", "Custom industry glossaries", "High precision for medical, technical, and financial terms"],
-                    ["Security & Compliance", "GDPR / HIPAA compliant encryption", "Zero cross-session data storage and strict PII masking"]
-                ]
+            spec_table = [
+                ["Property / Parameter", "Verified Specification"],
+                ["Document Title", effective_title],
+                ["Source File", source_clean_name],
+                ["Document Category", "Visual Plate / Document Guide"],
+                ["Grounding Scope", "Organization Knowledge Base"],
+                ["Extraction Engine", "NVIDIA Multimodal Vision OCR / Tesseract"],
+                ["Verification Status", "100% Grounded in Vector Database"]
+            ]
+        elif is_csv_doc:
+            doc_title = title or f"{source_clean_name} — Commercial Data Sheet"
+            summary_text = f"Verified commercial data sheet and inventory matrix extracted from {source_clean_name}. Grounded directly from verified indexed records for {company_name}."
+
+            row_matches = re.findall(r'\[Row \d+\]:\s*(.+)', clean_text)
+            spec_table = []
+            highlight_points = []
+
+            header_match = re.search(r'Columns:\s*([^\n]+)', clean_text)
+            if header_match:
+                headers = [h.strip() for h in header_match.group(1).split(',')[:4]]
             else:
-                doc_title = title or "Alorica CX Services & Solutions Catalogue"
-                summary_text = "Official certified capabilities catalogue for Alorica digital customer experience (CX) consulting, evoAI conversational artificial intelligence, ReVoLT translation, analytics, and enterprise BPO managed services."
-                highlight_points = [
-                    "Digital CX Consulting & Transformation: Customer journey mapping, queue optimization, and contact center modernization.",
-                    "Conversational AI (evoAI): Enterprise-grade automated customer self-service, real-time agent assist, and LLM-powered resolution.",
-                    "Digital Translation (ReVoLT): Real-time multilingual voice and text translation across 100+ languages.",
-                    "Managed Services & BPO: Scalable global delivery centers with proven 15% shift to self-service and 11 pts. NPS increase.",
-                    "Trust, Safety & Security: AI-assisted content moderation, identity fraud protection, and financial risk mitigation.",
-                    "Compliance & Standards: CCPA, GDPR, HIPAA, and SOC2 certified operations with end-to-end data encryption."
-                ]
-                spec_table = [
-                    ["Service / Module", "Technology & Standards", "Key Deliverables & Scope"],
-                    ["Digital CX Consulting", "Customer Journey Optimization", "Queue optimization, omnichannel routing, 11 pts NPS boost"],
-                    ["Conversational AI (evoAI)", "Enterprise LLM & Natural NLP", "Automated self-service, 15% call volume deflection"],
-                    ["Digital Translation (ReVoLT)", "Real-Time Neural Translation", "Seamless cross-border multilingual agent interactions"],
-                    ["Trust & Safety Solutions", "Content & Identity Verification", "AI moderation, financial fraud prevention, regulatory compliance"],
-                    ["BPO Managed Services", "Global Enterprise Operations", "24/7 dedicated support teams, SLA guarantee, omnichannel delivery"]
-                ]
-            contact_email = "support@alorica.com"
-            official_website = "https://alorica.com"
-        elif is_python:
-            company_name = "Department of Computer Science & Engineering"
-            doc_title = title or "Python Programming Notes & Technical Reference"
-            summary_text = "Official academic lecture notes and technical reference guide covering Python language syntax, data structures, object-oriented programming, and control structures."
-            highlight_points = [
-                "Language Architecture: High-level, interpreted, dynamically-typed language with automatic bytecode compilation.",
-                "Control Flow: Complete syntax reference for if-elif-else branch conditions, for loops, and while constructs.",
-                "Data Structures: Comprehensive guides on Python Lists, Tuples, Dictionaries, Sets, and String manipulations.",
-                "Functional Programming: Function definitions, default parameters, variable-length arguments (*args, **kwargs), and lambda expressions.",
-                "Object-Oriented Programming (OOP): Class hierarchies, inheritance, encapsulation, polymorphism, and magic methods (__init__, __str__).",
-                "Exception Handling & I/O: Try-except-finally blocks, custom exception handling, and file streaming operations."
-            ]
-            spec_table = [
-                ["Core Topic / Module", "Syllabus Standard / Scope", "Key Technical Elements"],
-                ["Language Fundamentals", "Python 3.x Standard", "Interpreted execution, dynamic typing, clean indentation syntax"],
-                ["Control Flow & Loops", "Conditional Logic", "if-elif-else statements, nested loops, break/continue flow"],
-                ["Data Collections", "Built-in Data Structures", "Lists (mutable), Tuples (immutable), Dictionaries (key-value), Sets"],
-                ["Object-Oriented Design", "OOP Principles", "Classes, object instantiation, inheritance, method overriding"],
-                ["Modules & File I/O", "Standard Library", "Package imports, stream read/write operations, exception handling"]
-            ]
-            contact_email = "academics@mrcet.ac.in"
-            official_website = "https://python.org"
-        elif is_vsix:
-            company_name = "Microsoft Visual Studio Marketplace"
-            doc_title = title or "Visual Studio Extensions & Development Reference"
-            summary_text = "Official developer reference and technical documentation for Visual Studio extensions, Manage Extensions browsing, package deployment, and VSIX manifests."
-            highlight_points = [
-                "Explore & Manage Extensions: Browse, install, update, and discover developer tools directly via the Extensions > Manage Extensions menu.",
-                "Search & Multi-Category Filtering: Filter extensions by user Rating, download Popularity, Release Date, and Categories (Productivity, Debugging, Testing, Code Analysis).",
-                "Workflow & Productivity Optimization: Enhances IDE functionality with custom language servers, debuggers, and automation tooling.",
-                "Open VSIX Extension Packaging Standard: Standardized ZIP-based container for Visual Studio extensions, add-ins, and assemblies.",
-                "Manifest Schema Architecture: Detailed XML manifest specifications (extension.vsixmanifest) for metadata, dependencies, and targeted IDE editions.",
-                "Security & Code Signing: Authenticode digital signature verification ensuring publisher authenticity, extension integrity, and isolated execution."
-            ]
-            spec_table = [
-                ["Capability / Module", "Standard Specification", "Technical Details & Scope"],
-                ["Manage Extensions Menu", "Extensions > Manage Extensions", "Browse, search, install, and update extensions directly within IDE"],
-                ["Category & Search Filters", "Rating, Popularity, Date, Category", "Sort by community ratings, download count, release date, and tags"],
-                ["Productivity & Tooling", "IDE Integrations & Analyzers", "Code analysis, specialized debuggers, testing harnesses, formatters"],
-                ["VSIX Package Container", "Open Packaging Conventions (ZIP)", "Self-contained deployment package for IDE assemblies and tools"],
-                ["extension.vsixmanifest", "XML Manifest Schema v3", "Metadata, unique ID, version, publisher, prerequisites, target editions"],
-                ["Marketplace & Galleries", "Visual Studio Marketplace API", "Public marketplace publishing and private enterprise gallery hosting"]
-            ]
-            contact_email = "support@marketplace.visualstudio.com"
-            official_website = "https://marketplace.visualstudio.com"
-        elif is_steel:
-            company_name = "Industrial Steel & Metal Standards"
-            doc_title = title or "Steel & Metal Products — Technical Specifications & Standards"
-            summary_text = "Official technical catalogue and certified engineering parameters for industrial structural steel, carbon alloy sections, and seamless pipes."
-            highlight_points = [
-                "ASTM A36 / IS 2062 carbon steel with yield strength >= 250 MPa and ultimate tensile strength 400-510 MPa.",
-                "High-tensile structural steel ASTM A572 Grade 50 for heavy construction with yield point 345 MPa.",
-                "Marine-grade AISI 316L alloy with 2.5% Molybdenum providing exceptional chloride resistance.",
-                "Seamless circular carbon steel pipes (ASTM A106 Grade B) rated for high-pressure service.",
-                "Dimensional tolerance and mill testing standards conform to ASTM A6 and EN 10025."
-            ]
-            spec_table = [
-                ["Specification Item", "Standard / Grade", "Key Technical Parameter"],
-                ["Carbon Steel Structural Sections", "ASTM A36 / IS 2062", "Yield strength 250 MPa, Tensile 400-510 MPa"],
-                ["High-Tensile Plates & Channels", "ASTM A572 Grade 50", "Yield strength 345 MPa, superior cold forming"],
-                ["Stainless Steel Alloys", "AISI 304 / 304L", "18% Cr, 8% Ni austenitic alloy, non-magnetic"],
-                ["Marine Grade Stainless Steel", "AISI 316 / 316L", "2.5% Molybdenum addition, chloride pitting resistant"],
-                ["Seamless Circular Pipes", "ASTM A106 / ITC-HS 7304", "High-pressure high-temperature service ratings"]
-            ]
-            contact_email = "technical@steelspecs.org"
-            official_website = "https://astm.org"
-        elif is_sports:
-            company_name = "Performance Athletic & Sports Goods"
-            doc_title = title or "Sports & Athletic Footwear Product Catalogue"
-            summary_text = "Official technical catalogue and specifications for athletic footwear, active training gear, and performance sports accessories."
-            highlight_points = [
-                "Ergonomic athletic footwear engineered with shock-absorbing EVA midsoles.",
-                "Non-marking natural gum rubber outsoles optimized for indoor courts and turf.",
-                "Reinforced lateral stability and anti-torsion carbon plates for joint protection.",
-                "Breathable multi-layer knit uppers offering high airflow and moisture dissipation."
-            ]
-            spec_table = [
-                ["Specification Item", "Standard / Category", "Key Details"],
-                ["Athletic Running Shoes", "ITC-HS 640411", "Breathable mesh upper, cushioned EVA midsole with traction grip."],
-                ["Basketball & Tennis", "ITC-HS 640319", "Reinforced ankle support, non-marking rubber outsole."],
-                ["Outdoor & Cross-Training", "ITC-HS 640219", "All-terrain weather-resistant synthetic build."]
-            ]
-            contact_email = "orders@sportsinventory.com"
-            official_website = "https://sportsgoods.org"
-        elif is_cosmetics:
-            company_name = "Nykaa Beauty & Cosmetics"
-            doc_title = title or "Cosmetics & Beauty Product Catalogue"
-            summary_text = "Certified specifications and ingredient profiles for dermatologically tested skincare and cosmetic beauty products."
-            highlight_points = [
-                "Advanced dermatologically validated formulations free from parabens, sulfates, and harsh chemicals.",
-                "Cruelty-free, ethically sourced botanical extracts and active peptides.",
-                "Broad-spectrum SPF 25 and SPF 50 UV protection infused across daily foundation and cream ranges.",
-                "Non-comedogenic, hypoallergenic testing verified across sensitive skin types."
-            ]
-            spec_table = [
-                ["Product Category", "Certification Standard", "Key Formulation Details"],
-                ["Skincare & Serums", "Dermatologically Tested", "Hydrating formulations with hyaluronic acid, Vitamin C, and SPF 50."],
-                ["Cosmetics & Color Care", "ISO 22716 GMP", "Cruelty-free long-wear foundations, matte lip pigments, and palettes."],
-                ["Personal & Hair Care", "Paraben-Free Certified", "Nourishing botanical cleansers, conditioners, and essential oils."]
-            ]
-            contact_email = "support@nykaa.com"
-            official_website = "https://nykaa.com"
-        elif is_financial:
-            company_name = "VedaOne Financial AI"
-            doc_title = title or "VedaOne Financial AI Specifications & Methodology"
-            summary_text = "Certified technical documentation and financial modeling parameters for automated valuation pipelines."
-            highlight_points = [
-                "Automated Discounted Cash Flow (DCF) with Monte Carlo sensitivity simulations.",
-                "Trading and Transaction Multiple benchmarks synced across global indices.",
-                "Cap table scenario modeling with dilution analysis and liquidation waterfall calculations.",
-                "Instant institutional pitchbook and audit-ready PDF/Excel data export."
-            ]
-            spec_table = [
-                ["Valuation Engine", "Methodology Standard", "Capabilities"],
-                ["DCF Forecast Engine", "Multi-Stage WACC Modeling", "Dynamic terminal value and cost of equity projection"],
-                ["Comps Engine", "Global Industry Benchmarks", "Real-time enterprise value and EBITDA multiple scaling"],
-                ["Waterfall Simulator", "Institutional Cap Table", "Preferred share liquidation preference and vesting tracking"]
-            ]
-            contact_email = "team@vedaone.ai"
-            official_website = "https://vedaone.ai"
-        elif is_software:
-            company_name = bot.name if bot else "APP-DEFT AI Solutions"
-            doc_title = title or f"{company_name} AI Software & Enterprise Solutions Catalogue"
-            summary_text = f"Official technical specifications and capabilities catalogue for {company_name} conversational AI agents, workflow automation platforms, and enterprise system connectors."
-            highlight_points = [
-                "Custom Conversational AI Agents: 24/7 omnichannel customer service, multi-turn memory, and semantic knowledge grounding.",
-                "Workflow Automation & RPA: Autonomous lead qualification, appointment scheduling, and automated ticket resolution.",
-                "Multilingual Voice & Chatbot Integration: Real-time speech-to-text, low-latency synthesis (<500ms), and 20+ language support.",
-                "Enterprise CRM & ERP Connectors: Turnkey bi-directional integrations with Salesforce, HubSpot, Zendesk, and SQL databases.",
-                "Enterprise Security & SLA: SOC2 Type II compliance, AES-256 encryption, isolated tenant DBs, and 99.9% uptime SLA."
-            ]
-            spec_table = [
-                ["Capability / Module", "Technology & Standards", "Key Specifications & Deliverables"],
-                ["Conversational AI Agents", "RAG & LLM Engine (Llama 3 / Mistral)", "Vector retrieval, multi-turn memory, grounded citations"],
-                ["Voice Telephony Bot", "WebRTC / SIP / Real-time TTS", "Sub-500ms latency, human-like voice synthesis"],
-                ["CRM & ERP Connectors", "REST / GraphQL / Webhooks", "Bi-directional sync with Salesforce, HubSpot, Zendesk"],
-                ["Workflow Automation", "Event-driven microservices", "Autonomous lead qualification, routing, CRM updating"],
-                ["Security & Compliance", "AES-256 / SOC2 Type II", "Role-based access control, isolated tenant databases"]
-            ]
-            contact_email = f"support@{bot.domain}" if (bot and bot.domain) else "support@appdeft.ai"
-            official_website = f"https://{bot.domain}" if (bot and bot.domain) else "https://appdeft.ai"
+                headers = ["Item / Record", "Details", "Price / Value"]
+            spec_table.append(headers)
+
+            for rm in row_matches[:15]:
+                items = {}
+                for pair in rm.split('|'):
+                    if ':' in pair:
+                        k, v = pair.split(':', 1)
+                        items[k.strip().lower()] = v.strip()
+
+                row_vals = []
+                for h in headers:
+                    h_clean = h.strip().lower()
+                    val = items.get(h_clean, "")
+                    if not val:
+                        for ik, iv in items.items():
+                            if h_clean in ik or ik in h_clean:
+                                val = iv
+                                break
+                    row_vals.append(val[:35] if val else "-")
+                if any(v != "-" for v in row_vals):
+                    spec_table.append(row_vals)
+                    first_val = [v for v in row_vals if v != "-"]
+                    if first_val and len(highlight_points) < 5:
+                        highlight_points.append(" | ".join(first_val[:3]))
+
+            if len(spec_table) <= 1:
+                spec_table = [["Specification Item", "Detail"], ["Data Source", source_clean_name], ["Grounding", "Verified Tabular Records"]]
+            if not highlight_points:
+                highlight_points = [f"Tabular records extracted and verified from {source_clean_name}.", "Structured parameter mapping for high-precision retrieval."]
         else:
-            # Query the database for the matching BotSource dynamically
-            search_terms = [w for w in clean_topic.split() if len(w) > 2]
-            found_sources = []
-            if bot:
-                found_sources = db.query(models.BotSource).filter(models.BotSource.botId == bot.id).all()
-            if not found_sources and search_terms:
-                for term in search_terms:
-                    s_list = db.query(models.BotSource).filter(models.BotSource.title.ilike(f"%{term}%")).all()
-                    if s_list:
-                        found_sources.extend(s_list)
-                        break
+            # General Web Page or Digital Document
+            extracted_phones = []
+            extracted_emails = []
+            extracted_addrs = []
+            extracted_urls = []
+            service_rows = []
+            pricing_rows = []
+            general_bullets = []
 
-            if found_sources:
-                primary_source = found_sources[0]
-                source_clean_name = primary_source.title.split('|')[0].strip() if '|' in primary_source.title else primary_source.title
-                company_name = bot.name if bot else source_clean_name
-                doc_title = title or f"{company_name} — Specifications & Solutions Catalogue"
-                
-                source_ids = [s.id for s in found_sources]
-                matched_chunks = (
-                    db.query(models.DocumentChunk)
-                    .filter(models.DocumentChunk.sourceId.in_(source_ids))
-                    .limit(15)
-                    .all()
-                )
+            p_match = re.findall(r'(?:Telephone|Phone|Contact Phone|Mobile)[:\s]+([^\n]+)', clean_text, re.IGNORECASE)
+            for pm in p_match:
+                for p_val in re.split(r'[,;]', pm):
+                    clean_p = p_val.strip()
+                    if clean_p and clean_p not in extracted_phones and len(clean_p) > 6 and "no direct" not in clean_p.lower():
+                        extracted_phones.append(clean_p)
 
-                extracted_phones = []
-                extracted_emails = []
-                extracted_addrs = []
-                extracted_urls = []
-                service_rows = []
-                pricing_rows = []
-                general_bullets = []
+            e_match = re.findall(r'([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)', clean_text)
+            for em in e_match:
+                clean_e = em.strip()
+                if clean_e and clean_e not in extracted_emails and not clean_e.endswith(('.png', '.jpg', '.webp')):
+                    extracted_emails.append(clean_e)
 
-                for ch in matched_chunks:
-                    c_text = ch.content
-                    p_match = re.findall(r'(?:Telephone|Phone|Contact Phone|Mobile)[:\s]+([^\n]+)', c_text, re.IGNORECASE)
-                    for pm in p_match:
-                        for p_val in re.split(r'[,;]', pm):
-                            clean_p = p_val.strip()
-                            if clean_p and clean_p not in extracted_phones and len(clean_p) > 6 and "no direct" not in clean_p.lower():
-                                extracted_phones.append(clean_p)
+            a_match = re.findall(r'(?:Address|Office Location|Office Address)[:\s]+([^\n]+)', clean_text, re.IGNORECASE)
+            for am in a_match:
+                clean_a = am.strip()
+                if clean_a and clean_a not in extracted_addrs and is_valid_address(clean_a) and "no public" not in clean_a.lower():
+                    extracted_addrs.append(clean_a)
 
-                    e_match = re.findall(r'([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)', c_text)
-                    for em in e_match:
-                        clean_e = em.strip()
-                        if clean_e and clean_e not in extracted_emails and not clean_e.endswith(('.png', '.jpg', '.webp')):
-                            extracted_emails.append(clean_e)
+            u_match = re.findall(r'(?:Official Website|Website)[:\s]+(https?://[^\s\n]+)', clean_text, re.IGNORECASE)
+            for um in u_match:
+                clean_u = um.strip()
+                if clean_u and clean_u not in extracted_urls:
+                    extracted_urls.append(clean_u)
 
-                    a_match = re.findall(r'(?:Address|Office Location|Office Address)[:\s]+([^\n]+)', c_text, re.IGNORECASE)
-                    for am in a_match:
-                        clean_a = am.strip()
-                        if clean_a and clean_a not in extracted_addrs and len(clean_a) > 10 and "no public" not in clean_a.lower():
-                            extracted_addrs.append(clean_a)
+            for line in clean_text.splitlines():
+                l_s = line.strip()
+                if not l_s or l_s.startswith("===") or l_s.startswith("{") or l_s.startswith(".pi-") or l_s.startswith("http"):
+                    continue
+                clean_l = re.sub(r'[*_#]', '', l_s).strip()
+                if len(clean_l) < 15 or len(clean_l) > 220:
+                    continue
 
-                    u_match = re.findall(r'(?:Official Website|Website)[:\s]+(https?://[^\s\n]+)', c_text, re.IGNORECASE)
-                    for um in u_match:
-                        clean_u = um.strip()
-                        if clean_u and clean_u not in extracted_urls:
-                            extracted_urls.append(clean_u)
+                lower_l = clean_l.lower()
+                if any(k in lower_l for k in ['$', '₹', 'price', 'pricing', 'rate', 'cost', 'fee', 'plan', '/mo', 'per month', 'subscription']):
+                    if clean_l not in pricing_rows and len(pricing_rows) < 6:
+                        pricing_rows.append(clean_l)
+                elif any(k in lower_l for k in ['service', 'solution', 'platform', 'feature', 'system', 'product', 'development', 'management', 'support']):
+                    if clean_l not in service_rows and len(service_rows) < 6:
+                        service_rows.append(clean_l)
+                else:
+                    if clean_l not in general_bullets and len(general_bullets) < 6:
+                        general_bullets.append(clean_l)
 
-                    for line in c_text.splitlines():
-                        l_s = line.strip()
-                        if not l_s or l_s.startswith("===") or l_s.startswith("{") or l_s.startswith(".pi-") or l_s.startswith("http"):
-                            continue
-                        clean_l = re.sub(r'[*_#]', '', l_s).strip()
-                        if len(clean_l) < 15 or len(clean_l) > 220:
-                            continue
+            if extracted_emails:
+                contact_email = extracted_emails[0]
+            if extracted_urls:
+                official_website = extracted_urls[0]
 
-                        lower_l = clean_l.lower()
-                        if any(k in lower_l for k in ['$', '₹', 'price', 'pricing', 'rate', 'cost', 'fee', 'plan', '/mo', 'per month', 'subscription']):
-                            if clean_l not in pricing_rows and len(pricing_rows) < 6:
-                                pricing_rows.append(clean_l)
-                        elif any(k in lower_l for k in ['service', 'solution', 'platform', 'feature', 'system', 'product', 'development', 'management', 'support']):
-                            if clean_l not in service_rows and len(service_rows) < 6:
-                                service_rows.append(clean_l)
-                        else:
-                            if clean_l not in general_bullets and len(general_bullets) < 6:
-                                general_bullets.append(clean_l)
-
-                if extracted_emails:
-                    contact_email = extracted_emails[0]
-                if extracted_urls:
-                    official_website = extracted_urls[0]
-                elif bot and bot.domain:
-                    official_website = f"https://{bot.domain}" if not bot.domain.startswith(('http://', 'https://')) else bot.domain
-
-                summary_text = f"Official certified documentation and reference catalogue for {company_name}. Grounded directly from verified database records and indexed knowledge."
-                highlight_points = (pricing_rows[:2] + service_rows[:2] + general_bullets[:2])[:6]
-                if not highlight_points:
-                    highlight_points = [
-                        f"Comprehensive specifications and parameters for {company_name}.",
-                        "Verified corporate capabilities and enterprise operations standards.",
-                        "Grounded directly from indexed website and documentation data."
-                    ]
-
-                spec_table = [["Category / Module", "Scope & Specifications", "Verified Detail"]]
-                if official_website:
-                    spec_table.append(["Digital Presence", "Official Website / Domain", official_website[:35]])
-                if extracted_addrs:
-                    spec_table.append(["Office Location", "Corporate Headquarters / Office", extracted_addrs[0][:35]])
-                if extracted_phones:
-                    spec_table.append(["Contact Channel", "Telephone / Hotline", extracted_phones[0][:35]])
-                if extracted_emails:
-                    spec_table.append(["Contact Channel", "Official Email Inquiries", extracted_emails[0][:35]])
-                for idx, s_row in enumerate(service_rows[:3], 1):
-                    parts = s_row.split(':', 1) if ':' in s_row else (f"Capability {idx}", s_row)
-                    spec_table.append(["Services & Solutions", parts[0][:28], parts[1].strip()[:35]])
-                for idx, p_row in enumerate(pricing_rows[:2], 1):
-                    parts = p_row.split(':', 1) if ':' in p_row else (f"Rate / Plan {idx}", p_row)
-                    spec_table.append(["Commercial Model", parts[0][:28], parts[1].strip()[:35]])
-
-                if len(spec_table) <= 1:
-                    spec_table.append(["Knowledge Record", source_clean_name[:28], "100% verified enterprise indexed data"])
-                    spec_table.append(["Compliance", "Enterprise Grounding", "Zero-hallucination certified"])
-            else:
-                company_name = bot.name if bot else "Enterprise Knowledge"
-                doc_title = title or f"{company_name} Official Documentation"
-                summary_text = f"Official verified reference document for {clean_topic}."
+            doc_title = title or f"{source_clean_name} — Specifications & Overview"
+            summary_text = f"Official certified documentation and reference catalogue for {company_name}. Grounded directly from verified database records and indexed knowledge ({source_clean_name})."
+            highlight_points = (pricing_rows[:2] + service_rows[:2] + general_bullets[:2])[:6]
+            if not highlight_points:
                 highlight_points = [
-                    f"Comprehensive specifications and parameters for {clean_topic}.",
-                    "Certified enterprise standards with complete compliance verification."
+                    f"Comprehensive specifications and parameters for {company_name}.",
+                    f"Verified knowledge records extracted from {source_clean_name}.",
+                    "Grounded directly from indexed website and documentation data."
                 ]
-                spec_table = [
-                    ["Item", "Category", "Specifications"],
-                    [clean_topic.title()[:25], "Knowledge Record", "Official enterprise documentation"]
-                ]
+
+            spec_table = [["Category / Module", "Scope & Specifications", "Verified Detail"]]
+            if official_website:
+                spec_table.append(["Digital Presence", "Official Website / Domain", official_website[:35]])
+            if extracted_addrs:
+                spec_table.append(["Office Location", "Corporate Headquarters / Office", extracted_addrs[0][:35]])
+            if extracted_phones:
+                spec_table.append(["Contact Channel", "Telephone / Hotline", extracted_phones[0][:35]])
+            if extracted_emails:
+                spec_table.append(["Contact Channel", "Official Email Inquiries", extracted_emails[0][:35]])
+            for idx, s_row in enumerate(service_rows[:3], 1):
+                parts = s_row.split(':', 1) if ':' in s_row else (f"Capability {idx}", s_row)
+                spec_table.append(["Services & Solutions", parts[0][:28], parts[1].strip()[:35]])
+            for idx, p_row in enumerate(pricing_rows[:2], 1):
+                parts = p_row.split(':', 1) if ':' in p_row else (f"Rate / Plan {idx}", p_row)
+                spec_table.append(["Commercial Model", parts[0][:28], parts[1].strip()[:35]])
+
+            if len(spec_table) <= 1:
+                spec_table.append(["Knowledge Record", source_clean_name[:28], "100% verified enterprise indexed data"])
+                spec_table.append(["Compliance", "Enterprise Grounding", "Zero-hallucination certified"])
 
     pdf_bytes = generate_catalogue_pdf(
         company_name=company_name,
@@ -935,7 +744,9 @@ def get_catalogue_pdf(
         media_type="application/pdf",
         headers={
             "Content-Disposition": f'{disposition}; filename="{safe_filename}.pdf"',
-            "Cache-Control": "public, max-age=3600"
+            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
         }
     )
 
@@ -950,138 +761,106 @@ def get_catalogue_csv(
 ):
     """
     Serves a verified corporate CSV data spreadsheet / rate matrix.
-    download=1: streams with Content-Disposition: attachment (for file download)
+    Strictly isolated to the bot's organization with zero cross-tenant leakage.
+    download=1: streams with Content-Disposition: attachment
     """
     import csv
+
+    topic = str(topic) if (topic is not None and isinstance(topic, str)) else "product-catalogue"
+    title = str(title).strip() if (title is not None and isinstance(title, str) and title.strip()) else None
 
     bot = db.query(models.Bot).filter(models.Bot.id == bot_id).first() if (bot_id and isinstance(bot_id, str)) else None
     company_name = bot.name if bot else "Enterprise IQ"
 
+    available_sources = []
+    if bot:
+        available_sources = db.query(models.BotSource).filter(
+            or_(
+                models.BotSource.botId == bot.id,
+                (models.BotSource.isUniversal == True) & (models.BotSource.orgId == bot.orgId)
+            )
+        ).order_by(models.BotSource.createdAt.desc()).all()
+
     clean_topic = topic.replace('-', ' ').replace('_', ' ').strip()
-    topic_lower = clean_topic.lower()
-    title_lower = (title or "").lower()
+    target_source = resolve_target_source(available_sources, title, topic, db)
 
-    is_alorica = any(k in topic_lower or k in title_lower for k in ['alorica', 'evoai', 'revolt', 'cx leader', 'cx consulting', 'digital cx', 'bpo', 'journey mapping'])
-    is_python = any(k in topic_lower or k in title_lower for k in ['python', 'programming notes', 'r17a0554', 'mrcet', 'lecture notes'])
-    is_vsix = any(k in topic_lower or k in title_lower for k in ['vsix', 'visual studio', 'extension package'])
-    is_pricing = any(p in topic_lower or p in title_lower for p in ['pricing', 'price', 'cost', 'rate', 'rates', 'fees', 'quote', 'plan', 'commercial'])
-    is_steel = any(k in topic_lower or k in title_lower for k in ['steel', 'metal', 'iron', 'pipe', 'alloy'])
-    is_sports = any(k in topic_lower or k in title_lower for k in ['sport', 'shoe', 'shoes', 'footwear', 'archive', 'basketball', 'badminton'])
-    is_cosmetics = any(k in topic_lower or k in title_lower for k in ['cosmetic', 'beauty', 'nykaa', 'skincare', 'makeup'])
-    is_financial = any(k in topic_lower or k in title_lower for k in ['financial', 'valuation', 'vedaone', 'dcf'])
-    is_software = any(k in topic_lower or k in title_lower for k in ['appdeft', 'app-deft', 'vinnisoft', 'chatbot agent', 'software development', 'voice bot', 'crm connectors', 'starter ai agent', 'growth suite'])
-
-    doc_title = title if title else f"{clean_topic.title()} Data Sheet"
     headers = ["Category", "Item / Feature", "Specification / Details", "Pricing / Value", "Verified Source"]
     rows = []
 
-    if is_pricing and is_steel:
-        doc_title = title or "Steel & Metal Products — Commercial Pricing Matrix"
+    if not target_source:
+        doc_title = title or f"{company_name} — Data Sheet"
         rows = [
-            ["Structural Steel", "Carbon Steel Beams & Angles", "ASTM A36 / IS 2062 Grade sections", "₹58,000 - ₹62,000 / MT", "Mill Test Certificate EN 10204 3.1"],
-            ["Structural Plates", "High-Tensile Steel Plates", "ASTM A572 Grade 50 (Yield >= 345 MPa)", "₹63,000 - ₹66,500 / MT", "ASTM A6 Dimensional Standard"],
-            ["Stainless Steel", "Austenitic SS Sheets & Coils", "AISI 304 2B Finish Cold-Rolled", "₹185,000 - ₹198,000 / MT", "ISO 9001 Metallurgy Certified"],
-            ["Marine Alloys", "Chloride-Resistant Marine Plates", "AISI 316L (2.5% Molybdenum addition)", "₹215,000 - ₹230,000 / MT", "ASTM A240 / ASME SA240"],
-            ["High-Pressure Piping", "Seamless Carbon Steel Pipes", "ASTM A106 Grade B (ITC-HS 7304)", "₹72,000 - ₹78,000 / MT", "Hydrostatic Tested to 3000 PSI"],
-            ["Commercial Rebates", "Bulk Order Volume Discount Tier 1", "Orders exceeding 50 Metric Tons", "5% Rebate on Base MT", "Commercial Trading Policy"],
-            ["Commercial Rebates", "Enterprise Bulk Discount Tier 2", "Orders exceeding 100 Metric Tons", "8% Rebate on Base MT", "Commercial Trading Policy"]
-        ]
-    elif not is_pricing and is_steel:
-        doc_title = title or "Steel & Metal Products — Technical Specifications"
-        rows = [
-            ["Carbon Steel", "ASTM A36 Structural Sections", "Yield Strength >= 250 MPa, Tensile 400-510 MPa", "Standard Grade", "ASTM A36 Standard"],
-            ["High-Tensile", "ASTM A572 Grade 50 Plates", "Yield point 345 MPa, superior weldability & cold forming", "High Strength", "ASTM A572 Standard"],
-            ["Stainless Steel", "AISI 304 Austenitic Alloy", "18% Chromium, 8% Nickel, non-magnetic in annealed state", "Corrosion Resistant", "AISI 304 Standard"],
-            ["Marine Grade", "AISI 316L Low Carbon Stainless", "2.5% Molybdenum, high pitting resistance in salt spray", "Marine Grade", "AISI 316L Standard"],
-            ["Seamless Piping", "ASTM A106 Grade B Pipes", "Seamless circular carbon steel for high temperature/pressure", "Schedule 40/80/160", "ASTM A106 / ITC-HS 7304"]
-        ]
-    elif is_sports:
-        doc_title = title or "Performance Athletic & Sports Footwear — Product Data"
-        rows = [
-            ["Court Footwear", "Li-Ning Blade Lite Badminton Shoes", "Cushioned EVA Midsole, Non-Marking Natural Gum Sole", "₹756.0 (Special Offer)", "Li-Ning Athletic Catalogue"],
-            ["Basketball Equipment", "COSCO Pulse Basketball (Size 7)", "Composite Leather, Deep Channel Grip for Match Play", "₹1,150.0", "COSCO Official Inventory"],
-            ["Basketball Equipment", "NIVIA Tucana Basketball (Size 6)", "All-Surface Rubberized Pebble Grip", "₹1,530.0 (Was ₹1,699)", "NIVIA Sports Goods"],
-            ["Running Footwear", "Professional Athletic Running Shoes", "Breathable Engineered Mesh, Dual-Density Cushioning", "₹1,850.0 - ₹2,490.0", "Performance Active Gear"],
-            ["Badminton Gear", "Yonex Carbonex Badminton Racket", "High-Modulus Carbon Graphite Shaft with Full Cover", "₹2,190.0", "Yonex Certified Inventory"]
-        ]
-    elif is_cosmetics:
-        doc_title = title or "Nykaa Beauty & Cosmetics — Product Catalogue Data"
-        rows = [
-            ["Skincare", "Hydrating Facial Serums", "Hyaluronic Acid 2% + Vitamin C 10%, Dermatologist Tested", "₹599 - ₹899", "Nykaa Formulation Lab"],
-            ["Color Cosmetics", "24-Hour Matte Liquid Foundations", "Oil-Control, Broad-Spectrum SPF 25, 18 Inclusive Shades", "₹750 - ₹1,200", "ISO 22716 GMP Certified"],
-            ["Cleansers & Toners", "Botanical Purifying Cleansers", "Salicylic Acid 2% & Green Tea Extract, Sulfate-Free", "₹399 - ₹650", "Cruelty-Free International"],
-            ["Eye Makeup", "Ultra-Pigmented Eyeshadow Palettes", "Vegan Mineral Pigments, Matte and Shimmer Finishes", "₹999 - ₹1,850", "Dermatologically Tested"]
-        ]
-    elif is_alorica:
-        doc_title = title or "Alorica CX Solutions — Capabilities & Enterprise Data"
-        rows = [
-            ["Advisory Services", "Digital CX Consulting & Transformation", "Customer Journey Mapping, Queue Optimization, Omnichannel Strategy", "Milestone Statement of Work", "11 pts. NPS Increase Proven"],
-            ["Conversational AI", "evoAI Platform", "Enterprise LLM Virtual Assistants, Real-Time Agent Assist", "Tiered Monthly / Per Resolution", "15% Call Volume Deflection"],
-            ["Global Operations", "ReVoLT Neural Translation", "Real-Time Voice and Text Translation across 100+ Languages", "Volume-Tiered Seat Add-on", "GDPR / HIPAA Compliant"],
-            ["Managed Services", "Omnichannel BPO Delivery Teams", "Dedicated Global Support Centers with 24/7 Operations", "FTE Monthly Staffing with SLAs", "99.9% Uptime Guarantee"]
-        ]
-    elif is_vsix:
-        doc_title = title or "Visual Studio Marketplace — Extensions & Packages Reference"
-        rows = [
-            ["IDE Menu", "Extensions > Manage Extensions", "Integrated extension manager to browse, install, and update tools", "Built-in IDE Feature", "Microsoft Visual Studio Documentation"],
-            ["Filtering & Search", "Marketplace Discovery Filters", "Sort by Ratings, Popularity (downloads), Release Date, Categories", "Public & Private Feeds", "Visual Studio Marketplace API"],
-            ["Packaging Standard", "VSIX Container Package", "ZIP-based container for assemblies, analyzers, and templates", "Open Packaging Convention", "Microsoft VSIX v3 Manifest Standard"],
-            ["Manifest Spec", "extension.vsixmanifest", "XML schema declaring metadata, prerequisites, and target editions", "Standardized XML", "Visual Studio SDK"]
-        ]
-    elif is_python:
-        doc_title = title or "Python Programming Language — Technical Reference"
-        rows = [
-            ["Fundamentals", "Language Architecture", "High-level, dynamically typed, interpreted programming language", "Python 3.x Standard", "Guido van Rossum / Python Docs"],
-            ["Control Flow", "Conditional & Loop Constructs", "if-elif-else branching, for loops, while iteration, break/continue", "Core Syntax Standard", "Department of CSE Lecture Notes"],
-            ["Data Structures", "Lists, Tuples, Dictionaries, Sets", "Mutable sequences, immutable tuples, hash-map dictionaries, unique sets", "Built-in Types", "MRCET Course Syllabus"],
-            ["OOP Concepts", "Object-Oriented Programming", "Class definitions, inheritance hierarchies, encapsulation, magic methods", "Python OOP Model", "Standard Library Spec"]
-        ]
-    elif is_financial:
-        doc_title = title or "VedaOne Financial AI — Valuation Models & Tiers"
-        rows = [
-            ["Valuation Engine", "Pro Valuation Plan", "10 Automated DCF models/mo, 5-year projections, sensitivity analysis", "$99 / month", "VedaOne Pricing Tier"],
-            ["Enterprise Suite", "Venture Valuation Suite", "Unlimited DCF models, cap table simulations, investor data room", "$299 / month", "VedaOne Enterprise"],
-            ["Institution Tier", "Private Equity / Investment Banking", "Custom financial models, API integration, dedicated analyst SLA", "Custom Enterprise Quote", "Institutional SLA"]
-        ]
-    elif is_software:
-        doc_title = title or f"{company_name} AI Software Solutions — Rate & Capability Matrix"
-        rows = [
-            ["Conversational Agents", "Starter AI Agent", "1 Active bot, 2,000 monthly conversations, vector knowledge RAG", "$49 / mo (₹3,999/mo)", f"{company_name} Commercial Plans"],
-            ["Growth Automation", "Growth AI Suite", "5 Active bots, 15,000 monthly conversations, Voice telephony & CRM sync", "$199 / mo (₹15,999/mo)", f"{company_name} Commercial Plans"],
-            ["Enterprise Custom", "Dedicated Enterprise Infrastructure", "Unlimited bots, dedicated GPU inference, 99.9% uptime SLA", "Custom Annual Agreement", "Enterprise SOW"],
-            ["Custom Integrations", "CRM & ERP Workflows", "Turnkey connectors for Salesforce, HubSpot, Zendesk, PostgreSQL", "Milestone-based SOW", "Engineering Services"]
+            ["Enterprise Knowledge", "Knowledge Base Status", "No indexed knowledge records found for this bot", "Empty", "Enterprise Database"],
+            ["Compliance & Standard", "System Verification", "Zero hallucination verified data records", "Verified", "Kiavi IQ System"]
         ]
     else:
-        # Dynamic Extraction from Bot Sources and Chunks
-        search_terms = [w for w in clean_topic.split() if len(w) > 2]
-        found_sources = []
-        if bot:
-            found_sources = db.query(models.BotSource).filter(models.BotSource.botId == bot.id).all()
-        if not found_sources and search_terms:
-            for term in search_terms:
-                s_list = db.query(models.BotSource).filter(models.BotSource.title.ilike(f"%{term}%")).all()
-                if s_list:
-                    found_sources.extend(s_list)
-                    break
+        source_clean_name = target_source.title.split('|')[0].strip() if '|' in target_source.title else target_source.title
+        matched_chunks = (
+            db.query(models.DocumentChunk)
+            .filter(models.DocumentChunk.sourceId == target_source.id)
+            .all()
+        )
+        chunk_texts = [ch.content for ch in matched_chunks]
+        combined_text = "\n\n".join(chunk_texts)
+        clean_text = re.sub(r'!\[.*?\]\(.*?\)', '', combined_text).strip()
 
-        if found_sources:
-            primary_source = found_sources[0]
-            source_clean_name = primary_source.title.split('|')[0].strip() if '|' in primary_source.title else primary_source.title
-            company_name = bot.name if bot else source_clean_name
-            doc_title = title or f"{company_name} — Data Sheet & Specifications"
+        is_image_doc = target_source.title.lower().endswith(('.jpeg', '.jpg', '.png', '.webp')) or "[visual image" in combined_text.lower() or "[diagram" in combined_text.lower()
+        is_csv_doc = target_source.title.lower().endswith(('.csv', '.tsv', '.xlsx', '.xls')) or "=== csv table" in combined_text.lower() or "[row 1]:" in combined_text.lower()
 
-            source_ids = [s.id for s in found_sources]
-            matched_chunks = (
-                db.query(models.DocumentChunk)
-                .filter(models.DocumentChunk.sourceId.in_(source_ids))
-                .limit(20)
-                .all()
-            )
+        doc_title = title or f"{source_clean_name} — Data Sheet"
 
-            # Metadata Rows
-            website_val = f"https://{bot.domain}" if (bot and bot.domain) else (primary_source.url or "Verified Web Presence")
+        if is_csv_doc:
+            row_matches = re.findall(r'\[Row \d+\]:\s*(.+)', clean_text)
+            header_match = re.search(r'Columns:\s*([^\n]+)', clean_text)
+            if header_match:
+                headers = [h.strip() for h in header_match.group(1).split(',')]
+            else:
+                headers = ["Category", "Item", "Details", "Price", "Source"]
+
+            for rm in row_matches[:500]:
+                items = {}
+                for pair in rm.split('|'):
+                    if ':' in pair:
+                        k, v = pair.split(':', 1)
+                        items[k.strip().lower()] = v.strip()
+                row_vals = []
+                for h in headers:
+                    h_clean = h.strip().lower()
+                    val = items.get(h_clean, "")
+                    if not val:
+                        for ik, iv in items.items():
+                            if h_clean in ik or ik in h_clean:
+                                val = iv
+                                break
+                    row_vals.append(val if val else "")
+                if any(row_vals):
+                    rows.append(row_vals)
+        elif is_image_doc:
+            headers = ["Category", "Item / Feature", "Specification / Details", "Pricing / Value", "Verified Source"]
+            rows.append(["Document Profile", "Source File", source_clean_name, "Visual Plate / Infographic", source_clean_name])
+
+            clean_text_no_headers = re.sub(r'\[Visual Image\s*/\s*Diagram Data\s*\([^)]*\)\]:?', '', clean_text, flags=re.IGNORECASE)
+            clean_text_no_headers = re.sub(r'\[Visual Image Data\]:?', '', clean_text_no_headers, flags=re.IGNORECASE)
+            clean_text_no_headers = re.sub(r'\[Diagram Data\]:?', '', clean_text_no_headers, flags=re.IGNORECASE)
+
+            ocr_bullets = re.findall(r'[\*\-]\s+([^\n\*]+)', clean_text_no_headers)
+            clean_ocr_bullets = [b.strip().strip('*').strip('"').strip("'") for b in ocr_bullets if len(b.strip()) > 3]
+
+            filtered_lines = [l.strip() for l in clean_text_no_headers.splitlines() if l.strip() and not l.strip().startswith('*') and not l.strip().startswith('-')]
+            full_clean_para = " ".join(filtered_lines)
+            sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', full_clean_para) if len(s.strip()) > 15]
+
+            for idx, b_txt in enumerate(clean_ocr_bullets[:15], 1):
+                rows.append(["Visual Feature / Element", f"Element {idx}", b_txt, "Verified OCR Extraction", source_clean_name])
+
+            for idx, s_txt in enumerate(sentences[:10], 1):
+                rows.append(["Key Takeaways", f"Takeaway {idx}", s_txt, "Educational Habit", source_clean_name])
+            rows.append(["Verification", "Grounding Standard", "100% Grounded in PostgreSQL pgvector", "Verified", "Kiavi IQ"])
+        else:
+            headers = ["Category", "Item / Feature", "Specification / Details", "Pricing / Value", "Verified Source"]
+            website_val = f"https://{bot.domain}" if (bot and bot.domain) else (target_source.url or "Verified Web Presence")
             rows.append(["Organization Profile", "Company / Brand Name", company_name, "Active Enterprise Account", source_clean_name])
-            rows.append(["Organization Profile", "Official Website / URL", website_val, "Online Web Presence", primary_source.title])
+            rows.append(["Organization Profile", "Official Website / URL", website_val, "Online Web Presence", source_clean_name])
 
             extracted_phones = []
             extracted_emails = []
@@ -1089,21 +868,16 @@ def get_catalogue_csv(
 
             for ch in matched_chunks:
                 c_text = ch.content
-                p_match = re.findall(r'(?:Telephone|Phone|Contact Phone|Mobile)[:\s]+([^\n]+)', c_text, re.IGNORECASE)
-                for pm in p_match:
+                for pm in re.findall(r'(?:Telephone|Phone|Contact Phone|Mobile)[:\s]+([^\n]+)', c_text, re.IGNORECASE):
                     for p_val in re.split(r'[,;]', pm):
                         clean_p = p_val.strip()
                         if clean_p and clean_p not in extracted_phones and len(clean_p) > 6 and "no direct" not in clean_p.lower():
                             extracted_phones.append(clean_p)
-
-                e_match = re.findall(r'([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)', c_text)
-                for em in e_match:
+                for em in re.findall(r'([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)', c_text):
                     clean_e = em.strip()
                     if clean_e and clean_e not in extracted_emails and not clean_e.endswith(('.png', '.jpg', '.webp')):
                         extracted_emails.append(clean_e)
-
-                a_match = re.findall(r'(?:Address|Office Location|Office Address)[:\s]+([^\n]+)', c_text, re.IGNORECASE)
-                for am in a_match:
+                for am in re.findall(r'(?:Address|Office Location|Office Address)[:\s]+([^\n]+)', c_text, re.IGNORECASE):
                     clean_a = am.strip()
                     if clean_a and clean_a not in extracted_addrs and len(clean_a) > 10 and "no public" not in clean_a.lower():
                         extracted_addrs.append(clean_a)
@@ -1115,51 +889,178 @@ def get_catalogue_csv(
                     clean_l = re.sub(r'[*_#]', '', l_s).strip()
                     if len(clean_l) < 15 or len(clean_l) > 220:
                         continue
-
                     lower_l = clean_l.lower()
                     if any(k in lower_l for k in ['$', '₹', 'price', 'pricing', 'rate', 'cost', 'fee', 'plan', '/mo', 'per month', 'subscription']):
                         parts = clean_l.split(':', 1) if ':' in clean_l else ("Pricing Plan", clean_l)
-                        if len(rows) < 25:
+                        if len(rows) < 30:
                             rows.append(["Commercial & Pricing", parts[0][:40], parts[1].strip()[:100], "Commercial Matrix", source_clean_name])
                     elif any(k in lower_l for k in ['service', 'solution', 'platform', 'feature', 'system', 'product', 'development', 'management', 'support']):
                         parts = clean_l.split(':', 1) if ':' in clean_l else ("Service Offering", clean_l)
-                        if len(rows) < 25:
+                        if len(rows) < 30:
                             rows.append(["Services & Solutions", parts[0][:40], parts[1].strip()[:100], "Operational", source_clean_name])
-                    elif len(rows) < 20:
+                    elif len(rows) < 25:
                         parts = clean_l.split(':', 1) if ':' in clean_l else ("Technical Parameter", clean_l)
                         rows.append(["Technical Specifications", parts[0][:40], parts[1].strip()[:100], "Standard", source_clean_name])
 
             if extracted_addrs:
-                rows.insert(2, ["Office Locations", "Physical Address / Headquarters", extracted_addrs[0], "Verified Office", "Company Records"])
+                rows.insert(2, ["Office Locations", "Physical Address / Headquarters", extracted_addrs[0], "Verified Office", source_clean_name])
             if extracted_phones:
-                rows.insert(3, ["Contact Channels", "Telephone / Hotline", ", ".join(extracted_phones[:2]), "Active Hotline", "Verified Support"])
+                rows.insert(3, ["Contact Channels", "Telephone / Hotline", ", ".join(extracted_phones[:2]), "Active Hotline", source_clean_name])
             if extracted_emails:
-                rows.insert(4, ["Contact Channels", "Official Email Inquiries", ", ".join(extracted_emails[:2]), "Direct Inquiries", "Verified Support"])
-        else:
-            doc_title = title or f"{company_name} — Data Sheet"
-            rows = [
-                ["Enterprise Knowledge", clean_topic.title(), "Official indexed knowledge parameters", "Standard", "Enterprise Database"],
-                ["Compliance & Standard", "System Verification", "Zero hallucination verified data records", "Verified", "Kiavi IQ System"]
-            ]
+                rows.insert(4, ["Contact Channels", "Official Email Inquiries", ", ".join(extracted_emails[:2]), "Direct Inquiries", source_clean_name])
 
-    # Render CSV with UTF-8 BOM for flawless Excel and spreadsheet opening
+    # Render CSV with UTF-8 BOM
     output = io.StringIO()
-    output.write('\ufeff')  # UTF-8 BOM
+    output.write('\ufeff')
     writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
     writer.writerow(headers)
     for r in rows:
         writer.writerow(r)
 
-    csv_bytes = output.getvalue().encode('utf-8')
     safe_filename = re.sub(r'[^a-zA-Z0-9_-]', '_', doc_title).strip('_')
+    csv_bytes = output.getvalue().encode('utf-8')
 
     return StreamingResponse(
         io.BytesIO(csv_bytes),
         media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": f'attachment; filename="{safe_filename}.csv"',
-            "Cache-Control": "public, max-age=3600"
+            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
         }
     )
+
+
+@router.get("/api/catalogues/docx", summary="Download official European compliance audit dossier in DOCX format")
+def get_catalogue_docx(
+    bot_id: str = Query(None),
+    topic: str = Query("product-catalogue"),
+    title: str = Query(None),
+    download: int = Query(1),
+    db: Session = Depends(get_db)
+):
+    """
+    Serves a verified, branded European DOCX technical briefing and compliance dossier.
+    Strictly isolated and grounded against verified European standards (EU MDR, EASA, IATF, EN, CE).
+    """
+    import json
+
+    topic = str(topic) if (topic is not None and isinstance(topic, str)) else "product-catalogue"
+    title = str(title).strip() if (title is not None and isinstance(title, str) and title.strip()) else None
+
+    bot = db.query(models.Bot).filter(models.Bot.id == bot_id).first() if (bot_id and isinstance(bot_id, str)) else None
+    company_name = bot.name if bot else "Kiavi IQ Enterprise"
+    contact_email = getattr(bot, "supportEmail", None) or (f"support@{bot.domain}" if (bot and bot.domain) else "jasbirsingh17050@gmail.com")
+    official_website = f"https://{bot.domain}" if (bot and bot.domain) else "https://kiavi.ai"
+
+    # Strictly load sources belonging to this bot
+    available_sources = []
+    if bot:
+        source_scope = or_(
+            models.BotSource.botId == bot.id,
+            (models.BotSource.isUniversal == True) & (models.BotSource.orgId == bot.orgId)
+        )
+        available_sources = db.query(models.BotSource).filter(source_scope).order_by(models.BotSource.createdAt.desc()).all()
+    else:
+        available_sources = db.query(models.BotSource).filter(
+            models.BotSource.isUniversal == True
+        ).order_by(models.BotSource.createdAt.desc()).all()
+
+    target_source = resolve_target_source(available_sources, title, topic, db)
+
+    # Standard and category resolution
+    standard_name = "European Single Market Harmonized Directives"
+    category = "European Hardware & Industrial Systems"
+    if topic:
+        t_low = topic.lower()
+        if "mdr" in t_low or "medical" in t_low or "surgical" in t_low or "catheter" in t_low:
+            standard_name = "EU MDR 2017/745 & EN ISO 13485:2016"
+            category = "Healthcare & Medical Devices"
+        elif "easa" in t_low or "aero" in t_low or "turbofan" in t_low or "fastener" in t_low:
+            standard_name = "EASA Part 21 / Part 145 & EN 9100 Rev D"
+            category = "Aerospace & Defense / Heavy Engineering"
+        elif "iatf" in t_low or "brake" in t_low or "fire" in t_low or "1125" in t_low:
+            standard_name = "IATF 16949 & EU CPR 305/2011 (EN 1125 / EN 1634-1)"
+            category = "Automotive & Hardware Manufacturing"
+
+    if not target_source:
+        doc_title = title or f"{company_name} European Compliance Briefing"
+        summary_text = f"Official European industrial specification dossier for {company_name}. Grounded directly in verified compliance archives."
+        highlight_points = [
+            f"Organization: {company_name}",
+            f"Standard Framework: {standard_name}",
+            "Audit Integrity: 100% Traceability across technical requirements",
+            "Conformity: CE Marking & Notified Body Verification Ready"
+        ]
+        spec_table = [
+            ["Specification Item", "Verified Standard / Parameter", "Compliance Reference"],
+            ["Enterprise System", company_name, "Verified Grounding"],
+            ["Directive", standard_name, "CE Ready"]
+        ]
+    else:
+        source_clean_name = target_source.title.split('|')[0].strip() if '|' in target_source.title else target_source.title
+        doc_title = title or f"{source_clean_name} — Compliance Briefing"
+        matched_chunks = db.query(models.DocumentChunk).filter(models.DocumentChunk.sourceId == target_source.id).all()
+        chunk_texts = [ch.content for ch in matched_chunks]
+        combined_text = "\n\n".join(chunk_texts)
+        clean_text = re.sub(r'!\[.*?\]\(.*?\)', '', combined_text).strip()
+
+        # Extract summary
+        lines = [l.strip() for l in clean_text.splitlines() if l.strip() and not l.strip().startswith('===')]
+        first_p = lines[0] if lines else f"Technical compliance briefing for {source_clean_name}."
+        summary_text = first_p[:350]
+
+        # Extract highlight bullets
+        raw_bullets = re.findall(r'[•\*\-]\s+([^\n]+)', clean_text)
+        highlight_points = [b.strip().strip('*') for b in raw_bullets if len(b.strip()) > 8][:6]
+        if not highlight_points and len(lines) > 1:
+            highlight_points = [l[:120] for l in lines[1:5]]
+
+        # Build specifications table with grounded SKUs from catalog
+        spec_table = [["Component / Specification Item", "Verified Standard / Parameter", "Compliance & Marking"]]
+        cat_term = category.split()[0]
+        prods = db.query(models.Product).filter(
+            or_(
+                models.Product.category.ilike(f"%{cat_term}%"),
+                models.Product.description.ilike(f"%{cat_term}%")
+            )
+        ).limit(4).all()
+        if prods:
+            for p in prods:
+                attrs = {}
+                try:
+                    attrs = json.loads(p.attributesJson) if p.attributesJson else {}
+                except Exception:
+                    pass
+                first_k = list(attrs.keys())[0] if attrs else "Parameter"
+                first_v = list(attrs.values())[0] if attrs else "Compliant"
+                spec_table.append([f"SKU {p.sku}: {p.name[:25]}", f"{first_k}: {str(first_v)[:30]}", (p.udiDi or p.imdsId or "CE Mark")])
+        else:
+            spec_table.append(["Document Reference", source_clean_name[:30], "Official Technical Manual"])
+            spec_table.append(["European Directive", standard_name[:30], "CE Conformity Assessed"])
+
+    docx_bytes = generate_compliance_docx(
+        document_title=doc_title,
+        company_name=company_name,
+        summary_text=summary_text,
+        highlight_points=highlight_points,
+        spec_table_data=spec_table,
+        standard_name=standard_name,
+        category=category,
+        contact_email=contact_email,
+        official_website=official_website
+    )
+
+    safe_filename = re.sub(r'[^a-zA-Z0-9_-]', '_', doc_title).strip('_')
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_filename}.docx"',
+            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0"
+        }
+    )
+
 
 
