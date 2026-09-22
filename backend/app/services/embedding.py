@@ -19,6 +19,13 @@ except Exception as e:
     logger.warning(f"⚠️ Warning: Could not load SentenceTransformer ({e}). Using deterministic fallback vector generator.")
     embedding_model = None
 
+try:
+    import torch
+    num_threads = min(4, os.cpu_count() or 4)
+    torch.set_num_threads(num_threads)
+except Exception:
+    pass
+
 def get_embedding(text: str) -> List[float]:
     """Generates 384-dimensional vector embedding"""
     if embedding_model is not None:
@@ -34,13 +41,18 @@ def get_embedding(text: str) -> List[float]:
     norm = np.linalg.norm(vec)
     return (vec / norm).tolist() if norm > 0 else vec.tolist()
 
-def get_embeddings_batch(texts: List[str]) -> List[List[float]]:
-    """Generates 384-dimensional vector embeddings for a batch of texts rapidly"""
+def get_embeddings_batch(texts: List[str], batch_size: int = 128) -> List[List[float]]:
+    """Generates 384-dimensional vector embeddings for a batch of texts rapidly using optimized multi-threaded batches"""
     if not texts:
         return []
     if embedding_model is not None:
         try:
-            vectors = embedding_model.encode(texts, batch_size=64, show_progress_bar=False)
+            try:
+                import torch
+                torch.set_num_threads(min(4, os.cpu_count() or 4))
+            except Exception:
+                pass
+            vectors = embedding_model.encode(texts, batch_size=batch_size, show_progress_bar=False)
             return [v.tolist() for v in vectors]
         except Exception as e:
             logger.error(f"Batch embedding encode error: {e}, falling back to single.")

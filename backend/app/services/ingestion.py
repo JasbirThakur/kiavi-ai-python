@@ -17,7 +17,7 @@ def ocr_image_with_vision(image_bytes: bytes, mime_type: str = "image/png") -> s
         from app.config.settings import NVIDIA_API_KEY, NVIDIA_BASE_URL
         if NVIDIA_API_KEY and not NVIDIA_API_KEY.startswith("your_"):
             b64 = base64.b64encode(image_bytes).decode("utf-8")
-            client = OpenAI(base_url=NVIDIA_BASE_URL, api_key=NVIDIA_API_KEY, timeout=12.0)
+            client = OpenAI(base_url=NVIDIA_BASE_URL, api_key=NVIDIA_API_KEY, timeout=4.0)
             resp = client.chat.completions.create(
                 model="meta/llama-3.2-11b-vision-instruct",
                 messages=[
@@ -67,42 +67,57 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
     # 1. Native Digital PDF Extraction
     try:
         reader = PdfReader(io.BytesIO(file_bytes), strict=False)
-        total_ocr_images = 0
         for page_idx, page in enumerate(reader.pages):
+            page_components = []
             try:
                 page_text = page.extract_text() or ""
+                if page_text.strip():
+                    page_components.append(page_text.strip())
             except Exception as pe:
                 print(f"[PDF Page {page_idx+1} Extract Error]: {pe}")
-                page_text = ""
 
-            # Check for embedded diagrams only if page text is very sparse (< 150 chars) and cap total to 2
-            # Only process substantial images (> 25KB) to avoid decorative icons/dividers
-            if hasattr(page, "images") and page.images and total_ocr_images < 2 and len(page_text.strip()) < 150:
-                for img_idx, img_obj in enumerate(page.images):
-                    if total_ocr_images >= 2:
-                        break
-                    try:
-                        img_bytes = getattr(img_obj, "data", None)
-                        if img_bytes and len(img_bytes) > 25000:
-                            total_ocr_images += 1
-                            img_hash = hashlib.md5(img_bytes).hexdigest()[:12]
-                            diag_filename = f"diag_p{page_idx + 1}_{img_idx + 1}_{img_hash}.png"
-                            diag_path = DIAG_DIR / diag_filename
-                            if not diag_path.exists():
-                                diag_path.write_bytes(img_bytes)
+            has_direct_text = bool(page_text and len(page_text.strip()) > 40)
 
-                            diag_text = ocr_image_with_vision(img_bytes)
-                            img_url = f"/static/extracted_diagrams/{diag_filename}"
-                            caption = f"Figure {page_idx + 1}.{img_idx + 1}"
-                            if diag_text and len(diag_text) > 15:
-                                page_text += f"\n\n![{caption}]({img_url})\n[Diagram / Visual Plate {page_idx + 1}.{img_idx + 1} Data]:\n{diag_text}"
+            # Extract embedded images and diagrams from this page (Fast & non-blocking)
+            try:
+                if hasattr(page, 'images') and page.images:
+                    figures_saved = 0
+                    for img_idx, img_file in enumerate(page.images):
+                        if figures_saved >= 3:
+                            break
+                        raw_bytes = img_file.data
+                        # Diagram/Schematic filter: must be substantive (>15KB)
+                        if len(raw_bytes) > 15360:
+                            img_hash = hashlib.md5(raw_bytes).hexdigest()[:12]
+                            ext = img_file.name.split(".")[-1].lower() if "." in img_file.name else "png"
+                            if ext not in ["png", "jpg", "jpeg", "webp"]:
+                                ext = "png"
+                            img_filename = f"diag_p{page_idx+1}_{img_idx+1}_{img_hash}.{ext}"
+                            img_path = DIAG_DIR / img_filename
+                            if not img_path.exists():
+                                img_path.write_bytes(raw_bytes)
+                            img_url = f"/static/extracted_diagrams/{img_filename}"
+                            caption = f"Figure {page_idx+1}.{img_idx+1}"
+
+                            # If page already has rich digital text, directly attach the visual markdown
+                            # Only call OCR if page has NO text at all (pure image page)
+                            if not has_direct_text:
+                                ocr_text = ocr_image_with_vision(raw_bytes, f"image/{ext}")
+                                diag_block = (
+                                    f"![{caption}]({img_url})\n"
+                                    f"[Diagram / Visual Plate {page_idx+1}.{img_idx+1} Data]:\n{ocr_text}"
+                                    if ocr_text else f"![{caption}]({img_url})"
+                                )
                             else:
-                                page_text += f"\n\n![{caption}]({img_url})"
-                    except Exception as diag_err:
-                        print(f"[Diagram OCR Warning]: {diag_err}")
+                                diag_block = f"![{caption}]({img_url})"
 
-            if page_text.strip():
-                extracted_text.append(page_text.strip())
+                            page_components.append(diag_block)
+                            figures_saved += 1
+            except Exception:
+                pass
+
+            if page_components:
+                extracted_text.append("\n\n".join(page_components))
 
         # 2. Scanned PDF Fallback (if direct text was completely empty or extremely short)
         if sum(len(t) for t in extracted_text) < 50:

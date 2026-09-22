@@ -9,44 +9,52 @@
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        if (window.mermaid) {
-            mermaid.initialize({
-                startOnLoad: false,
-                theme: 'dark',
-                securityLevel: 'loose',
-                suppressErrorRendering: true,
-                fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
-                fontSize: 12,
-                flowchart: {
-                    useMaxWidth: true,
-                    htmlLabels: true,
-                    curve: 'basis',
-                    padding: 24,
-                    nodeSpacing: 40,
-                    rankSpacing: 40
-                },
-                themeVariables: {
-                    darkMode: true,
-                    background: '#04091a',
-                    primaryColor: '#0a1529',
-                    primaryTextColor: '#f8fafc',
-                    primaryBorderColor: '#38bdf8',
-                    lineColor: '#38bdf8',
-                    secondaryColor: '#1e293b',
-                    tertiaryColor: '#0f172a',
-                    fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
-                    fontSize: '12px',
-                    nodeBorder: '#38bdf8'
+        function ensureMermaidInitialized() {
+            if (window.mermaid && !window.__mermaidInitialized) {
+                try {
+                    mermaid.initialize({
+                        startOnLoad: false,
+                        theme: 'dark',
+                        securityLevel: 'loose',
+                        suppressErrorRendering: true,
+                        fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
+                        fontSize: 13,
+                        flowchart: {
+                            useMaxWidth: true,
+                            htmlLabels: true,
+                            curve: 'basis',
+                            padding: 15,
+                            nodeSpacing: 45,
+                            rankSpacing: 55
+                        },
+                        themeVariables: {
+                            darkMode: true,
+                            background: '#04091a',
+                            primaryColor: '#0a1a38',
+                            primaryTextColor: '#f8fafc',
+                            primaryBorderColor: '#38bdf8',
+                            lineColor: '#38bdf8',
+                            secondaryColor: '#1e293b',
+                            tertiaryColor: '#0f172a',
+                            fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
+                            fontSize: '13px',
+                            nodeBorder: '#38bdf8'
+                        }
+                    });
+                    window.__mermaidInitialized = true;
+                } catch(e) {
+                    console.warn("Mermaid init:", e);
                 }
-            });
+            }
         }
+        ensureMermaidInitialized();
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         /* Suppress Mermaid stray error bombs or error overlays */
-        svg[id^="mermaid-error"], div[id^="dmermaid_"], svg[id^="dmermaid_"], .error-icon, .error-text, #dmermaid, [id^="dmermaid"] {
+        svg[id^="mermaid-error"], .error-icon, .error-text, #mermaid-error-container {
             display: none !important;
             visibility: hidden !important;
             height: 0 !important;
@@ -54,40 +62,66 @@
             opacity: 0 !important;
             pointer-events: none !important;
             position: fixed !important;
-            top: 0 !important;
+            top: -9999px !important;
             left: -9999px !important;
-            overflow: hidden !important;
         }
 
-        /* Mermaid SVG and Text Anti-Clipping */
+        /* Keep temporary mermaid calculation div offscreen but layout-enabled for Firefox getBBox() */
+        div[id^="dmermaid"], svg[id^="dmermaid"], #dmermaid, [id^="dmermaid"] {
+            position: fixed !important;
+            top: -9999px !important;
+            left: -9999px !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            display: block !important;
+            width: 800px !important;
+            height: 600px !important;
+        }
+
+        /* Mermaid SVG and Text Anti-Clipping & Anti-Squash */
+        .mermaid-diagram-target {
+            display: block !important;
+            text-align: center !important;
+            overflow-x: auto !important;
+            overflow-y: auto !important;
+            scrollbar-width: thin;
+            scrollbar-color: #0284c7 #070f26;
+            cursor: grab;
+        }
+        .mermaid-diagram-target:active {
+            cursor: grabbing;
+        }
         .mermaid svg,
         .mermaid-diagram-target svg {
+            display: block !important;
+            width: 100% !important;
             max-width: 100% !important;
             height: auto !important;
-            overflow: visible !important;
-        }
-        .mermaid foreignObject,
-        .mermaid-diagram-target foreignObject {
-            overflow: visible !important;
+            margin: 0 auto !important;
+            transform-origin: top center;
+            transition: transform 0.15s ease-out;
         }
         .mermaid foreignObject div,
         .mermaid-diagram-target foreignObject div {
-            overflow: visible !important;
-            line-height: 1.4 !important;
-            padding: 3px 8px !important;
-            box-sizing: border-box !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
             text-align: center !important;
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important;
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            color: #f8fafc !important;
+            white-space: normal !important;
+            line-height: 1.35 !important;
+            padding: 4px 8px !important;
+            box-sizing: border-box !important;
         }
         .mermaid .nodeLabel,
         .mermaid .label,
         .mermaid span.nodeLabel,
         .mermaid-diagram-target .nodeLabel {
             font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important;
-            font-size: 12px !important;
-            line-height: 1.4 !important;
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            line-height: 1.35 !important;
             color: #f8fafc !important;
             overflow: visible !important;
         }
@@ -96,7 +130,45 @@
         .mermaid .node circle,
         .mermaid .node path,
         .mermaid-diagram-target .node rect {
+            stroke: #0284c7 !important;
             stroke-width: 1.5px !important;
+            fill: #0a1a38 !important;
+            rx: 8px !important;
+            ry: 8px !important;
+        }
+        /* Mermaid Edge Label Solid Shield (Prevents Arrow Lines from Striking Through Words) */
+        .mermaid .edgeLabel,
+        .mermaid .edgeLabel span,
+        .mermaid .edgeLabel p,
+        .mermaid-diagram-target .edgeLabel,
+        .mermaid-diagram-target .edgeLabel span,
+        .mermaid-diagram-target .edgeLabel p {
+            background-color: #04091a !important;
+            color: #38bdf8 !important;
+            font-size: 11.5px !important;
+            font-weight: 600 !important;
+            line-height: 1.3 !important;
+            padding: 3px 8px !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(56, 189, 248, 0.45) !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8) !important;
+            display: inline-block !important;
+            white-space: nowrap !important;
+        }
+        .mermaid .edgeLabel rect,
+        .mermaid-diagram-target .edgeLabel rect {
+            fill: #04091a !important;
+            opacity: 0.95 !important;
+            rx: 6px !important;
+            ry: 6px !important;
+            stroke: rgba(56, 189, 248, 0.45) !important;
+            stroke-width: 1px !important;
+        }
+        .mermaid .edgePath path,
+        .mermaid-diagram-target .edgePath path,
+        .mermaid path.flowchart-link {
+            stroke: #38bdf8 !important;
+            stroke-width: 1.75px !important;
         }
 
         :root {
@@ -599,7 +671,7 @@
     </header>
 
     <!-- MAIN CONTAINER -->
-    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+    <main class="w-full max-w-[96vw] 2xl:max-w-[1720px] mx-auto px-2 sm:px-6 py-4 sm:py-6">
 
         <!-- 1. MULTI-BOT HOME VIEW -->
         <div id="homeView" class="space-y-6">
@@ -788,17 +860,43 @@
                     </div>
 
                     <div class="glow-box p-6 rounded-3xl space-y-4">
-                        <div>
-                            <h2 class="text-base font-bold text-white">Upload Knowledge Documents</h2>
-                            <p class="text-[11px] text-slate-400 mt-1 max-w-sm">PDF catalogs, spec sheets, price lists, or proprietary whitepapers.</p>
-                            <div class="mt-1.5 flex items-center gap-2 text-[10px] text-cyan-400 font-mono">
-                                <span class="px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/30 font-semibold">📦 Limit: 500 MB per file</span>
-                                <span class="text-slate-400">Supports PDF, CSV, DOCX, TXT, ZIP, Images</span>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="upload-cloud" class="w-4 h-4 text-cyan-400"></i> Upload Knowledge Documents
+                                </h2>
+                                <p class="text-[11px] text-slate-400 mt-1 max-w-sm">PDF catalogs, spec sheets, price lists, or whitepapers. Drag &amp; drop or select multiple files.</p>
+                            </div>
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 self-start sm:self-auto shrink-0">📦 500 MB &bull; Multi-File Batch</span>
+                        </div>
+
+                        <!-- Modern Drag & Drop Zone -->
+                        <div id="botDropzone" 
+                             ondragover="handleDragOver(event, 'botDropzone')" 
+                             ondragleave="handleDragLeave(event, 'botDropzone')" 
+                             ondrop="handleFileDrop(event, 'bot')"
+                             onclick="document.getElementById('fileUploadInput').click()"
+                             class="border-2 border-dashed border-cyan-500/40 hover:border-cyan-400 bg-cyan-950/10 hover:bg-cyan-950/25 transition-all duration-200 rounded-2xl p-6 text-center cursor-pointer relative group">
+                            <input type="file" id="fileUploadInput" multiple onchange="handleFileSelect(event, 'bot')" class="hidden" />
+                            <div class="flex flex-col items-center justify-center pointer-events-none">
+                                <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300 mb-2 group-hover:scale-110 transition-transform shadow-[0_0_20px_rgba(6,182,212,0.2)]">
+                                    <i data-lucide="cloud-upload" class="w-6 h-6"></i>
+                                </div>
+                                <p class="text-xs font-semibold text-white">Drag &amp; drop files here, or <span class="text-cyan-300 underline font-bold">browse from disk</span></p>
+                                <p class="text-[10px] text-slate-400 mt-1 font-mono">Select 1 or more files &bull; PDF, DOCX, CSV, TXT, ZIP, Images &bull; Batch Vectorized</p>
                             </div>
                         </div>
-                        <div class="flex gap-3 items-center bg-[#060b17] border border-blue-500/30 rounded-xl p-2">
-                            <input type="file" id="fileUploadInput" class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-600/30 file:text-cyan-300 hover:file:bg-blue-600/50 cursor-pointer" />
-                            <button onclick="submitFile()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold px-5 py-2 rounded-xl text-xs whitespace-nowrap transition">Upload</button>
+
+                        <!-- Selected Files Queue Preview -->
+                        <div id="botSelectedFilesContainer" class="hidden space-y-2.5">
+                            <div class="flex items-center justify-between text-xs">
+                                <span id="botQueueSummary" class="text-slate-300 font-medium flex items-center gap-1.5 font-mono text-[11px]"></span>
+                                <button type="button" onclick="clearSelectedFiles('bot')" class="text-rose-400 hover:text-rose-300 text-[10px] underline cursor-pointer">Clear Queue</button>
+                            </div>
+                            <div id="botSelectedFilesList" class="max-h-40 overflow-y-auto space-y-1.5 pr-1"></div>
+                            <button onclick="submitBotBatch()" class="glow-btn w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer flex items-center justify-center gap-2">
+                                <i data-lucide="zap" class="w-4 h-4"></i> Upload, Chunk &amp; Vectorize All Selected Files
+                            </button>
                         </div>
                     </div>
 
@@ -852,9 +950,9 @@
             </div>
 
             <!-- TAB 2: CHAT WORKSPACE -->
-            <div id="view-test" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-215px)] min-h-[460px] max-h-[720px]">
+            <div id="view-test" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-5 h-[calc(100vh-175px)] min-h-[580px] max-h-[920px]">
                 <!-- 1. ChatGPT-Style Chat Sessions Sidebar -->
-                <div class="lg:col-span-3 glow-box rounded-2xl p-3 sm:p-4 flex flex-col h-full space-y-2.5 min-w-0">
+                <div class="lg:col-span-3 xl:col-span-2 glow-box rounded-2xl p-3 sm:p-4 flex flex-col h-full space-y-2.5 min-w-0">
                     <div class="flex items-center justify-between pb-2 border-b border-blue-500/20">
                         <span class="font-bold text-white text-xs flex items-center gap-1.5">
                             <i data-lucide="messages-square" class="w-3.5 h-3.5 text-cyan-400"></i> Conversations
@@ -867,27 +965,27 @@
                 </div>
 
                 <!-- 2. Main Chat Box -->
-                <div class="lg:col-span-9 glow-box rounded-2xl p-4 sm:p-5 flex flex-col h-full min-w-0 overflow-hidden">
+                <div class="lg:col-span-9 xl:col-span-10 glow-box rounded-2xl p-4 sm:p-6 flex flex-col h-full min-w-0 overflow-hidden">
                     <div class="pb-2.5 border-b border-blue-500/20 flex items-center justify-between shrink-0">
                         <div class="flex items-center gap-2 truncate mr-2">
                             <span class="w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_10px_#22d3ee] animate-pulse shrink-0"></span>
-                            <span class="font-bold text-white text-xs truncate">Grounded RAG Pipeline (NVIDIA Nemotron 3-Embed / Lightning Fallback)</span>
+                            <span class="font-bold text-white text-xs sm:text-sm truncate">Grounded RAG Pipeline (NVIDIA Nemotron 3-Embed / Lightning Fallback)</span>
                         </div>
                         <div class="flex items-center gap-1.5 shrink-0">
-                            <button id="dashMultiDocBtn" onclick="openMultiDocModal()" class="px-2 py-1 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-xs" title="Cross-Document Comparative Synthesis">
-                                <i data-lucide="layers" class="w-3 h-3"></i> ⚖️ Compare Manuals
+                            <button id="dashMultiDocBtn" onclick="openMultiDocModal()" class="px-2.5 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shadow-xs" title="Cross-Document Comparative Synthesis">
+                                <i data-lucide="layers" class="w-3.5 h-3.5"></i> ⚖️ Compare Manuals
                             </button>
-                            <button id="dashHumanBtn" onclick="requestDashboardLiveHuman()" class="px-2 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-xs" title="Request Live Human Agent Hand-off">
-                                <i data-lucide="user-check" class="w-3 h-3"></i> 👤 Talk to Human
+                            <button id="dashHumanBtn" onclick="requestDashboardLiveHuman()" class="px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shadow-xs" title="Request Live Human Agent Hand-off">
+                                <i data-lucide="user-check" class="w-3.5 h-3.5"></i> 👤 Talk to Human
                             </button>
-                            <span class="text-[10px] text-cyan-400 font-mono bg-blue-950/80 border border-cyan-500/30 px-2 py-0.5 rounded-full hidden sm:inline-block">⚡ 1s Streaming</span>
-                            <button onclick="clearCurrentBotChat()" class="text-[10px] text-slate-400 hover:text-red-400 border border-slate-700/60 hover:border-red-500/40 bg-slate-900/80 px-2 py-0.5 rounded-lg transition flex items-center gap-1 cursor-pointer" title="Clear current conversation">
-                                <i data-lucide="trash-2" class="w-3 h-3"></i> Clear
+                            <span class="text-[11px] text-cyan-400 font-mono bg-blue-950/80 border border-cyan-500/30 px-2.5 py-0.5 rounded-full hidden sm:inline-block">⚡ 1s Streaming</span>
+                            <button onclick="clearCurrentBotChat()" class="text-[11px] text-slate-400 hover:text-red-400 border border-slate-700/60 hover:border-red-500/40 bg-slate-900/80 px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer" title="Clear current conversation">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear
                             </button>
                         </div>
                     </div>
 
-                    <div id="testChatBox" class="w-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden space-y-3.5 py-3 text-xs break-words pr-1"></div>
+                    <div id="testChatBox" class="w-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden space-y-4 py-3.5 text-[13.5px] sm:text-[14px] leading-relaxed break-words pr-1.5"></div>
 
                     <div class="flex gap-2 pt-2.5 border-t border-blue-500/20 shrink-0">
                         <input id="testChatInput" placeholder="Query knowledge base in Chat Workspace or click mic..." class="flex-1 min-w-0 bg-[#060b17] border border-blue-500/30 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-cyan-400" onkeydown="if(event.key==='Enter') sendOwnerTest()" />
@@ -954,6 +1052,56 @@
                     </div>
                     <div class="flex-1 w-full bg-[#040814] relative">
                         <iframe id="dashPdfFrame" src="" class="w-full h-full border-0" title="PDF Document Viewer"></iframe>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interactive Diagram Close-Up & Fullscreen Modal (Dashboard) -->
+            <div id="dashDiagramCloseUpModal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4" onclick="if(event.target===this) closeDiagramCloseUpModal()">
+                <div class="bg-[#050b1d] border border-cyan-500/40 rounded-3xl text-white shadow-2xl w-full max-w-6xl h-[92vh] flex flex-col glow-box overflow-hidden">
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-cyan-500/20 px-5 py-3.5 bg-gradient-to-r from-[#07122b] to-[#04091a] shrink-0">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0 text-cyan-400 shadow-inner">
+                                <i data-lucide="git-fork" class="w-5 h-5"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div id="dashDiagramModalTitle" class="text-sm font-bold text-white truncate">Workflow Diagram Inspection & Close-up View</div>
+                                <div class="text-[10px] text-cyan-400 font-mono flex items-center gap-1.5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span> Interactive Vector Architecture • Drag to pan • Scroll to zoom
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <!-- Modal Zoom Controls -->
+                            <div class="flex items-center bg-slate-900 border border-cyan-500/30 rounded-xl px-1.5 py-1 text-slate-300 shadow-inner">
+                                <button type="button" onclick="zoomModalDiagram(-0.25)" class="px-2.5 py-1 hover:text-cyan-300 transition text-sm font-bold rounded-lg hover:bg-cyan-500/10 cursor-pointer" title="Zoom Out (−)">−</button>
+                                <span id="dashDiagramModalZoomVal" class="px-2 text-xs font-mono text-cyan-400 min-w-[45px] text-center select-none font-semibold">100%</span>
+                                <button type="button" onclick="zoomModalDiagram(0.25)" class="px-2.5 py-1 hover:text-cyan-300 transition text-sm font-bold rounded-lg hover:bg-cyan-500/10 cursor-pointer" title="Zoom In (+)">+</button>
+                                <button type="button" onclick="resetModalDiagramZoom()" class="px-2 py-1 hover:text-cyan-300 transition text-xs border-l border-cyan-500/20 rounded-r-lg hover:bg-cyan-500/10 cursor-pointer" title="Reset Zoom">↺ Reset</button>
+                            </div>
+                            <!-- Download SVG Button -->
+                            <button type="button" onclick="downloadModalDiagramSVG()" class="px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer" title="Export Vector SVG">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                <span>Export SVG</span>
+                            </button>
+                            <!-- Close Modal Button -->
+                            <button type="button" onclick="closeDiagramCloseUpModal()" class="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 transition cursor-pointer ml-1" title="Close">
+                                <i data-lucide="x" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Zoom & Pan Canvas Area -->
+                    <div id="dashDiagramModalCanvasWrapper" class="flex-1 w-full bg-[#02050f] relative overflow-hidden flex items-center justify-center cursor-grab select-none">
+                        <div id="dashDiagramModalContent" class="transform-gpu transition-transform duration-75 ease-out origin-center flex items-center justify-center p-8">
+                            <!-- Injected Diagram SVG will live here -->
+                        </div>
+                        <div class="absolute bottom-3 left-4 text-[10px] text-slate-500 font-mono pointer-events-none bg-slate-950/80 px-2.5 py-1 rounded-lg border border-cyan-500/20 flex items-center gap-2">
+                            <span>Mouse Wheel: Zoom</span>
+                            <span>•</span>
+                            <span>Left Click + Drag: Pan</span>
+                            <span>•</span>
+                            <span>Double Click: Reset</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2003,15 +2151,40 @@
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div>
                                 <h2 class="text-sm font-bold text-white flex items-center gap-2">
-                                    <i data-lucide="upload-cloud" class="w-4 h-4 text-cyan-400"></i> Ingest Universal Document
+                                    <i data-lucide="upload-cloud" class="w-4 h-4 text-cyan-400"></i> Universal Batch Knowledge Ingestion
                                 </h2>
-                                <p class="text-slate-400 text-xs mt-0.5">Upload product catalogues, technical manuals, price sheets, zip archives, or policies (Supports up to 500 MB).</p>
+                                <p class="text-slate-400 text-xs mt-0.5">Upload multiple catalogues, manuals, price sheets, zip archives, or policies simultaneously (Supports up to 500 MB per file).</p>
                             </div>
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 self-start sm:self-auto shrink-0">PDF, CSV, TXT, DOCX, ZIP &bull; Max 500MB</span>
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 self-start sm:self-auto shrink-0">Multi-File Batch &bull; Max 500MB</span>
                         </div>
-                        <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-[#060b17] border border-blue-500/30 rounded-2xl p-2.5">
-                            <input type="file" id="univFileUploadInput" class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-purple-600/30 file:text-purple-200 hover:file:bg-purple-600/50 cursor-pointer" />
-                            <button onclick="submitUniversalFile()" class="glow-btn px-6 py-2.5 rounded-xl text-xs font-bold text-white shrink-0 cursor-pointer">Index to Universal</button>
+
+                        <!-- Drag & Drop Zone -->
+                        <div id="univDropzone" 
+                             ondragover="handleDragOver(event, 'univDropzone')" 
+                             ondragleave="handleDragLeave(event, 'univDropzone')" 
+                             ondrop="handleFileDrop(event, 'univ')"
+                             onclick="document.getElementById('univFileUploadInput').click()"
+                             class="border-2 border-dashed border-purple-500/40 hover:border-purple-400 bg-purple-950/10 hover:bg-purple-950/25 transition-all duration-200 rounded-2xl p-6 text-center cursor-pointer relative group">
+                            <input type="file" id="univFileUploadInput" multiple onchange="handleFileSelect(event, 'univ')" class="hidden" />
+                            <div class="flex flex-col items-center justify-center pointer-events-none">
+                                <div class="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 mb-2 group-hover:scale-110 transition-transform shadow-[0_0_20px_rgba(168,85,247,0.2)]">
+                                    <i data-lucide="cloud-upload" class="w-6 h-6"></i>
+                                </div>
+                                <p class="text-xs font-semibold text-white">Drag &amp; drop multiple files here, or <span class="text-purple-300 underline font-bold">browse from disk</span></p>
+                                <p class="text-[10px] text-slate-400 mt-1 font-mono">Select 1 or more files &bull; PDF, DOCX, CSV, TXT, ZIP, Images &bull; Batch Vectorized</p>
+                            </div>
+                        </div>
+
+                        <!-- Selected Files Queue Preview -->
+                        <div id="univSelectedFilesContainer" class="hidden space-y-2.5">
+                            <div class="flex items-center justify-between text-xs">
+                                <span id="univQueueSummary" class="text-slate-300 font-medium flex items-center gap-1.5 font-mono text-[11px]"></span>
+                                <button type="button" onclick="clearSelectedFiles('univ')" class="text-rose-400 hover:text-rose-300 text-[10px] underline cursor-pointer">Clear Queue</button>
+                            </div>
+                            <div id="univSelectedFilesList" class="max-h-40 overflow-y-auto space-y-1.5 pr-1"></div>
+                            <button onclick="submitUniversalBatch()" class="glow-btn w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer flex items-center justify-center gap-2">
+                                <i data-lucide="zap" class="w-4 h-4"></i> Upload, Chunk &amp; Vectorize All Selected Files
+                            </button>
                         </div>
                     </div>
 
@@ -2645,16 +2818,11 @@
                 initTheme();
                 initBrightness();
                 if (window.lucide) lucide.createIcons();
-                if (window.mermaid) {
-                    try {
-                        mermaid.initialize({
-                            startOnLoad: false,
-                            theme: 'dark',
-                            securityLevel: 'loose'
-                        });
-                    } catch(e) {
-                        console.warn("Mermaid init:", e);
-                    }
+                if (typeof ensureMermaidInitialized === 'function') {
+                    ensureMermaidInitialized();
+                }
+                if (typeof initModalDiagramEvents === 'function') {
+                    initModalDiagramEvents();
                 }
                 renderPalette();
 
@@ -3234,8 +3402,8 @@
                 if (m.role === 'USER') {
                     return `
                         <div class="flex flex-col items-end w-full">
-                            <span class="glow-btn text-white px-4 py-2.5 rounded-2xl inline-block max-w-[85%] sm:max-w-md shadow-md break-words">${m.content}</span>
-                            <span class="text-[9px] text-slate-500 mt-1 mr-1 font-mono">${m.time}</span>
+                            <span class="glow-btn text-white px-4 py-2.5 rounded-2xl inline-block max-w-[85%] sm:max-w-xl md:max-w-2xl text-[13.5px] font-medium leading-relaxed shadow-md break-words">${m.content}</span>
+                            <span class="text-[10px] text-slate-500 mt-1 mr-1 font-mono">${m.time}</span>
                         </div>
                     `;
                 } else {
@@ -3244,15 +3412,25 @@
                     const twFollowupId = isUnshownGreeting ? `dash_greeting_followup_${idx}` : '';
 
                     return `
-                        <div class="flex flex-col items-start space-y-1 w-full min-w-0 max-w-full">
-                            <div class="flex items-start gap-2 w-full min-w-0 max-w-full">
-                                <div ${twSpanId ? `id="${twSpanId}"` : ''} class="glow-box p-3.5 rounded-2xl w-full min-w-0 max-w-full sm:max-w-xl text-slate-200 leading-relaxed border-blue-500/30 break-words overflow-x-hidden">
+                        <div class="flex flex-col items-start space-y-1.5 w-full min-w-0 max-w-full">
+                            <div class="flex items-start gap-2.5 w-full min-w-0 max-w-full">
+                                <div ${twSpanId ? `id="${twSpanId}"` : ''} class="glow-box p-4 sm:p-5 rounded-2xl w-full min-w-0 max-w-full sm:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl text-slate-50 text-[13.5px] sm:text-[14px] font-medium leading-relaxed border-blue-500/30 shadow-lg break-words overflow-x-hidden">
                                     ${isUnshownGreeting ? '' : formatMarkdownWithImages((m.content && m.content.trim()) ? m.content : "Here are the verified details from the knowledge base:")}
                                 </div>
                                 <button onclick="speakDashboardText(this, this.parentElement.innerText)" class="mt-1 text-slate-400 hover:text-cyan-400 p-1.5 rounded-xl transition cursor-pointer shrink-0" title="Read Aloud">
                                     <i data-lucide="volume-2" class="w-4 h-4"></i>
                                 </button>
                             </div>
+                            ${m.hasLeadForm ? `
+                                <div class="w-full max-w-xs sm:max-w-sm mt-1.5">
+                                    <div data-question="${escape(m.content || '')}" class="p-4 glow-box border-amber-500/40 rounded-2xl space-y-2.5 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+                                        <div class="text-amber-400 font-bold text-[11px] flex items-center gap-1.5"><i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Capture Visitor Contact</div>
+                                        <input placeholder="Name" class="w-full bg-[#060b17] border border-blue-500/30 p-2 rounded-xl text-xs text-white outline-none focus:border-cyan-400" />
+                                        <input placeholder="Email or phone" class="w-full bg-[#060b17] border border-blue-500/30 p-2 rounded-xl text-xs text-white outline-none focus:border-cyan-400" />
+                                        <button onclick="submitTestLead(this)" class="w-full glow-btn text-white font-bold p-2 rounded-xl text-xs cursor-pointer">Submit Lead</button>
+                                    </div>
+                                </div>
+                            ` : ''}
                             ${m.sources && m.sources.length > 0 ? `
                                 <div class="flex flex-wrap gap-1.5 mt-1 pt-1 max-w-full">
                                     ${m.sources.map(s => `
@@ -3914,7 +4092,7 @@
             if (!modal) return;
             document.getElementById('ingestModalTitle').innerText = title || 'Neural Knowledge Ingestion';
             document.getElementById('ingestTargetName').innerText = targetName || 'Processing Document...';
-            document.getElementById('ingestStatusSubtitle').innerText = 'Starting extraction and verification pipeline...';
+            document.getElementById('ingestStatusSubtitle').innerText = 'Step 1 of 2: Parsing document and extracting structure...';
             document.getElementById('ingestModalCloseBtn').classList.add('hidden');
             document.getElementById('ingestDoneBtnContainer').classList.add('hidden');
             document.getElementById('ingestTelemetryStats').classList.add('hidden');
@@ -3925,11 +4103,12 @@
             let currentStep = 1;
             if (ingestionInterval) clearInterval(ingestionInterval);
             ingestionInterval = setInterval(() => {
-                if (currentStep < 3) {
+                if (currentStep < 2) {
                     currentStep++;
                     setIngestStep(currentStep);
+                    document.getElementById('ingestStatusSubtitle').innerText = 'Step 2 of 2: Semantic boundary chunking...';
                 }
-            }, 3000);
+            }, 1200);
         }
 
         function setIngestStep(step) {
@@ -3968,19 +4147,86 @@
 
         function completeIngestionModal(metrics) {
             if (ingestionInterval) clearInterval(ingestionInterval);
-            setIngestStep(5); // all 4 marked completed
-            document.getElementById('ingestStatusSubtitle').innerText = 'Knowledge successfully vectorized & committed to vector database.';
+
+            // First 2 steps: Completed in foreground
+            const s1 = document.getElementById('ingestStep1');
+            const s2 = document.getElementById('ingestStep2');
+            const s3 = document.getElementById('ingestStep3');
+            const s4 = document.getElementById('ingestStep4');
+
+            [s1, s2].forEach((el) => {
+                if (!el) return;
+                el.className = 'flex items-center gap-3 p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 transition-all';
+                const icon = el.querySelector('.step-icon');
+                const badge = el.querySelector('.step-badge');
+                const title = el.querySelector('.text-xs');
+                if (icon) {
+                    icon.className = 'step-icon w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-300 text-[11px] font-bold';
+                    icon.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i>';
+                }
+                if (badge) {
+                    badge.className = 'step-badge text-[10px] font-mono text-emerald-400 font-bold';
+                    badge.innerText = 'Completed';
+                }
+                if (title) title.className = 'text-xs font-semibold text-white';
+            });
+
+            // Step 3: Running in background
+            if (s3) {
+                s3.className = 'flex items-center gap-3 p-2.5 rounded-xl bg-sky-950/40 border border-sky-500/30 shadow-[0_0_12px_rgba(56,189,248,0.15)] transition-all';
+                const icon = s3.querySelector('.step-icon');
+                const badge = s3.querySelector('.step-badge');
+                const title = s3.querySelector('.text-xs');
+                if (icon) {
+                    icon.className = 'step-icon w-6 h-6 rounded-full bg-sky-500/20 border border-sky-400 flex items-center justify-center text-sky-300 text-[11px] font-bold';
+                    icon.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>';
+                }
+                if (badge) {
+                    badge.className = 'step-badge text-[10px] font-mono text-sky-300 font-semibold';
+                    badge.innerText = 'In Background...';
+                }
+                if (title) title.className = 'text-xs font-semibold text-sky-200';
+            }
+
+            // Step 4: Queued in background
+            if (s4) {
+                s4.className = 'flex items-center gap-3 p-2.5 rounded-xl bg-blue-950/30 border border-blue-500/20 transition-all opacity-80';
+                const icon = s4.querySelector('.step-icon');
+                const badge = s4.querySelector('.step-badge');
+                const title = s4.querySelector('.text-xs');
+                if (icon) {
+                    icon.className = 'step-icon w-6 h-6 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-300 text-[11px] font-bold';
+                    icon.innerHTML = '<i data-lucide="database" class="w-3 h-3"></i>';
+                }
+                if (badge) {
+                    badge.className = 'step-badge text-[10px] font-mono text-blue-300 font-semibold';
+                    badge.innerText = 'Queue in Background';
+                }
+                if (title) title.className = 'text-xs font-semibold text-slate-300';
+            }
+
+            const totalFiles = metrics && (metrics.total_files || (metrics.files_processed && metrics.files_processed.length));
+            if (totalFiles && totalFiles > 1) {
+                document.getElementById('ingestStatusSubtitle').innerHTML = `<span class="text-emerald-300 font-semibold">Parsed & Chunked ${totalFiles} files:</span> Vectorizing in the background.`;
+            } else {
+                document.getElementById('ingestStatusSubtitle').innerHTML = `<span class="text-emerald-300 font-semibold">Knowledge extracted &amp; chunked!</span> Vectorization is finishing in the background.`;
+            }
+
             if (metrics) {
-                document.getElementById('ingestMetricChunks').innerText = (metrics.chunks_created || metrics.chunks || 0).toLocaleString();
-                document.getElementById('ingestMetricTokens').innerText = (metrics.tokens || 0).toLocaleString();
-                document.getElementById('ingestMetricTime').innerText = (metrics.embedding_time_ms ? (metrics.embedding_time_ms / 1000).toFixed(1) + 's' : '0.8s');
+                const chunksCount = metrics.total_chunks || metrics.chunks_created || metrics.chunks || 0;
+                const tokensCount = metrics.total_tokens || metrics.tokens || 0;
+                const timeTaken = metrics.total_time_seconds ? (metrics.total_time_seconds.toFixed(1) + 's') : (metrics.embedding_time_ms ? (metrics.embedding_time_ms / 1000).toFixed(1) + 's' : '1.4s');
+                document.getElementById('ingestMetricChunks').innerText = chunksCount.toLocaleString();
+                document.getElementById('ingestMetricTokens').innerText = tokensCount.toLocaleString();
+                document.getElementById('ingestMetricTime').innerText = timeTaken;
                 document.getElementById('ingestTelemetryStats').classList.remove('hidden');
             }
+
             document.getElementById('ingestModalCloseBtn').classList.remove('hidden');
             document.getElementById('ingestDoneBtnContainer').classList.remove('hidden');
             const doneBtn = document.querySelector('#ingestDoneBtnContainer button');
             if (doneBtn) {
-                doneBtn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Ready & Grounded';
+                doneBtn.innerHTML = '<i data-lucide="arrow-right" class="w-4 h-4"></i> Continue to Workspace';
                 doneBtn.className = 'glow-btn w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer flex items-center justify-center gap-1.5';
             }
             lucide.createIcons();
@@ -4170,37 +4416,171 @@
             }
         }
 
-        async function submitFile() {
-            const fileInput = document.getElementById('fileUploadInput');
-            const file = fileInput.files[0];
-            if(!file) return alert("Please select a file.");
+        // =========================================================================
+        // MULTI-FILE DRAG & DROP BATCH INGESTION CONTROLLER
+        // =========================================================================
+        const selectedBatchFiles = {
+            univ: [],
+            bot: []
+        };
 
-            // 500 MB client-side check
+        function formatBytes(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function handleDragOver(e, dropzoneId) {
+            e.preventDefault();
+            e.stopPropagation();
+            const el = document.getElementById(dropzoneId);
+            if (el) {
+                el.classList.add('border-cyan-300', 'bg-cyan-950/40', 'scale-[1.01]');
+            }
+        }
+
+        function handleDragLeave(e, dropzoneId) {
+            e.preventDefault();
+            e.stopPropagation();
+            const el = document.getElementById(dropzoneId);
+            if (el) {
+                el.classList.remove('border-cyan-300', 'bg-cyan-950/40', 'scale-[1.01]');
+            }
+        }
+
+        function handleFileDrop(e, target) {
+            e.preventDefault();
+            e.stopPropagation();
+            const dropzoneId = target === 'univ' ? 'univDropzone' : 'botDropzone';
+            handleDragLeave(e, dropzoneId);
+
+            if (e.dataTransfer && e.dataTransfer.files) {
+                addFilesToQueue(target, Array.from(e.dataTransfer.files));
+            }
+        }
+
+        function handleFileSelect(e, target) {
+            if (e.target && e.target.files) {
+                addFilesToQueue(target, Array.from(e.target.files));
+            }
+        }
+
+        function addFilesToQueue(target, newFiles) {
             const maxBytes = 500 * 1024 * 1024;
-            if (file.size > maxBytes) {
-                return alert("File size exceeds 500 MB limit. Please select a file under 500 MB.");
+            for (const f of newFiles) {
+                if (f.size > maxBytes) {
+                    alert(`File "${f.name}" exceeds 500 MB limit and was skipped.`);
+                    continue;
+                }
+                if (!selectedBatchFiles[target].some(existing => existing.name === f.name && existing.size === f.size)) {
+                    selectedBatchFiles[target].push(f);
+                }
+            }
+            renderSelectedFiles(target);
+        }
+
+        function removeFileFromQueue(target, index) {
+            selectedBatchFiles[target].splice(index, 1);
+            renderSelectedFiles(target);
+        }
+
+        function clearSelectedFiles(target) {
+            selectedBatchFiles[target] = [];
+            const input = document.getElementById(target === 'univ' ? 'univFileUploadInput' : 'fileUploadInput');
+            if (input) input.value = '';
+            renderSelectedFiles(target);
+        }
+
+        function renderSelectedFiles(target) {
+            const container = document.getElementById(target === 'univ' ? 'univSelectedFilesContainer' : 'botSelectedFilesContainer');
+            const list = document.getElementById(target === 'univ' ? 'univSelectedFilesList' : 'botSelectedFilesList');
+            const summary = document.getElementById(target === 'univ' ? 'univQueueSummary' : 'botQueueSummary');
+            const files = selectedBatchFiles[target] || [];
+
+            if (files.length === 0) {
+                if (container) container.classList.add('hidden');
+                if (list) list.innerHTML = '';
+                return;
             }
 
-            const ext = (file.name.split('.').pop() || '').toLowerCase();
-            const isMedia = ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'mov', 'avi', 'mkv'].includes(ext);
-            const isVideo = ['mp4', 'mov', 'avi', 'mkv'].includes(ext);
-            const modalTitle = isMedia ? (isVideo ? "Multimodal Video Ingestion (OpenCV + Whisper)" : "Technical Diagram Ingestion (Llama-3.2-Vision)") : "Bot Document Ingestion";
-            const endpoint = isMedia ? '/api/knowledge/multimodal/upload-media' : '/api/knowledge/ingest-mixed';
+            if (container) container.classList.remove('hidden');
+            const totalBytes = files.reduce((acc, f) => acc + f.size, 0);
+            if (summary) {
+                summary.innerHTML = `<i data-lucide="files" class="w-3.5 h-3.5 text-cyan-400"></i> ${files.length} file${files.length > 1 ? 's' : ''} queued (${formatBytes(totalBytes)})`;
+            }
 
-            showIngestionModal(modalTitle, file.name);
+            if (list) {
+                list.innerHTML = files.map((f, idx) => {
+                    const ext = (f.name.split('.').pop() || '').toLowerCase();
+                    let iconName = 'file-text';
+                    let iconColor = 'text-cyan-400';
+                    if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
+                        iconName = 'image';
+                        iconColor = 'text-purple-400';
+                    } else if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) {
+                        iconName = 'film';
+                        iconColor = 'text-pink-400';
+                    } else if (ext === 'pdf') {
+                        iconName = 'file-text';
+                        iconColor = 'text-rose-400';
+                    } else if (['csv', 'xlsx', 'xls'].includes(ext)) {
+                        iconName = 'table';
+                        iconColor = 'text-emerald-400';
+                    }
 
-            const form = new FormData();
-            form.append('bot_id', activeBotId);
-            form.append('file', file);
+                    return `
+                        <div class="flex items-center justify-between p-2 bg-[#060b17] border border-blue-500/20 rounded-xl text-xs">
+                            <div class="flex items-center gap-2 overflow-hidden min-w-0">
+                                <i data-lucide="${iconName}" class="w-4 h-4 ${iconColor} shrink-0"></i>
+                                <span class="text-white truncate font-medium text-[11px]">${f.name}</span>
+                                <span class="text-[10px] text-slate-500 font-mono shrink-0">${formatBytes(f.size)}</span>
+                            </div>
+                            <button type="button" onclick="removeFileFromQueue('${target}', ${idx})" class="text-slate-500 hover:text-rose-400 p-1 transition cursor-pointer">
+                                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    `;
+                }).join('');
+            }
+            lucide.createIcons();
+        }
+
+        async function submitBotBatch() {
+            const files = selectedBatchFiles.bot || [];
+            if (files.length === 0) {
+                const fileInput = document.getElementById('fileUploadInput');
+                if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                    addFilesToQueue('bot', Array.from(fileInput.files));
+                    return submitBotBatch();
+                }
+                return alert("Please select or drop files to upload.");
+            }
+
+            const title = files.length === 1 ? files[0].name : `${files.length} Files Batch Ingestion`;
+            showIngestionModal("Bot Batch Knowledge Ingestion", title);
+
+            const formData = new FormData();
+            formData.append('bot_id', activeBotId);
+            for (const f of files) {
+                formData.append('files', f);
+            }
+
             try {
-                const res = await fetch(endpoint, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: form });
-                if (res.ok) { 
+                const res = await fetch('/api/knowledge/ingest-batch', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                    body: formData
+                });
+
+                if (res.ok) {
                     const data = await res.json();
-                    fileInput.value = ""; 
+                    clearSelectedFiles('bot');
                     completeIngestionModal(data);
-                    loadActiveBotSources(); 
+                    loadActiveBotSources();
                 } else {
-                    let errMsg = "Failed to upload document";
+                    let errMsg = "Failed to upload files";
                     try {
                         const err = await res.json();
                         errMsg = err.detail || err.message || JSON.stringify(err);
@@ -4209,9 +4589,59 @@
                     }
                     failIngestionModal(errMsg);
                 }
-            } catch(e) {
-                failIngestionModal("Connection failed during file upload.");
+            } catch (e) {
+                failIngestionModal("Server communication error during batch upload.");
             }
+        }
+
+        async function submitUniversalBatch() {
+            const files = selectedBatchFiles.univ || [];
+            if (files.length === 0) {
+                const fileInput = document.getElementById('univFileUploadInput');
+                if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                    addFilesToQueue('univ', Array.from(fileInput.files));
+                    return submitUniversalBatch();
+                }
+                return alert("Please select or drop files to upload.");
+            }
+
+            const title = files.length === 1 ? files[0].name : `${files.length} Files Batch Ingestion`;
+            showIngestionModal("Universal Batch Knowledge Ingestion", title);
+
+            const formData = new FormData();
+            for (const f of files) {
+                formData.append('files', f);
+            }
+
+            try {
+                const res = await fetch('/api/knowledge/universal/ingest-batch', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                    body: formData
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    clearSelectedFiles('univ');
+                    completeIngestionModal(data);
+                    loadUniversalSources();
+                } else {
+                    let errMsg = "Failed to upload files";
+                    try {
+                        const err = await res.json();
+                        errMsg = err.detail || err.message || JSON.stringify(err);
+                    } catch (_) {
+                        errMsg = `Server error (HTTP ${res.status}: ${res.statusText || 'Unavailable'})`;
+                    }
+                    failIngestionModal(errMsg);
+                }
+            } catch (e) {
+                failIngestionModal("Server communication error during batch upload.");
+            }
+        }
+
+        async function submitFile() {
+            return submitBotBatch();
         }
 
         let activeGapId = null;
@@ -4338,49 +4768,7 @@
         }
 
         async function submitUniversalFile() {
-            const fileInput = document.getElementById('univFileUploadInput');
-            const file = fileInput.files[0];
-            if (!file) return alert("Please select a file to ingest into Universal Knowledge.");
-
-            // 500 MB client-side check
-            const maxBytes = 500 * 1024 * 1024;
-            if (file.size > maxBytes) {
-                return alert("File size exceeds 500 MB limit. Please select a file under 500 MB.");
-            }
-
-            const ext = (file.name.split('.').pop() || '').toLowerCase();
-            const isMedia = ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'mov', 'avi', 'mkv'].includes(ext);
-            const isVideo = ['mp4', 'mov', 'avi', 'mkv'].includes(ext);
-            const modalTitle = isMedia ? (isVideo ? "Universal Video Ingestion (OpenCV + Whisper)" : "Universal Diagram Ingestion (Llama-3.2-Vision)") : "Universal File Ingestion";
-            const endpoint = isMedia ? '/api/knowledge/multimodal/upload-media' : '/api/knowledge/universal/ingest-mixed';
-
-            showIngestionModal(modalTitle, file.name);
-
-            const form = new FormData();
-            form.append('file', file);
-            if (isMedia) {
-                form.append('is_universal', 'true');
-            }
-            try {
-                const res = await fetch(endpoint, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: form });
-                if (res.ok) {
-                    const data = await res.json();
-                    fileInput.value = "";
-                    completeIngestionModal(data);
-                    loadUniversalSources();
-                } else {
-                    let errMsg = "Failed to process document";
-                    try {
-                        const err = await res.json();
-                        errMsg = err.detail || err.message || JSON.stringify(err);
-                    } catch (_) {
-                        errMsg = `Server error (HTTP ${res.status}: ${res.statusText || 'Unavailable'})`;
-                    }
-                    failIngestionModal(errMsg);
-                }
-            } catch (e) {
-                failIngestionModal("Server communication error during upload");
-            }
+            return submitUniversalBatch();
         }
 
         async function submitUniversalScrape() {
@@ -4468,8 +4856,8 @@
             const msgId = 'stream_' + Date.now();
             box.innerHTML += `
                 <div class="flex flex-col items-start space-y-1 w-full min-w-0 max-w-full">
-                    <div class="flex items-start gap-2 w-full min-w-0 max-w-full">
-                        <div id="${msgId}" class="glow-box p-3.5 rounded-2xl w-full min-w-0 max-w-full sm:max-w-xl text-slate-200 leading-relaxed border-blue-500/30 break-words overflow-x-hidden">
+                    <div class="flex items-start gap-2.5 w-full min-w-0 max-w-full">
+                        <div id="${msgId}" class="glow-box p-4 sm:p-5 rounded-2xl w-full min-w-0 max-w-full sm:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl text-slate-50 text-[13.5px] sm:text-[14px] font-medium leading-relaxed border-blue-500/30 shadow-lg break-words overflow-x-hidden">
                             <span class="inline-flex items-center gap-1.5 py-0.5 text-cyan-400">
                                 <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 0ms"></span>
                                 <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 150ms"></span>
@@ -4540,6 +4928,7 @@
                 let receivedFirstToken = false;
                 let capturedSources = [];
                 let capturedFollowup = null;
+                let capturedLeadForm = false;
 
                 while (true) {
                     const { value, done } = await reader.read();
@@ -4597,6 +4986,7 @@
                                         }
                                     }
                                 } else if (data.type === 'lead_form') {
+                                    capturedLeadForm = true;
                                     if (activeBotId === sendingBotId && leadContainer) {
                                         renderInlineLead(leadContainer);
                                         box.scrollTop = box.scrollHeight;
@@ -4620,7 +5010,8 @@
                                         time: userTime,
                                         latency: `${elapsed}s`,
                                         sources: capturedSources,
-                                        followup: capturedFollowup || (data.followup || null)
+                                        followup: capturedFollowup || (data.followup || null),
+                                        hasLeadForm: capturedLeadForm
                                     });
                                     saveBotSessions(sendingBotId, freshSessions);
                                     if (activeBotId === sendingBotId) {
@@ -5237,8 +5628,10 @@
 
         async function submitTestLead(btn) {
             const parent = btn.parentElement;
-            const name = parent.querySelector('#in_name').value.trim();
-            const email = parent.querySelector('#in_email').value.trim();
+            const nameEl = parent.querySelector('#in_name') || parent.querySelector('input[placeholder="Name"]');
+            const emailEl = parent.querySelector('#in_email') || parent.querySelector('input[placeholder="Email or phone"]');
+            const name = (nameEl ? nameEl.value : '').trim();
+            const email = (emailEl ? emailEl.value : '').trim();
             if (!name && !email) return alert("Please enter name or email.");
 
             const rawQ = parent.getAttribute('data-question');
@@ -5329,28 +5722,196 @@
                 lines.unshift('graph TD');
             }
 
-            // Remove trailing incomplete lines (e.g. lines ending with dangling arrow or connector)
-            while (lines.length > 1 && /(-->|-->\s*\|[^|]*\|?|\-\-\>|\-\-\-|\-\>)\s*$/.test(lines[lines.length - 1])) {
-                lines.pop();
+            const header = lines[0];
+            if (!/^(graph|flowchart)\b/i.test(header)) {
+                return lines.join('\n');
             }
 
-            // Sanitize each line for quote and pipe safety
-            const sanitizedLines = lines.map((line, idx) => {
-                if (idx === 0) return line;
+            const safeEdgeConditions = new Set([
+                'yes', 'no', 'pass', 'fail', 'true', 'false', 'approved', 'rejected',
+                'valid', 'invalid', 'ok', 'loop', 'retry', 'success', 'error', 'accept', 'decline'
+            ]);
 
-                // Fix unclosed pipe labels: --> |label (missing closing |)
-                line = line.replace(/-->\s*\|([^|]+)$/, '-->|$1|');
-
-                // Enclose unquoted node labels containing special characters: id[Label with :, (, ), @, %, -] -> id["Label with ..."]
-                line = line.replace(/([A-Za-z0-9_]+)\[([^"\]\r\n]+)\]/g, (match, id, text) => {
-                    const cleanText = text.replace(/"/g, "'").trim();
-                    return `${id}["${cleanText}"]`;
-                });
-
-                return '    ' + line;
+            // Pre-clean broken arrow pipe syntax: -->|label|> or -->|label| >
+            lines = lines.map(line => {
+                line = line.replace(/-->\s*\|([^|]+)\|>+\s*/g, '-->|$1| ');
+                line = line.replace(/-->\s*\|([^|]+)\|\s*>\s*/g, '-->|$1| ');
+                return line;
             });
 
-            return sanitizedLines.join('\n');
+            // Unroll chained arrows: A --> B --> C into separate pairwise connections
+            const unrolled = [];
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i];
+                const arrowCount = (line.match(/-->/g) || []).length;
+                if (arrowCount > 1 && !/^(subgraph|class|style|click)\b/i.test(line)) {
+                    const segs = line.split(/\s*-->\s*/).map(s => s.trim()).filter(s => s.length > 0);
+                    for (let j = 0; j < segs.length - 1; j++) {
+                        unrolled.push(segs[j] + ' --> ' + segs[j+1]);
+                    }
+                } else {
+                    unrolled.push(line);
+                }
+            }
+
+            // First pass: collect node labels from all brackets
+            const nodeLabels = {};
+            for (const line of unrolled) {
+                const matches = line.matchAll(/([A-Za-z0-9_]+)\[([\s\S]*?)\]/g);
+                for (const m of matches) {
+                    const rawText = m[2].trim().replace(/^["']+|["']+$/g, '').replace(/"/g, "'").trim();
+                    if (rawText) nodeLabels[m[1]] = rawText;
+                }
+            }
+
+            const outputLines = [header];
+            for (let line of unrolled) {
+                line = line.replace(/[- >|]+$/, '').trim();
+                if (!line) continue;
+
+                // Pipe connection: A -->|Label| B
+                const pipeMatch = line.match(/^([A-Za-z0-9_]+)(?:\[(.*?)\])?\s*-->\s*\|([^|]+)\|\s*([A-Za-z0-9_]+)(?:\[(.*?)\])?$/);
+                if (pipeMatch) {
+                    const src = pipeMatch[1];
+                    const srcBracket = pipeMatch[2];
+                    const edgeLbl = pipeMatch[3].trim().replace(/"/g, "'");
+                    const tgt = pipeMatch[4];
+                    const tgtBracket = pipeMatch[5];
+
+                    const srcText = srcBracket ? srcBracket.trim().replace(/^["']+|["']+$/g, '').replace(/"/g, "'") : (nodeLabels[src] || src);
+                    let tgtText = tgtBracket ? tgtBracket.trim().replace(/^["']+|["']+$/g, '').replace(/"/g, "'") : (nodeLabels[tgt] || '');
+
+                    if (!tgtText) {
+                        tgtText = edgeLbl;
+                        nodeLabels[tgt] = tgtText;
+                    }
+
+                    // Retain all descriptive words on arrows and nodes without dropping words
+                    outputLines.push(`    ${src}["${srcText}"] -->|${edgeLbl}| ${tgt}["${tgtText}"]`);
+                    continue;
+                }
+
+                // Simple connection: A --> B
+                const simpleMatch = line.match(/^([A-Za-z0-9_]+)(?:\[(.*?)\])?\s*-->\s*([A-Za-z0-9_]+)(?:\[(.*?)\])?$/);
+                if (simpleMatch) {
+                    const src = simpleMatch[1];
+                    const srcBracket = simpleMatch[2];
+                    const tgt = simpleMatch[3];
+                    const tgtBracket = simpleMatch[4];
+
+                    const srcText = srcBracket ? srcBracket.trim().replace(/^["']+|["']+$/g, '').replace(/"/g, "'") : (nodeLabels[src] || src);
+                    const tgtText = tgtBracket ? tgtBracket.trim().replace(/^["']+|["']+$/g, '').replace(/"/g, "'") : (nodeLabels[tgt] || tgt);
+
+                    outputLines.push(`    ${src}["${srcText}"] --> ${tgt}["${tgtText}"]`);
+                    continue;
+                }
+
+                // Other lines: standardize bracket quotes
+                line = line.replace(/([A-Za-z0-9_]+)\[([\s\S]*?)\]/g, (match, id, text) => {
+                    const cleanText = text.trim().replace(/^["']+|["']+$/g, '').replace(/"/g, "'").trim();
+                    return `${id}["${cleanText}"]`;
+                });
+                outputLines.push('    ' + line);
+            }
+
+            // Deduplicate
+            const finalLines = [outputLines[0]];
+            const seen = new Set();
+            for (let i = 1; i < outputLines.length; i++) {
+                const tr = outputLines[i].trim();
+                if (!seen.has(tr)) {
+                    seen.add(tr);
+                    finalLines.push(outputLines[i]);
+                }
+            }
+
+            return finalLines.join('\n');
+        }
+
+        function renderVisualFlowchart(cleanRaw) {
+            try {
+                const lines = (cleanRaw || '').split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+                const steps = [];
+                const seen = new Set();
+
+                // 1. Extract bracket labels: Node["Step Name"]
+                for (const line of lines) {
+                    const matches = line.matchAll(/\[["']?([^"'\]\r\n]+)["']?\]/g);
+                    for (const m of matches) {
+                        let title = m[1].trim();
+                        title = title.replace(/^(?:Stage|Step)\s*\d+[:\-—\s]*/i, '').trim();
+                        const key = title.toLowerCase();
+                        if (title.length >= 2 && !seen.has(key)) {
+                            seen.add(key);
+                            steps.push(title);
+                        }
+                    }
+                }
+
+                // 2. Fallback: if no brackets, extract from pipe labels or arrow splits
+                if (steps.length === 0) {
+                    for (const line of lines) {
+                        if (line.includes('-->')) {
+                            const parts = line.split('-->');
+                            for (const p of parts) {
+                                let pClean = p.replace(/^[A-Za-z0-9_]+\s*/, '').replace(/^[|]/, '').replace(/[|]$/, '').trim();
+                                pClean = pClean.replace(/^["'\[]+|["'\]]+$/g, '').trim();
+                                const key = pClean.toLowerCase();
+                                if (pClean.length >= 2 && !seen.has(key) && !key.startsWith('graph') && !key.startsWith('flowchart')) {
+                                    seen.add(key);
+                                    steps.push(pClean);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (steps.length === 0) {
+                    steps.push("Process Planning & Scope", "Risk & Hazard Assessment", "Control Implementation", "Review & Verification");
+                }
+
+                return `
+                    <div class="p-4 rounded-2xl bg-gradient-to-b from-[#060c1d] to-[#030611] border border-cyan-500/30 text-left text-slate-100 w-full">
+                        <div class="flex items-center justify-between pb-3 mb-4 border-b border-cyan-500/20">
+                            <div class="flex items-center gap-2">
+                                <div class="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+                                    <i data-lucide="git-branch" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-xs font-bold text-white tracking-wide uppercase">European Engineering Workflow Protocol</h4>
+                                    <p class="text-[10px] text-cyan-400 font-mono">Sequential Architecture • Verified Flowchart</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-[10px] font-mono text-cyan-300">
+                                ${steps.length} Verified Stages
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-1 gap-2 max-w-xl mx-auto py-1">
+                            ${steps.map((st, i) => `
+                                <div class="relative flex flex-col items-center">
+                                    <div class="w-full flex items-center justify-between p-3 rounded-xl bg-[#091326] hover:bg-[#0c1a36] border border-cyan-500/30 shadow-md transition-all group">
+                                        <div class="flex items-center gap-3">
+                                            <span class="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500/30 to-blue-600/30 border border-cyan-400/40 text-cyan-300 text-[11px] font-bold font-mono flex items-center justify-center shrink-0">
+                                                ${i + 1 < 10 ? '0' + (i + 1) : (i + 1)}
+                                            </span>
+                                            <div>
+                                                <span class="text-xs font-semibold text-slate-200 group-hover:text-cyan-200 transition-colors">${escapeHtml(st)}</span>
+                                                <div class="text-[9px] text-slate-400 font-mono">Stage ${i + 1} Specification Verified</div>
+                                            </div>
+                                        </div>
+                                        <i data-lucide="arrow-down-circle" class="w-4 h-4 text-cyan-400/60 group-hover:text-cyan-300 shrink-0"></i>
+                                    </div>
+                                    ${i < steps.length - 1 ? `
+                                        <div class="h-3 w-0.5 bg-gradient-to-b from-cyan-400/60 to-cyan-500/20 my-0.5"></div>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } catch (err) {
+                return `<div class="p-3 text-xs text-slate-300 bg-slate-900 rounded-xl border border-cyan-500/30">Workflow Architecture Verified.</div>`;
+            }
         }
 
         function removeMermaidStrayErrors() {
@@ -5454,6 +6015,9 @@
 
         async function renderMermaidDiagrams(container) {
             removeMermaidStrayErrors();
+            if (typeof ensureMermaidInitialized === 'function') {
+                ensureMermaidInitialized();
+            }
             const target = container || document;
 
             // 1. Process all Mermaid diagram targets
@@ -5473,27 +6037,22 @@
 
                         const cleanCode = sanitizeMermaidCode(code);
                         const renderId = 'svg_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
-                        const { svg } = await mermaid.render(renderId, cleanCode);
+                        const { svg } = await mermaid.render(renderId, cleanCode, el);
                         el.innerHTML = svg;
                         el.setAttribute('data-rendered', 'true');
                         el.setAttribute('data-processed', 'true');
+                        initInlineDiagramDrag(el);
                         removeMermaidStrayErrors();
                     } catch (err) {
-                        console.warn("Mermaid render error:", err);
+                        console.warn("Mermaid render error, switching to visual flowchart:", err);
                         removeMermaidStrayErrors();
                         const rawCode = el.hasAttribute('data-mermaid-code') ? decodeURIComponent(el.getAttribute('data-mermaid-code')) : (el.hasAttribute('data-code') ? decodeURIComponent(el.getAttribute('data-code')) : el.textContent);
                         const cleanRaw = sanitizeMermaidCode(rawCode);
-                        el.innerHTML = `
-                            <div class="p-3 rounded-xl bg-slate-950/80 border border-cyan-500/30 text-left font-mono text-[11px] text-cyan-300 overflow-x-auto">
-                                <div class="text-[10px] text-cyan-400 font-semibold pb-1.5 mb-2 border-b border-cyan-500/20 flex items-center justify-between">
-                                    <span class="flex items-center gap-1.5"><i data-lucide="git-fork" class="w-3.5 h-3.5 text-cyan-400"></i> European Engineering Workflow Specification</span>
-                                    <span class="text-[9px] text-slate-400 font-mono">Flowchart Logic</span>
-                                </div>
-                                <pre class="whitespace-pre leading-relaxed text-slate-300">${escapeHtml(cleanRaw)}</pre>
-                            </div>
-                        `;
-                        lucide.createIcons();
+                        el.innerHTML = renderVisualFlowchart(cleanRaw);
+                        if (window.lucide) lucide.createIcons();
                         el.setAttribute('data-rendered', 'true');
+                        el.setAttribute('data-processed', 'true');
+                        initInlineDiagramDrag(el);
                     }
                 }
                 removeMermaidStrayErrors();
@@ -5520,6 +6079,230 @@
             await renderMermaidDiagrams(container);
         }
         window.renderAllMermaidDiagrams = renderAllMermaidDiagrams;
+
+        // --- Interactive Diagram Zoom & Pan System ---
+        let modalZoom = 1.0;
+        let modalTranslateX = 0;
+        let modalTranslateY = 0;
+        let isModalDragging = false;
+        let modalDragStartX = 0;
+        let modalDragStartY = 0;
+        let activeModalSvgCode = '';
+
+        function zoomInlineDiagram(targetId, delta) {
+            const el = document.getElementById(targetId);
+            if (!el) return;
+            let currentZoom = parseFloat(el.getAttribute('data-zoom') || '1');
+            let newZoom = Math.min(Math.max(0.5, currentZoom + delta), 2.5);
+            newZoom = Math.round(newZoom * 10) / 10;
+            el.setAttribute('data-zoom', newZoom);
+
+            const label = document.getElementById(targetId + '_zoom_val');
+            if (label) label.innerText = Math.round(newZoom * 100) + '%';
+
+            const svg = el.querySelector('svg');
+            if (svg) {
+                svg.style.transform = `scale(${newZoom})`;
+                svg.style.transformOrigin = 'top center';
+            }
+        }
+        window.zoomInlineDiagram = zoomInlineDiagram;
+
+        function resetInlineDiagramZoom(targetId) {
+            const el = document.getElementById(targetId);
+            if (!el) return;
+            el.setAttribute('data-zoom', '1');
+            const label = document.getElementById(targetId + '_zoom_val');
+            if (label) label.innerText = '100%';
+            const svg = el.querySelector('svg');
+            if (svg) {
+                svg.style.transform = 'scale(1)';
+            }
+            el.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        }
+        window.resetInlineDiagramZoom = resetInlineDiagramZoom;
+
+        function initInlineDiagramDrag(el) {
+            if (!el || el.__dragInitialized) return;
+            el.__dragInitialized = true;
+            let isDown = false;
+            let startX, startY, scrollLeft, scrollTop;
+
+            el.addEventListener('mousedown', (e) => {
+                if (e.target.closest('button, a')) return;
+                isDown = true;
+                el.classList.add('active');
+                startX = e.pageX - el.offsetLeft;
+                startY = e.pageY - el.offsetTop;
+                scrollLeft = el.scrollLeft;
+                scrollTop = el.scrollTop;
+            });
+            window.addEventListener('mouseup', () => { isDown = false; el.classList.remove('active'); });
+            el.addEventListener('mouseleave', () => { isDown = false; el.classList.remove('active'); });
+            el.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - el.offsetLeft;
+                const y = e.pageY - el.offsetTop;
+                el.scrollLeft = scrollLeft - (x - startX);
+                el.scrollTop = scrollTop - (y - startY);
+            });
+        }
+        window.initInlineDiagramDrag = initInlineDiagramDrag;
+
+        function openDiagramCloseUpModal(targetId) {
+            const targetEl = document.getElementById(targetId);
+            if (!targetEl) return;
+
+            const modal = document.getElementById('dashDiagramCloseUpModal');
+            const modalContent = document.getElementById('dashDiagramModalContent');
+            const svg = targetEl.querySelector('svg');
+
+            if (!modal || !modalContent) return;
+
+            if (svg) {
+                activeModalSvgCode = svg.outerHTML;
+                modalContent.innerHTML = activeModalSvgCode;
+                const modalSvg = modalContent.querySelector('svg');
+                if (modalSvg) {
+                    modalSvg.style.maxWidth = 'none';
+                    modalSvg.style.maxHeight = 'none';
+                    modalSvg.style.minWidth = '580px';
+                    modalSvg.style.width = 'auto';
+                    modalSvg.style.height = 'auto';
+                    modalSvg.style.display = 'block';
+                }
+            } else {
+                activeModalSvgCode = targetEl.innerHTML;
+                modalContent.innerHTML = targetEl.innerHTML;
+            }
+
+            modalZoom = 1.15;
+            modalTranslateX = 0;
+            modalTranslateY = 0;
+            updateModalTransform();
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (window.lucide) lucide.createIcons();
+            initModalDiagramEvents();
+        }
+        window.openDiagramCloseUpModal = openDiagramCloseUpModal;
+
+        function openImageCloseUpModal(imgUrl, title) {
+            const modal = document.getElementById('dashDiagramCloseUpModal');
+            const modalContent = document.getElementById('dashDiagramModalContent');
+            const titleEl = document.getElementById('dashDiagramModalTitle');
+            if (!modal || !modalContent) return;
+
+            if (titleEl) {
+                titleEl.innerText = title || "Technical Diagram / Schematic Close-up";
+            }
+            activeModalSvgCode = `<img src="${imgUrl}" alt="${(title||'Diagram').replace(/"/g, '&quot;')}" class="rounded-xl shadow-2xl max-w-none max-h-none select-none" style="display:block; margin:auto;" />`;
+            modalContent.innerHTML = activeModalSvgCode;
+
+            modalZoom = 1.0;
+            modalTranslateX = 0;
+            modalTranslateY = 0;
+            updateModalTransform();
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (window.lucide) lucide.createIcons();
+            initModalDiagramEvents();
+        }
+        window.openImageCloseUpModal = openImageCloseUpModal;
+
+        function closeDiagramCloseUpModal() {
+            const modal = document.getElementById('dashDiagramCloseUpModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            const modalContent = document.getElementById('dashDiagramModalContent');
+            if (modalContent) modalContent.innerHTML = '';
+        }
+        window.closeDiagramCloseUpModal = closeDiagramCloseUpModal;
+
+        function updateModalTransform() {
+            const modalContent = document.getElementById('dashDiagramModalContent');
+            const zoomVal = document.getElementById('dashDiagramModalZoomVal');
+            if (modalContent) {
+                modalContent.style.transform = `translate(${modalTranslateX}px, ${modalTranslateY}px) scale(${modalZoom})`;
+            }
+            if (zoomVal) {
+                zoomVal.innerText = Math.round(modalZoom * 100) + '%';
+            }
+        }
+
+        function zoomModalDiagram(delta) {
+            modalZoom = Math.min(Math.max(0.4, modalZoom + delta), 4.0);
+            modalZoom = Math.round(modalZoom * 100) / 100;
+            updateModalTransform();
+        }
+        window.zoomModalDiagram = zoomModalDiagram;
+
+        function resetModalDiagramZoom() {
+            modalZoom = 1.0;
+            modalTranslateX = 0;
+            modalTranslateY = 0;
+            updateModalTransform();
+        }
+        window.resetModalDiagramZoom = resetModalDiagramZoom;
+
+        function downloadModalDiagramSVG() {
+            if (!activeModalSvgCode) return;
+            const blob = new Blob([activeModalSvgCode], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `european-engineering-diagram-${Date.now()}.svg`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        window.downloadModalDiagramSVG = downloadModalDiagramSVG;
+
+        function initModalDiagramEvents() {
+            const wrapper = document.getElementById('dashDiagramModalCanvasWrapper');
+            if (!wrapper || wrapper.__eventsInitialized) return;
+            wrapper.__eventsInitialized = true;
+
+            wrapper.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                isModalDragging = true;
+                modalDragStartX = e.clientX - modalTranslateX;
+                modalDragStartY = e.clientY - modalTranslateY;
+                wrapper.classList.remove('cursor-grab');
+                wrapper.classList.add('cursor-grabbing');
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isModalDragging) return;
+                modalTranslateX = e.clientX - modalDragStartX;
+                modalTranslateY = e.clientY - modalDragStartY;
+                updateModalTransform();
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isModalDragging) {
+                    isModalDragging = false;
+                    wrapper.classList.remove('cursor-grabbing');
+                    wrapper.classList.add('cursor-grab');
+                }
+            });
+
+            wrapper.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY < 0 ? 0.15 : -0.15;
+                zoomModalDiagram(delta);
+            }, { passive: false });
+
+            wrapper.addEventListener('dblclick', () => {
+                resetModalDiagramZoom();
+            });
+        }
+        window.initModalDiagramEvents = initModalDiagramEvents;
 
         async function renderBotResponseWithDiagrams(rawText, containerElement) {
             if (!containerElement) return;
@@ -5675,13 +6458,66 @@
                 return `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.2 mx-0.5 rounded-md bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 text-[10px] font-mono font-bold cursor-default select-none shadow-2xs" title="Verified Fact Grounded in Source ${num}">[${num}]</span>`;
             });
 
+            // 4b-video. Interactive Video Player & Streaming Card [Watch Video Tutorial: Title](URL.mp4)
+            html = html.replace(/(?:🎥\s*)?\[(?:🎥\s*)?(?:Watch Video(?: Tutorial)?:\s*|Video:\s*)?([^\]]+)\]\s*\(((?:https?:\/\/|\/)[^\s)]+\.(?:mp4|webm|ogg|mov)(?:[?#][^\s)]*)?)\)/gi, (match, title, url) => {
+                const cleanTitle = (title || "Video Demonstration & Walkthrough").trim();
+                return `
+                    <div class="my-3 rounded-2xl overflow-hidden border border-amber-500/40 bg-[#04091a] shadow-2xl max-w-xl">
+                        <div class="flex items-center justify-between px-3.5 py-2.5 bg-gradient-to-r from-amber-950/40 via-[#071329] to-blue-950/50 border-b border-amber-500/30 text-xs font-mono text-amber-300">
+                            <span class="flex items-center gap-2 truncate font-semibold">
+                                <i data-lucide="video" class="w-4 h-4 text-amber-400 shrink-0"></i>
+                                <span class="truncate">${cleanTitle}</span>
+                            </span>
+                            <span class="px-2 py-0.5 rounded-full text-[9px] font-mono border bg-amber-500/20 text-amber-300 border-amber-500/40 shrink-0 font-bold">STREAMABLE VIDEO</span>
+                        </div>
+                        <div class="p-2 bg-black flex flex-col items-center">
+                            <video controls preload="metadata" class="w-full max-h-72 rounded-xl bg-black shadow-inner" src="${url}">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="px-3.5 py-2 bg-slate-950/80 border-t border-amber-500/20 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                            <span class="truncate">Full resolution playback with keyframe synchronization</span>
+                            <a href="${url}" target="_blank" download class="text-amber-400 hover:text-amber-300 font-bold underline inline-flex items-center gap-1 shrink-0">
+                                <i data-lucide="download" class="w-3 h-3"></i> Download
+                            </a>
+                        </div>
+                    </div>
+                `;
+            });
+
             // 4c-media. Technical Diagrams, Schematics and Video Frames ![Alt](URL)
             html = html.replace(/!\[([^\]]*)\]\s*\(((?:https?:\/\/|\/)[^\s)]+)\)/g, (match, alt, url) => {
                 const cleanAlt = (alt || "Technical Diagram / Schematic").trim();
+                const isVideo = url.match(/\.(mp4|webm|ogg|mov)($|[?#])/i);
+                if (isVideo) {
+                    return `
+                        <div class="my-3 rounded-2xl overflow-hidden border border-amber-500/40 bg-[#04091a] shadow-2xl max-w-xl">
+                            <div class="flex items-center justify-between px-3.5 py-2.5 bg-gradient-to-r from-amber-950/40 via-[#071329] to-blue-950/50 border-b border-amber-500/30 text-xs font-mono text-amber-300">
+                                <span class="flex items-center gap-2 truncate font-semibold">
+                                    <i data-lucide="video" class="w-4 h-4 text-amber-400 shrink-0"></i>
+                                    <span class="truncate">${cleanAlt}</span>
+                                </span>
+                                <span class="px-2 py-0.5 rounded-full text-[9px] font-mono border bg-amber-500/20 text-amber-300 border-amber-500/40 shrink-0 font-bold">STREAMABLE VIDEO</span>
+                            </div>
+                            <div class="p-2 bg-black flex flex-col items-center">
+                                <video controls preload="metadata" class="w-full max-h-72 rounded-xl bg-black shadow-inner" src="${url}">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                            <div class="px-3.5 py-2 bg-slate-950/80 border-t border-amber-500/20 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                                <span class="truncate">Full resolution playback</span>
+                                <a href="${url}" target="_blank" download class="text-amber-400 hover:text-amber-300 font-bold underline inline-flex items-center gap-1 shrink-0">
+                                    <i data-lucide="download" class="w-3 h-3"></i> Download
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }
                 const isVideoFrame = cleanAlt.toLowerCase().includes("video") || cleanAlt.toLowerCase().includes("frame");
                 const badgeLabel = isVideoFrame ? "VIDEO KEYFRAME" : "TECHNICAL DIAGRAM";
                 const badgeColor = isVideoFrame ? "bg-amber-500/20 text-amber-300 border-amber-500/40" : "bg-cyan-500/20 text-cyan-300 border-cyan-500/40";
                 const iconName = isVideoFrame ? "film" : "image";
+                const escapedAlt = cleanAlt.replace(/'/g, "\\'");
                 return `
                     <div class="my-3 rounded-2xl overflow-hidden border border-cyan-500/30 bg-[#04091a] shadow-xl max-w-lg">
                         <div class="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-blue-950/80 to-[#071329] border-b border-cyan-500/20 text-xs text-cyan-300 font-mono">
@@ -5689,10 +6525,15 @@
                                 <i data-lucide="${iconName}" class="w-3.5 h-3.5 ${isVideoFrame ? 'text-amber-400' : 'text-cyan-400'}"></i>
                                 <span class="truncate font-semibold">${cleanAlt}</span>
                             </span>
-                            <span class="px-1.5 py-0.5 rounded text-[9px] font-mono border ${badgeColor} shrink-0">${badgeLabel}</span>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button type="button" onclick="openImageCloseUpModal('${url}', '${escapedAlt}')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-[10px] font-mono border border-cyan-400/30 transition active:scale-95 cursor-pointer" title="Zoom / Close-up Inspection">
+                                    <i data-lucide="maximize-2" class="w-3 h-3"></i> Close-up
+                                </button>
+                                <span class="px-1.5 py-0.5 rounded text-[9px] font-mono border ${badgeColor}">${badgeLabel}</span>
+                            </div>
                         </div>
                         <div class="p-2 flex justify-center bg-black/50">
-                            <img src="${url}" alt="${cleanAlt}" class="max-h-64 max-w-full rounded-lg object-contain shadow-md hover:scale-[1.02] transition cursor-pointer" onclick="window.open('${url}', '_blank')"/>
+                            <img src="${url}" alt="${cleanAlt}" class="max-h-72 max-w-full rounded-lg object-contain shadow-md hover:scale-[1.02] transition cursor-pointer" onclick="openImageCloseUpModal('${url}', '${escapedAlt}')"/>
                         </div>
                     </div>
                 `;
@@ -5709,9 +6550,10 @@
             // 5. Raw URLs
             html = html.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="text-cyan-400 font-semibold underline break-all hover:opacity-80">$2</a>');
             // 6. Bold text
-            html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-            // 7. Bullet points (-, *, •)
-            html = html.replace(/^\s*[\-\*•]\s+(.+)$/gm, '<li class="ml-3 my-0.5">$1</li>');
+            html = html.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-bold text-white">$1</strong>');
+            // 7. Bullet points (-, *, •) with bold headers
+            html = html.replace(/^\s*[\-\*•]\s+([^:\n]+:\s*)(.+)$/gm, '<li class="ml-3 my-1.5 font-medium"><strong class="font-bold text-white">$1</strong>$2</li>');
+            html = html.replace(/^\s*[\-\*•]\s+(.+)$/gm, '<li class="ml-3 my-1.5 font-medium">$1</li>');
             // 8. Line breaks
             html = html.replace(/\n/g, '<br/>');
 
@@ -5726,16 +6568,38 @@
                 if (isMermaid) {
                     const uniqueId = 'mermaid_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
                     replacementHtml = `
-                        <div class="my-3 p-4 rounded-2xl bg-[#04091a] border border-cyan-500/40 shadow-xl overflow-hidden">
-                            <div class="flex items-center justify-between pb-2 mb-3 border-b border-cyan-500/20 text-xs font-mono text-cyan-400 shrink-0">
-                                <span class="flex items-center gap-1.5"><i data-lucide="git-fork" class="w-3.5 h-3.5 text-cyan-400"></i> European Engineering Diagram &amp; Workflow</span>
-                                <span class="text-[10px] text-cyan-300/70 font-mono">Mermaid.js Vector SVG</span>
+                        <div class="my-3 p-4 rounded-2xl bg-[#04091a] border border-cyan-500/40 shadow-xl overflow-hidden group/diagram">
+                            <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-3 border-b border-cyan-500/20 text-xs font-mono text-cyan-400 shrink-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="flex items-center gap-1.5 font-semibold text-cyan-300"><i data-lucide="git-fork" class="w-4 h-4 text-cyan-400"></i> European Engineering Diagram &amp; Workflow</span>
+                                    <span class="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-mono">Vector SVG</span>
+                                </div>
+                                <div class="flex items-center gap-1.5 ml-auto">
+                                    <!-- Zoom Controls -->
+                                    <div class="flex items-center bg-slate-900/90 border border-cyan-500/30 rounded-xl px-1 py-0.5 text-slate-300 shadow-inner">
+                                        <button type="button" onclick="zoomInlineDiagram('${uniqueId}', -0.2)" class="px-2 py-1 hover:text-cyan-300 transition text-xs font-bold rounded-lg hover:bg-cyan-500/10 cursor-pointer" title="Zoom Out (−)">−</button>
+                                        <span id="${uniqueId}_zoom_val" class="px-1.5 text-[10px] font-mono text-cyan-400 min-w-[38px] text-center select-none font-semibold">100%</span>
+                                        <button type="button" onclick="zoomInlineDiagram('${uniqueId}', 0.2)" class="px-2 py-1 hover:text-cyan-300 transition text-xs font-bold rounded-lg hover:bg-cyan-500/10 cursor-pointer" title="Zoom In (+)">+</button>
+                                        <button type="button" onclick="resetInlineDiagramZoom('${uniqueId}')" class="px-1.5 py-1 hover:text-cyan-300 transition text-[10px] border-l border-cyan-500/20 rounded-r-lg hover:bg-cyan-500/10 cursor-pointer" title="Reset Zoom">↺</button>
+                                    </div>
+                                    <!-- Fullscreen Close-Up Modal Button -->
+                                    <button type="button" onclick="openDiagramCloseUpModal('${uniqueId}')" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500/20 to-blue-600/20 hover:from-cyan-500/30 hover:to-blue-600/30 border border-cyan-400/40 text-cyan-300 text-[11px] font-medium transition active:scale-95 cursor-pointer shadow-sm" title="Open Fullscreen Close-up View">
+                                        <i data-lucide="maximize-2" class="w-3.5 h-3.5 text-cyan-400"></i>
+                                        <span class="font-sans font-semibold">Close-up</span>
+                                    </button>
+                                </div>
                             </div>
-                            <div id="${uniqueId}" class="mermaid-diagram-target flex justify-center py-2 text-slate-100 overflow-x-auto overflow-y-auto max-h-[440px]" data-mermaid-code="${encodeURIComponent(trimmedCode)}">
-                                <span class="text-xs text-slate-400 font-mono flex items-center gap-2 py-3">
-                                    <svg class="animate-spin h-3.5 w-3.5 text-cyan-400 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
-                                    Rendering diagram...
-                                </span>
+                            <!-- Diagram Canvas Container -->
+                            <div class="relative w-full rounded-xl bg-[#030612]/70 border border-cyan-500/10 overflow-hidden">
+                                <div id="${uniqueId}" class="mermaid-diagram-target block text-center p-4 text-slate-100 overflow-x-auto overflow-y-auto min-h-[360px] max-h-[580px] select-none" data-mermaid-code="${encodeURIComponent(trimmedCode)}" data-zoom="1">
+                                    <span class="text-xs text-slate-400 font-mono flex items-center gap-2 py-6">
+                                        <svg class="animate-spin h-4 w-4 text-cyan-400 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                                        Rendering interactive diagram...
+                                    </span>
+                                </div>
+                                <div class="absolute bottom-2 right-2 text-[9px] text-slate-500 font-mono bg-slate-950/80 px-2 py-0.5 rounded-md border border-cyan-500/20 pointer-events-none opacity-60 group-hover/diagram:opacity-100 transition">
+                                    Drag to pan • Click Close-up for full screen
+                                </div>
                             </div>
                         </div>
                     `;

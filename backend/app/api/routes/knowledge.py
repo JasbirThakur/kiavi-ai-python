@@ -1,8 +1,12 @@
+import os
 import time
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request, BackgroundTasks
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
-from app.db.database import get_db
+from sqlalchemy import or_, text
+from app.db.database import get_db, SessionLocal
 from app.db import models
 from app.services.ingestion import extract_file_text, get_chunks_from_text
 from app.services.embedding import get_embedding, get_embeddings_batch
@@ -198,41 +202,311 @@ def delete_universal_source(source_id: str, user: models.User = Depends(get_curr
     db.commit()
     return {"ok": True}
 
-@router.post("/universal/ingest-mixed")
-async def ingest_universal_mixed(
-    pasted_text: str = Form(""),
-    title: str = Form(""),
-    file: UploadFile = File(None),
+def async_embed_and_index_chunks(chunk_items: List[Dict[str, Any]], drop_recreate_index: bool = False):
+    """Background task to generate dense embeddings and update PostgreSQL vector records"""
+    if not chunk_items:
+        return
+    db = SessionLocal()
+    try:
+        if drop_recreate_index and len(chunk_items) > 500:
+            manage_vector_index(action="drop", db=db)
+
+        all_texts = [it["content"] for it in chunk_items]
+        all_vectors = get_embeddings_batch(all_texts, batch_size=128)
+
+        # Batch update embeddings in PostgreSQL
+        batch_size = 500
+        for i in range(0, len(chunk_items), batch_size):
+            batch_slice = chunk_items[i : i + batch_size]
+            batch_vecs = all_vectors[i : i + batch_size]
+            param_dicts = []
+            for it, vec in zip(batch_slice, batch_vecs):
+                vec_str = "[" + ",".join(str(x) for x in vec) + "]"
+                param_dicts.append({
+                    "id": it["id"],
+                    "embedding": vec_str
+                })
+
+            stmt = text("""
+                UPDATE document_chunks
+                SET embedding = CAST(:embedding AS vector)
+                WHERE id = :id
+            """)
+            db.execute(stmt, param_dicts)
+            db.commit()
+
+        if drop_recreate_index and len(chunk_items) > 500:
+            manage_vector_index(action="recreate", db=db)
+
+        print(f"✅ [Background Ingestion]: Successfully vectorized and indexed {len(chunk_items)} chunks.")
+    except Exception as e:
+        db.rollback()
+        print(f"❌ [Background Ingestion Error]: {e}")
+    finally:
+        db.close()
+
+def _parse_file_worker(item):
+    filename, file_bytes = item
+    try:
+        ext = (filename.split('.')[-1] or '').lower()
+        is_image = ext in ["png", "jpg", "jpeg", "webp"]
+        is_video = ext in ["mp4", "mov", "avi", "mkv"]
+
+        if is_image:
+            img_res = process_image_multimodal(file_bytes, filename)
+            source_title = img_res.get("title", filename)
+            tok_cnt = len(img_res["chunk_content"].split())
+            return {
+                "filename": filename,
+                "kind": "DIAGRAM",
+                "title": source_title,
+                "url": img_res["image_url"],
+                "token_count": tok_cnt,
+                "chunks": [{
+                    "id": str(uuid.uuid4()),
+                    "content": img_res["chunk_content"],
+                    "document_type": "DIAGRAM",
+                    "status": models.DocumentStatus.APPROVED,
+                    "source_url": img_res["image_url"],
+                    "language": "en"
+                }]
+            }
+
+        elif is_video:
+            video_chunks = process_video_multimodal(video_bytes=file_bytes, filename=filename, sample_interval_seconds=5)
+            source_title = f"Video Guide: {filename}"
+            tok_cnt = sum(len(c["content"].split()) for c in video_chunks)
+            full_vid_url = video_chunks[0]["video_url"] if video_chunks else None
+            return {
+                "filename": filename,
+                "kind": "VIDEO",
+                "title": source_title,
+                "url": full_vid_url,
+                "token_count": tok_cnt,
+                "chunks": [{
+                    "id": str(uuid.uuid4()),
+                    "content": vc["content"],
+                    "document_type": "VIDEO",
+                    "status": models.DocumentStatus.APPROVED,
+                    "source_url": vc["frame_url"],
+                    "language": "en"
+                } for vc in video_chunks]
+            }
+
+        else:
+            text_content = extract_file_text(file_bytes, filename)
+            if not text_content or not text_content.strip():
+                print(f"⚠️ [Batch Ingestion Warning]: No text extracted from {filename}")
+                return None
+
+            tok_cnt = len(text_content.split())
+            source_title = filename
+            chunks = get_chunks_from_text(text_content)
+            chunk_items = []
+            for text_chunk in chunks:
+                clean_chunk = text_chunk.replace('\x00', '').replace('\0', '').strip()
+                if not clean_chunk:
+                    continue
+                chunk_with_title = f"{source_title}\n{clean_chunk}"
+                chunk_items.append({
+                    "id": str(uuid.uuid4()),
+                    "content": chunk_with_title,
+                    "document_type": "FILE",
+                    "status": models.DocumentStatus.APPROVED,
+                    "source_url": None,
+                    "language": "en"
+                })
+
+            return {
+                "filename": filename,
+                "kind": "FILE",
+                "title": source_title,
+                "url": None,
+                "token_count": tok_cnt,
+                "chunks": chunk_items
+            }
+    except Exception as file_err:
+        print(f"❌ [Batch Ingestion Worker Error] '{filename}': {file_err}")
+        return None
+
+async def ingest_files_batch_core(
+    files: List[UploadFile],
+    bot_id: Optional[str],
+    is_universal: bool,
+    org_id: str,
+    db: Session,
+    background_tasks: Optional[BackgroundTasks] = None
+) -> Dict[str, Any]:
+    start_time = time.perf_counter()
+    MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024  # 500 MB Enterprise Bulk Limit
+
+    valid_files = [f for f in files if f and f.filename]
+    if not valid_files:
+        raise HTTPException(status_code=400, detail="No files provided for batch ingestion.")
+
+    # 1. Asynchronously read all file bytes upfront
+    raw_files_data = []
+    for file in valid_files:
+        try:
+            file_bytes = await file.read()
+            if len(file_bytes) > MAX_FILE_SIZE_BYTES:
+                raise HTTPException(status_code=400, detail=f"File '{file.filename}' exceeds 500 MB limit.")
+            raw_files_data.append((file.filename, file_bytes))
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"❌ [Batch Ingestion Read Error] '{file.filename}': {e}")
+
+    if not raw_files_data:
+        raise HTTPException(status_code=400, detail="Could not read uploaded files.")
+
+    # 2. Parallel multi-worker document extraction and semantic chunking
+    num_workers = min(len(raw_files_data), os.cpu_count() or 4)
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
+        parsed_results = list(executor.map(_parse_file_worker, raw_files_data))
+
+    processed_files = []
+    items_to_embed = []
+    total_tokens = 0
+
+    # 3. Single Batched Database Transaction for Sources
+    for parsed in parsed_results:
+        if not parsed or not parsed["chunks"]:
+            continue
+
+        source_title = parsed["title"]
+        # Deduplication within transaction
+        if is_universal:
+            db.query(models.BotSource).filter(
+                models.BotSource.isUniversal == True,
+                models.BotSource.orgId == org_id,
+                models.BotSource.title == source_title
+            ).delete(synchronize_session=False)
+        else:
+            db.query(models.BotSource).filter(
+                models.BotSource.botId == bot_id,
+                models.BotSource.title == source_title
+            ).delete(synchronize_session=False)
+
+        source = models.BotSource(
+            botId=bot_id if not is_universal else None,
+            isUniversal=is_universal,
+            orgId=org_id,
+            kind=parsed["kind"],
+            title=source_title,
+            url=parsed.get("url"),
+            tokenCount=parsed["token_count"]
+        )
+        db.add(source)
+        db.flush()  # Allocates source.id without full commit roundtrip
+
+        total_tokens += parsed["token_count"]
+        processed_files.append({
+            "filename": parsed["filename"],
+            "kind": parsed["kind"],
+            "chunks_created": len(parsed["chunks"]),
+            "tokens": parsed["token_count"],
+            "source_id": source.id
+        })
+
+        for chunk_dict in parsed["chunks"]:
+            if "id" not in chunk_dict or not chunk_dict["id"]:
+                chunk_dict["id"] = str(uuid.uuid4())
+            chunk_dict["sourceId"] = source.id
+            chunk_dict["embedding"] = None
+            items_to_embed.append(chunk_dict)
+
+    db.commit()
+
+    if not processed_files:
+        raise HTTPException(status_code=400, detail="No readable text or valid media extracted from provided files.")
+
+    # 4. Immediate Foreground Chunk Commit & Asynchronous Background Vectorization
+    if items_to_embed:
+        bulk_insert_chunks(items_to_embed, batch_size=500, db=db)
+        bg_payload = [{"id": it["id"], "content": it["content"]} for it in items_to_embed]
+        if background_tasks:
+            background_tasks.add_task(async_embed_and_index_chunks, bg_payload, drop_recreate_index=(len(bg_payload) > 500))
+        else:
+            async_embed_and_index_chunks(bg_payload, drop_recreate_index=(len(bg_payload) > 500))
+
+    total_time = time.perf_counter() - start_time
+
+    return {
+        "status": "success",
+        "total_files": len(processed_files),
+        "files_processed": processed_files,
+        "total_chunks": len(items_to_embed),
+        "chunks_created": len(items_to_embed),
+        "total_tokens": total_tokens,
+        "tokens": total_tokens,
+        "is_universal": is_universal,
+        "background_processing": True,
+        "total_time_seconds": round(total_time, 2)
+    }
+
+@router.post("/universal/ingest-batch", summary="Batch multi-file ingestion for Universal Knowledge")
+async def ingest_universal_batch(
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024  # 500 MB Enterprise Bulk Limit
-    if file and file.filename:
-        file_bytes = await file.read()
-        if len(file_bytes) > MAX_FILE_SIZE_BYTES:
-            raise HTTPException(status_code=400, detail="File size exceeds maximum allowed limit of 500 MB.")
-        text_content = extract_file_text(file_bytes, file.filename)
-        source_title = file.filename
-        kind = "FILE"
-    elif pasted_text.strip():
+    return await ingest_files_batch_core(
+        files=files,
+        bot_id=None,
+        is_universal=True,
+        org_id=user.orgId,
+        db=db,
+        background_tasks=background_tasks
+    )
+
+@router.post("/universal/ingest-mixed")
+async def ingest_universal_mixed(
+    background_tasks: BackgroundTasks,
+    pasted_text: str = Form(""),
+    title: str = Form(""),
+    file: UploadFile = File(None),
+    files: List[UploadFile] = File(None),
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    all_upload_files = []
+    if files:
+        all_upload_files.extend([f for f in files if f and f.filename])
+    if file and file.filename and file not in all_upload_files:
+        all_upload_files.append(file)
+
+    if all_upload_files:
+        return await ingest_files_batch_core(
+            files=all_upload_files,
+            bot_id=None,
+            is_universal=True,
+            org_id=user.orgId,
+            db=db,
+            background_tasks=background_tasks
+        )
+
+    if pasted_text.strip():
         text_content = pasted_text.strip()
         source_title = title.strip() or "Universal Grounding Policy"
         kind = "TEXT"
-    else:
-        raise HTTPException(status_code=400, detail="Provide a file or text content.")
+        return process_and_save_source(
+            db=db,
+            bot_id=None,
+            title=source_title,
+            content=text_content,
+            kind=kind,
+            is_universal=True,
+            org_id=user.orgId,
+            background_tasks=background_tasks
+        )
 
-    return process_and_save_source(
-        db=db,
-        bot_id=None,
-        title=source_title,
-        content=text_content,
-        kind=kind,
-        is_universal=True,
-        org_id=user.orgId
-    )
+    raise HTTPException(status_code=400, detail="Provide at least one file or text content.")
 
 @router.post("/universal/scrape")
 def scrape_universal_site(
+    background_tasks: BackgroundTasks,
     url: str = Form(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -247,7 +521,8 @@ def scrape_universal_site(
             kind="PAGE",
             original_url=url,
             is_universal=True,
-            org_id=user.orgId
+            org_id=user.orgId,
+            background_tasks=background_tasks
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -272,14 +547,11 @@ def delete_source(source_id: str, user: models.User = Depends(get_current_user),
     db.commit()
     return {"ok": True}
 
-@router.post("/ingest-mixed")
-async def ingest_mixed(
+@router.post("/ingest-batch", summary="Batch multi-file ingestion for Bot-specific Knowledge")
+async def ingest_bot_batch(
+    background_tasks: BackgroundTasks,
     bot_id: str = Form(...),
-    pasted_text: str = Form(""),
-    title: str = Form(""),
-    gap_id: str = Form(None),
-    gap_question: str = Form(None),
-    file: UploadFile = File(None),
+    files: List[UploadFile] = File(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -287,30 +559,63 @@ async def ingest_mixed(
     if not bot:
         raise HTTPException(status_code=404, detail="Bot not found")
 
-    MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024  # 500 MB Enterprise Bulk Limit
-    if file and file.filename:
-        file_bytes = await file.read()
-        if len(file_bytes) > MAX_FILE_SIZE_BYTES:
-            raise HTTPException(status_code=400, detail="File size exceeds maximum allowed limit of 500 MB.")
-        text_content = extract_file_text(file_bytes, file.filename)
-        source_title = file.filename
-        kind = "FILE"
+    return await ingest_files_batch_core(
+        files=files,
+        bot_id=bot.id,
+        is_universal=False,
+        org_id=user.orgId,
+        db=db,
+        background_tasks=background_tasks
+    )
+
+@router.post("/ingest-mixed")
+async def ingest_mixed(
+    background_tasks: BackgroundTasks,
+    bot_id: str = Form(...),
+    pasted_text: str = Form(""),
+    title: str = Form(""),
+    gap_id: str = Form(None),
+    gap_question: str = Form(None),
+    file: UploadFile = File(None),
+    files: List[UploadFile] = File(None),
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    bot = db.query(models.Bot).filter(models.Bot.id == bot_id, models.Bot.orgId == user.orgId).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+
+    all_upload_files = []
+    if files:
+        all_upload_files.extend([f for f in files if f and f.filename])
+    if file and file.filename and file not in all_upload_files:
+        all_upload_files.append(file)
+
+    if all_upload_files:
+        res = await ingest_files_batch_core(
+            files=all_upload_files,
+            bot_id=bot.id,
+            is_universal=False,
+            org_id=user.orgId,
+            db=db,
+            background_tasks=background_tasks
+        )
     elif pasted_text.strip():
         text_content = pasted_text.strip()
         source_title = title.strip() or "Hand-written Note"
         kind = "TEXT"
+        res = process_and_save_source(
+            db=db,
+            bot_id=bot.id,
+            title=source_title,
+            content=text_content,
+            kind=kind,
+            is_universal=False,
+            org_id=user.orgId,
+            background_tasks=background_tasks
+        )
     else:
-        raise HTTPException(status_code=400, detail="Provide a file or text content.")
-
-    res = process_and_save_source(
-        db=db,
-        bot_id=bot.id,
-        title=source_title,
-        content=text_content,
-        kind=kind,
-        is_universal=False,
-        org_id=user.orgId
-    )
+        raise HTTPException(status_code=400, detail="Provide at least one file or text content.")
 
     # Automatically resolve content gap if this grounding fact answered one
     if gap_id or gap_question:
@@ -349,6 +654,7 @@ async def ingest_mixed(
 
 @router.post("/scrape")
 def scrape_site(
+    background_tasks: BackgroundTasks,
     bot_id: str = Form(...),
     url: str = Form(...),
     user: models.User = Depends(get_current_user),
@@ -375,7 +681,8 @@ def scrape_site(
             kind="PAGE",
             original_url=url,
             is_universal=False,
-            org_id=user.orgId
+            org_id=user.orgId,
+            background_tasks=background_tasks
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -388,7 +695,8 @@ def process_and_save_source(
     kind: str,
     original_url: str = "",
     is_universal: bool = False,
-    org_id: str | None = None
+    org_id: str | None = None,
+    background_tasks: Optional[BackgroundTasks] = None
 ):
     """Helper function to save source, create chunks, and generate PostgreSQL vectors with telemetry metrics"""
     start_time = time.perf_counter()
@@ -439,7 +747,7 @@ def process_and_save_source(
     db.commit()
     db.refresh(source)
 
-    # 2. Chunking & Embeddings (Scaled with Batch Vectorization)
+    # 2. Chunking & Embeddings (Immediate Foreground Chunks & Background Vectorization)
     chunks = get_chunks_from_text(content)
     prepared_chunks = []
     for text_chunk in chunks:
@@ -451,18 +759,23 @@ def process_and_save_source(
         prepared_chunks.append(chunk_with_title)
 
     if prepared_chunks:
-        # Vectorize all chunks rapidly in batches
-        vectors = get_embeddings_batch(prepared_chunks)
-        for chunk_text_content, vec in zip(prepared_chunks, vectors):
-            db.add(models.DocumentChunk(
-                sourceId=source.id,
-                content=chunk_text_content,
-                embedding=vec,
-                source_url=source.url,
-                document_type=source.kind or "DOC",
-                extracted_date=source.createdAt
-            ))
-        db.commit()
+        chunk_items = [{
+            "id": str(uuid.uuid4()),
+            "sourceId": source.id,
+            "content": chunk_text_content,
+            "embedding": None,
+            "source_url": source.url,
+            "document_type": source.kind or "DOC",
+            "status": models.DocumentStatus.APPROVED,
+            "language": "en"
+        } for chunk_text_content in prepared_chunks]
+        bulk_insert_chunks(chunk_items, batch_size=500, db=db)
+
+        bg_payload = [{"id": it["id"], "content": it["content"]} for it in chunk_items]
+        if background_tasks:
+            background_tasks.add_task(async_embed_and_index_chunks, bg_payload, drop_recreate_index=(len(bg_payload) > 500))
+        else:
+            async_embed_and_index_chunks(bg_payload, drop_recreate_index=(len(bg_payload) > 500))
 
     elapsed_ms = (time.perf_counter() - start_time) * 1000
 
@@ -470,9 +783,13 @@ def process_and_save_source(
         "status": "success",
         "title": title,
         "chunks_created": len(prepared_chunks),
+        "total_chunks": len(prepared_chunks),
         "tokens": token_count,
+        "total_tokens": token_count,
         "kind": kind,
         "is_universal": is_universal,
+        "background_processing": True,
+        "total_time_seconds": round(time.perf_counter() - start_time, 2),
         "embedding_time_ms": round(elapsed_ms, 1)
     }
 

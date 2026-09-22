@@ -125,9 +125,18 @@ def process_video_multimodal(
     3. Fuses visual descriptions (Llama-3.2 Vision) with audio narration into synchronized chunks.
     """
     video_hash = hashlib.md5(video_bytes).hexdigest()[:10]
+    ext = filename.split(".")[-1].lower() if "." in filename else "mp4"
+    if ext not in ["mp4", "webm", "mov", "avi", "mkv"]:
+        ext = "mp4"
+    saved_video_filename = f"video_{video_hash}.{ext}"
+    saved_video_path = DIAG_DIR / saved_video_filename
+    if not saved_video_path.exists():
+        saved_video_path.write_bytes(video_bytes)
+    full_video_url = f"/static/extracted_diagrams/{saved_video_filename}"
+
     chunks_out = []
 
-    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp_video:
+    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as temp_video:
         temp_video.write(video_bytes)
         temp_video_path = temp_video.name
 
@@ -205,7 +214,9 @@ def process_video_multimodal(
                 # Create Multimodal Fusion Chunk
                 fusion_text = (
                     f"![Video Frame at {timestamp_str}]({frame_url})\n\n"
+                    f"🎥 [Watch Video Tutorial: {filename} at {timestamp_str}]({full_video_url}#t={int(current_second)})\n\n"
                     f"=== [VIDEO TUTORIAL & OPERATION GUIDE: {filename} | TIMESTAMP: {timestamp_str}] ===\n"
+                    f"Full Video URL: {full_video_url}#t={int(current_second)}\n"
                     f"Video Frame Screenshot: {frame_url}\n"
                     f"Visual Action & Scene: {frame_desc}\n"
                     f"Synchronized Audio Narration: \"{audio_text}\""
@@ -215,6 +226,7 @@ def process_video_multimodal(
                     "timestamp": timestamp_str,
                     "second": current_second,
                     "frame_url": frame_url,
+                    "video_url": full_video_url,
                     "content": fusion_text,
                     "audio_text": audio_text,
                     "visual_description": frame_desc

@@ -37,7 +37,7 @@
                     <div>
                         <div id="wBotName" class="font-bold text-xs">Agent</div>
                         <div id="wBotStatus" class="text-[10px] text-white/80 flex items-center gap-1">
-                            <span class="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-pulse"></span> AI Assistant • Online
+                            <span class="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-pulse"></span> Team Member • Online
                         </div>
                     </div>
                 </div>
@@ -147,9 +147,48 @@
 
         function formatMarkdownWithImages(text) {
             if (!text) return "";
+            // 0. Interactive Video Player & Streaming Card [Watch Video Tutorial: Title](URL.mp4)
+            let html = text.replace(/(?:🎥\s*)?\[(?:🎥\s*)?(?:Watch Video(?: Tutorial)?:\s*|Video:\s*)?([^\]]+)\]\s*\(((?:https?:\/\/|\/)[^\s)]+\.(?:mp4|webm|ogg|mov)(?:[?#][^\s)]*)?)\)/gi, (match, title, url) => {
+                const cleanTitle = (title || "Video Walkthrough").trim();
+                return `
+                    <div class="my-2.5 rounded-2xl overflow-hidden border border-amber-500/40 bg-slate-900 shadow-md">
+                        <div class="px-3 py-2 bg-gradient-to-r from-amber-950/40 to-slate-900 border-b border-amber-500/20 text-[11px] font-mono text-amber-300 flex items-center justify-between">
+                            <span class="flex items-center gap-1.5 truncate">
+                                <i data-lucide="video" class="w-3.5 h-3.5 text-amber-400"></i>
+                                <span class="truncate font-semibold">${cleanTitle}</span>
+                            </span>
+                            <span class="px-1.5 py-0.2 rounded text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">VIDEO</span>
+                        </div>
+                        <div class="p-1.5 bg-black">
+                            <video controls preload="metadata" class="w-full max-h-56 rounded-lg bg-black" src="${url}">
+                                Your browser does not support video.
+                            </video>
+                        </div>
+                    </div>
+                `;
+            });
             // 1. In-Chat Diagram / Image rendering ![Alt](url)
-            let html = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
+            html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
                 const label = alt || 'Visual Architecture / Diagram';
+                const isVideo = url.match(/\.(mp4|webm|ogg|mov)($|[?#])/i);
+                if (isVideo) {
+                    return `
+                        <div class="my-2.5 rounded-2xl overflow-hidden border border-amber-500/40 bg-slate-900 shadow-md">
+                            <div class="px-3 py-2 bg-gradient-to-r from-amber-950/40 to-slate-900 border-b border-amber-500/20 text-[11px] font-mono text-amber-300 flex items-center justify-between">
+                                <span class="flex items-center gap-1.5 truncate">
+                                    <i data-lucide="video" class="w-3.5 h-3.5 text-amber-400"></i>
+                                    <span class="truncate font-semibold">${label}</span>
+                                </span>
+                                <span class="px-1.5 py-0.2 rounded text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">VIDEO</span>
+                            </div>
+                            <div class="p-1.5 bg-black">
+                                <video controls preload="metadata" class="w-full max-h-56 rounded-lg bg-black" src="${url}">
+                                    Your browser does not support video.
+                                </video>
+                            </div>
+                        </div>
+                    `;
+                }
                 return `
                     <div class="my-2.5 rounded-2xl overflow-hidden border border-cyan-500/30 shadow-lg bg-[#060b17] p-2.5 text-center">
                         <a href="${url}" target="_blank" title="Click to view diagram in high-resolution">
@@ -275,9 +314,10 @@
             // 5. Raw URLs that are not part of an existing href tag
             html = html.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-cyan-400 font-semibold underline break-all hover:opacity-80">$2</a>');
             // 6. Bold text
-            html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-            // 7. Bullet points (-, *, •)
-            html = html.replace(/^\s*[\-\*•]\s+(.+)$/gm, '<li class="ml-3 my-0.5">$1</li>');
+            html = html.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>');
+            // 7. Bullet points (-, *, •) with bold headers
+            html = html.replace(/^\s*[\-\*•]\s+([^:\n]+:\s*)(.+)$/gm, '<li class="ml-3 my-1.5 font-medium"><strong class="font-bold text-slate-900 dark:text-white">$1</strong>$2</li>');
+            html = html.replace(/^\s*[\-\*•]\s+(.+)$/gm, '<li class="ml-3 my-1.5 font-medium">$1</li>');
             // 8. Line breaks
             html = html.replace(/\n/g, '<br/>');
             return html;
@@ -821,8 +861,8 @@
             const msgId = 'wmsg_' + Date.now();
             const isDark = botConfig.template === 'midnight';
             const botBubbleClass = isDark
-                ? "bg-[#0b0f19] border border-slate-800 p-3.5 rounded-2xl inline-block max-w-[88%] text-slate-100 shadow-sm leading-relaxed"
-                : "bg-white border border-slate-100 p-3.5 rounded-2xl inline-block max-w-[88%] text-slate-700 shadow-sm leading-relaxed";
+                ? "bg-[#0b0f19] border border-slate-800 p-3.5 rounded-2xl inline-block max-w-[88%] text-slate-100 font-medium shadow-sm leading-relaxed"
+                : "bg-white border border-slate-100 p-3.5 rounded-2xl inline-block max-w-[88%] text-slate-800 font-medium shadow-sm leading-relaxed";
 
             body.innerHTML += `
                 <div class="flex flex-col items-start space-y-1">

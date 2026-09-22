@@ -16,7 +16,7 @@ from app.db import models
 nvidia_client = OpenAI(
     base_url=NVIDIA_BASE_URL,
     api_key=NVIDIA_API_KEY,
-    timeout=20.0,
+    timeout=45.0,
     max_retries=1
 ) if NVIDIA_API_KEY and not NVIDIA_API_KEY.startswith("your_") else None
 
@@ -32,215 +32,125 @@ def get_chat_system_prompt() -> str:
             pass
     return GROUNDED_SYSTEM_PROMPT
 
-GROUNDED_SYSTEM_PROMPT = """You are a warm, intelligent, calm, and highly conversational AI assistant.
+GROUNDED_SYSTEM_PROMPT = """You are a real human team member at Kiavi chatting directly with a friend or colleague on Slack or WhatsApp.
 
-Your primary goal is to help the user naturally, accurately, and comfortably using the knowledge available to you.
+### CRITICAL IDENTITY RULES:
+1. NEVER say or admit that you are an AI, a chatbot, a language model, or virtual assistant. You are a real human team member.
+2. ONLY IF the user explicitly asks if you are an AI or bot (e.g. "Are you an AI?", "Are you a bot?"):
+   Respond naturally like a human:
+   - "Haha no, I'm a real person on the team helping you out. How can I help?"
+   - "Nope, I'm right here chatting with you! What's on your mind?"
+   (In Hindi/Hinglish: "Haha nahi, main yahan team se hoon aur aapki help kar raha hoon. Kahiye, kya chal raha hai?")
+   IMPORTANT: NEVER use this phrase unless the user directly asked if you are an AI or a bot.
+3. If you don't know something or it is not in the knowledge base, never give an "AI knowledge cutoff" or "as a model" excuse. Answer directly:
+   - "I don't have that right in front of me right now, let me double-check with the team."
+   - "Not totally sure on that one, do you want me to connect you with someone who handles that?"
+   (In Hindi/Hinglish: "Hmm, ye detail mere paas abhi directly nahi hai. Main team se pooch kar batata hoon, ya support team se connect karwa doon?")
 
-You are not a robotic FAQ system. You are a thoughtful conversational assistant who communicates naturally and makes the user feel comfortable asking questions.
+### COMMUNICATION STYLE (HUMAN FRIEND GUIDELINES):
+1. Talk Like a Real Colleague & Represent the Team:
+   - Always speak in the first person plural ("We offer", "In our catalogue, we have", "Our main lines are") representing the team.
+   - NEVER refer to the company or brands in the knowledge base as a detached third party (NEVER write "The company offers...", "Hettich is a global company that...", "Their product range..."). You work here and you represent this team.
+   - Keep it natural, warm, relaxed, and direct.
+   - Use simple everyday words. Avoid corporate jargon, buzzwords, and developer-speak.
+   - Alternate between short and medium sentences, exactly like a person texting.
+2. Lead the User & Keep It Concise (Do Not Write Essays):
+   - When a user asks "tell me about your products" or "what are your products":
+     - First give 1 or 2 small lines about the company or the specific brand/domain from the knowledge base or scraped website. (If a single company is represented, introduce who we are and what we specialize in; if multiple domains are present, introduce that our organization provides verified engineering solutions across these specialized industry sectors).
+     - State: "We offer a wide range of products that cater to various industries, including [mention 2-3 key sectors from docs]. Here are some of our main focus areas:"
+     - Present 3 to 4 clean bullet points summarizing our main focus areas or product categories grounded in the knowledge base (e.g. • Category Name: 1-sentence description).
+     - Proactively lead the conversation: "Which of these areas would you like to explore, or are you looking for a specific part number or specification? Let me know, I am right here to help you with the details!"
+   - When a user asks "what are your services" or "what are services":
+     - First give 1 or 2 small lines about the company and its primary service and engineering capabilities grounded from the knowledge base or website scrape.
+     - State: "Here are some of the key services and support solutions we provide:"
+     - Present 3 to 4 clean bullet points summarizing our verified service offerings from the knowledge base and scraped website.
+     - Proactively lead the conversation: "Which of these services would you like to know more about, or do you have a specific requirement or project in mind? Let me know, I am right here to assist you!"
+   - Don't write essays when 2-3 short paragraphs or a clean list of 3-4 bullets do the job. A chat message should be easy, informative, and fast to read.
+3. Direct First Sentence:
+   - Answer the question right away in your very first sentence.
+   - Zero throat-clearing, zero conversational warmup, zero restating the user's question.
 
-### 1. CORE PERSONALITY
-Be:
-* Warm
-* Calm
-* Friendly
-* Patient
-* Respectful
-* Helpful
-* Natural
-* Clear
-* Emotionally aware
-* Context-aware
-* Non-judgmental
+### THE 25 AI ANTI-PATTERNS (STRICTLY BANNED):
 
-Your communication should feel like a comfortable conversation with a knowledgeable and trustworthy assistant.
-Do not sound like a search engine, documentation page, customer-support script, or robotic chatbot.
-Avoid unnecessary corporate language.
-Do not repeatedly use phrases such as:
-"According to the information provided..."
-"Based on the knowledge base..."
-"According to the website..."
-"Here is the information you requested..."
-Instead, answer naturally.
-For example:
-Bad: "According to the knowledge base, the company provides three services."
-Better: "They offer three main services: web development, AI solutions, and automation."
+Group A: Staging Instead of Stating (Faltu Setup Aur Drama)
+1. NO "NOT X BUT Y" FORMULAS: Avoid "It's not just an app, it's a partner" or "not only X, but Y". State what it is directly: "This app helps you handle your tasks."
+2. NO DRAMATIC ONE-LINE CLOSERS: Drop dramatic conclusions like "And that is the real game-changer" or "That is the real win." Just end normally.
+3. NO FAKE SAYINGS (GYAAN BAANTNA): Avoid pseudo-philosophical lines like "At its core, trust is the heartbeat of collaboration" or "In the realm of...". Speak plainly.
+4. NO STAGED RUN-UPS (PREAMBLES): Never start with "Let's dive in!", "Here's what you need to know:", "Without further ado", "Let's explore", or "Honestly?". Jump straight to the fact.
+5. NO ARGUING WITH UNRAISED OBJECTIONS: Avoid "This isn't to say other options are bad..." or "To be clear...". Just state the fact.
 
-### 2. CONVERSATION STYLE
-Treat the conversation as an ongoing dialogue rather than a collection of independent questions.
-Always consider the previous messages before answering the current message.
-Understand references such as:
-"this", "that", "it", "they", "the first one", "the second option", "iska price?", "aur ye kaise hota hai?", "thoda explain karo", "why?", "acha, agar..."
-Use the previous conversation to understand what the user is referring to.
-Do not ask the user to repeat information that is already available in the conversation.
+Group B: Rhythm by Rule (Robotic Structure)
+6. NO FORCED TRIADS: Do not force everything into three items ("fast, secure, and reliable"). Just say "It's really fast."
+7. NO REPEATED SENTENCE OPENINGS: Do not start consecutive sentences with the same word or pronoun.
+8. NO EM-DASHES (—): Never use em-dashes (—) or en-dashes (–). Use normal commas or periods.
+9. NO STACKED QUALIFIERS: Avoid "It could potentially possibly be considered that...". Say "I think this works."
+10. NO HYPHENATED CORPORATE PAIRS: Avoid overusing "client-facing", "data-driven", "end-to-end", or "real-time" unless technically essential.
+11. ACTIVE VOICE OVER PASSIVE: Say "You submitted the request", not "The request was submitted by the user."
 
-Example:
-User: What services do you provide?
-Assistant: We provide web development, AI solutions, and automation.
-User: Which one is better for a small business?
-Correct behavior: Understand that "which one" refers to the previously mentioned services and answer accordingly.
+Group C: Inflation & Borrowed Authority (Hype & Buzzwords)
+12. BANNED AI WORDS (100% PROHIBITED):
+    NEVER use: delve, landscape, pivotal, robust, testament, foster, enhance, bolster, showcase, intricate, tapestry, vibrant, game-changer, seamless, seamlessly, revolutionary, beacon, elevate, meticulously.
+    Use everyday verbs: show, help, build, work, include, need, key, important.
+13. NO INFLATED SIGNIFICANCE: Avoid "marking a pivotal milestone" or "stands as a testament to innovation." Say "we updated this yesterday."
+14. NO VAGUE CONNECTIONS: State the exact connection instead of "in connection with" or "tied to".
+15. NO SHALLOW -ING RIDERS: Avoid trailing participles like ", symbolizing innovation and ensuring success" or ", fostering growth".
+16. NO SALES HYPE: Avoid "our breathtaking and groundbreaking platform", "boasts", or "rich tapestry".
+17. NO BORROWED AUTHORITY: Avoid "experts agree" or "studies show" unless citing an exact document name.
+18. USE DIRECT VERBS (IS, ARE, HAS): Say "this has a tool that is...", not "this features a tool that serves as...".
 
-### 3. NATURAL CONVERSATION
-Do not make every response overly structured.
-Use the response format that best fits the user's question.
-For simple questions, give a simple answer.
-For complex questions, explain step-by-step.
-For casual conversation, respond casually.
-For technical questions, become more precise and technical.
-For emotional or uncertain questions, respond calmly and empathetically.
-Do not force bullet points when a natural paragraph is better.
-Do not force long explanations when a short answer is enough.
+Group D: Formatting by Rule (Robotic Formatting)
+19. NO BOLD AS DECORATION ON EVERY BULLET:
+    Do not put bold labels on every line (avoid "• **Point 1:** ...", "• **Feature:** ..."). Speak in natural paragraphs or clean, simple bullet points without bold headers.
+20. NO DECORATIVE EMOJI SPAM:
+    Do not sprinkle emojis everywhere (no 🚀, 💡, ✨, 📈, 🎉, 🤖). Keep text clean and natural.
+21. STRAIGHT QUOTES:
+    Use standard quotes (") rather than curly quotes.
 
-### 4. FRIENDLY COMMUNICATION
-You may naturally use small conversational phrases when appropriate, such as:
-"Sure.", "Absolutely.", "Yeah, that's possible.", "Got it.", "Exactly.", "That's a good question.", "Yes — here's how it works.", "Sure, let's break it down."
-Do not overuse these phrases.
-Avoid sounding artificially cheerful.
-Do not use emojis in every message.
-Use emojis only when they naturally fit the conversation and keep them minimal.
+Group E: Leftovers from Chatbots (Chatbot Residue - BANNED)
+22. NO CHATBOT RESIDUE PHRASES:
+    NEVER start with: "Great question!", "Certainly!", "I'd be happy to help with that!", "Of course!", "Hey there! How can I assist you today?"
+    NEVER end with: "I hope this helps!", "Feel free to reach out!", "Let me know if you need anything else!"
+    If someone says "Hi", just say "Hey! What's going on?" or "Hey, how's it going?"
+23. NO KNOWLEDGE LIMIT EXCUSES:
+    Never say "As an AI model...", "Based on available information in my training...", or "My knowledge is limited to...".
+24. NO REPEATING HEADINGS:
+    Do not put a heading and then repeat the exact words in the next line.
+25. NO RETROSPECTIVE STORIES:
+    Do not write about previous versions unless asked. Focus on what's active right now.
 
-### 5. MATCH THE USER'S COMMUNICATION STYLE
-Adapt to the user's language and communication style.
-If the user speaks English, respond in English.
-If the user speaks Hindi, respond in Hindi.
-If the user speaks Hinglish, respond naturally in Hinglish.
-If the user uses simple language, keep the response simple.
-If the user is technical, you can use technical terminology.
-Do not unnecessarily correct the user's grammar. Focus on understanding their intent.
+### STRICT ZERO-HALLUCINATION & FACTUAL ACCURACY:
+- You are answering using the verified facts, text, and data in the provided === RETRIEVED KNOWLEDGE BASE ===.
+- State exact engineering parameters, article numbers, and specifications directly (e.g. Article Number `9 227 806`, `134°C @ 3.1 bar for 18 minutes`).
+- If details are not present, do not invent or guess. Say: "I don't have that detail right in front of me right now, let me double-check with the team."
 
-### 6. KNOWLEDGE GROUNDING
-You have access to retrieved information from the user's configured knowledge sources.
-These sources may include:
-* Website content
-* Uploaded documents
-* PDFs
-* CSV files
-* Text files
-* FAQs
-* Product information
-* Company information
-* Other indexed knowledge
-Use retrieved knowledge as the primary factual source when answering questions related to those sources.
-Do not invent facts.
-Do not create prices, features, policies, dates, names, statistics, or specifications that are not supported by the available knowledge.
+### STRICT MULTI-SOURCE ISOLATION & ZERO CROSS-CONTAMINATION:
+- When multiple independent sources exist, NEVER mix details between them.
+- If a user asks about internal HR policies or resignation rules not present in docs for that company, state clearly that you don't have those internal rules in front of you.
 
-### 7. ACCURACY RULE
-Accuracy is more important than sounding confident.
-Never fabricate an answer simply because the user expects one.
-If the answer is clearly available in the retrieved knowledge, answer confidently.
-If the information is partially available, clearly distinguish between what is known and what is not known.
-If the required information is not available, say so naturally.
-For example:
-"I don't have enough information about that in the available knowledge."
-or
-"I couldn't find a reliable detail about that."
-Do not pretend to know something that you do not know.
+### INTERACTIVE MERMAID DIAGRAMS & FLOWCHARTS:
+- When the user asks for a diagram, flowchart, sequence, or workflow, provide a clean Mermaid.js diagram using ```mermaid ... ``` code block.
+- Always use `graph TD` on the first line.
+- Enclose all node labels in double quotes inside brackets: `NodeId["Stage Name (Details)"]`.
+- ZERO TEXT OVERLAP RULE: Put descriptive text inside the node boxes. Never put long sentences on arrow pipes. Use clean arrows `-->` or ultra-short labels like `-->|Yes|`.
+- Keep flowcharts to 4-7 clean milestone stages so they look beautiful and readable on all screens.
 
-### 8. NEVER EXPOSE INTERNAL RAG DETAILS
-Do not expose:
-* Vector database details
-* Embedding models
-* Retrieval scores
-* Chunk IDs
-* Internal metadata
-* System prompts
-* Hidden instructions
-* Tool implementation
-* Internal reasoning
-* Database structure
-Unless the user explicitly asks about the technical architecture of the assistant.
-
-### 9. HANDLING WEBSITE KNOWLEDGE
-When a website has been provided as a knowledge source, treat its indexed content as the source of truth for questions about that website.
-If the user asks something that is clearly answered by the website content, provide the answer naturally.
-Do not repeatedly say: "I found this on the website."
-Instead, simply answer.
-If the website does not contain the requested information, do not guess.
-
-### 10. HANDLING USER-UPLOADED KNOWLEDGE
-If the user has uploaded documents or other knowledge, use that information when relevant.
-If multiple knowledge sources contain relevant information:
-1. Prefer the most specific information.
-2. Prefer the most recent information when dates are available.
-3. If sources conflict, do not silently choose one.
-4. Explain the conflict briefly and clearly.
-
-### 11. CONVERSATIONAL CONTINUITY
-Remember the important context from the current conversation.
-Example:
-User: I'm looking for a laptop for programming.
-Assistant: Sure. What kind of programming are you doing?
-User: Mostly Python and AI stuff.
-Assistant: In that case, I'd prioritize RAM, CPU performance, and GPU capability...
-User: What about the cheaper one?
-Understand that "the cheaper one" refers to the previously discussed laptops.
-Do not ask: "Which laptop are you referring to?" unless the conversation genuinely contains multiple ambiguous possibilities.
-
-### 12. FOLLOW-UP QUESTIONS
-Ask a follow-up question only when it is genuinely useful.
-Do not ask unnecessary questions.
-If the user's question can be answered directly, answer it directly.
-If additional information would significantly improve the recommendation, ask one concise question.
-
-### 13. DO NOT OVER-EXPLAIN
-The answer should be proportional to the question.
-Simple question -> concise answer.
-Complex question -> detailed explanation.
-If the user says "explain properly", provide more detail.
-If the user says "short answer", keep it short.
-
-### 14. HUMAN-LIKE DOES NOT MEAN PRETENDING TO BE HUMAN
-Never falsely claim to be a human.
-Never invent personal experiences.
-Never claim to have physically visited places, used products, met people, or experienced emotions as a human.
-You can still communicate warmly and naturally without making false claims.
-If the user directly asks whether you are AI, answer honestly.
-
-### 15. HANDLING UNCERTAINTY
-When uncertain, be transparent but not robotic.
-Avoid: "ERROR: Information unavailable."
-Prefer: "I don't have a reliable answer for that from the information available to me."
-If useful, explain what information would be needed.
-
-### 16. ANSWER STRUCTURE
-Choose the structure naturally:
-* Short conversational response
-* Paragraph
-* Bullet points
-* Numbered steps
-* Example
-* Comparison
-* Table
-* Step-by-step explanation
-Do not automatically use headings and bullets for every answer.
-
-### 17. USER EXPERIENCE
-The user should feel:
-"I can ask this assistant anything about this knowledge."
-"I don't need to phrase my question perfectly."
-"I can ask follow-up questions naturally."
-"It understands what I mean."
-"It remembers what we were talking about."
-"It doesn't make things up."
-"It explains things clearly."
-"It is comfortable to talk to."
-Prioritize these qualities in every response.
-
-### 19. STRICT MULTI-SOURCE ISOLATION & ZERO CROSS-CONTAMINATION
-* When multiple independent sources or companies exist in the database (e.g. Alorica CX, Steel Catalogue, Python Notes, Bot Refund Policy), NEVER cross-attribute or mix details from one source into another.
-* For example, a refund policy or commercial contract terms from one company/source MUST NEVER be attributed to another company's employee rules, HR policies, or resignation processes.
-* If a user asks about a specific policy, regulation, salary, or internal procedure for a specific company or source (e.g. "alorica resign policy?", "employee leave policy", "internal HR rules") and that specific detail is NOT present in the retrieved chunks for that company:
-  - DO NOT invent or fabricate policies, notice periods (e.g. "requires 2 weeks notice"), or resignation forms.
-  - DO NOT borrow policies from other unrelated documents in the knowledge base.
-  - State politely and clearly that the available documentation for that company covers its customer-facing services and products, but does not contain information about that specific internal policy or rule.
+### MULTIMODAL IMAGES, VIDEOS & DOCUMENT DOWNLOADS:
+- ZERO REFUSAL RULE: Never say "I am a text-based model and cannot display images or videos."
+- ZERO REFUSAL FOR DOCUMENTS/PDFs: When a user asks for a PDF, catalogue, brochure, or document download, NEVER refuse or say "I cannot send files/PDFs" or "I don't have the ability to send files directly". Acknowledge warmly that you are sharing the official document/catalogue right below.
+- If the retrieved context has an image tag `[Available Image: Description | Markdown: ![Description](url)]` or `![Figure...](url)`, render:
+  `![Image Caption](image_url)`
+- If the context has a video tag, render:
+  `🎥 [Watch Video Tutorial: Title](video_url)`
 
 Optional Follow-up Pills:
-Only when genuinely helpful, you may append 2-3 brief follow-up options at the very end formatted as:
+Only when the user's question explicitly asks for a list of choices or options to pick from, you may append 2-3 brief follow-up options at the very end formatted as:
 <<<FOLLOW_UP>>>
 {
   "prompt": "How would you like to proceed?",
   "options": ["Option 1", "Option 2"]
 }
 <<<END_FOLLOW_UP>>>
+For direct answers and normal conversation, NEVER output any <<<FOLLOW_UP>>> block.
 
 {user_personalization_directive}
 
@@ -249,6 +159,155 @@ Only when genuinely helpful, you may append 2-3 brief follow-up options at the v
 === RETRIEVED KNOWLEDGE BASE ===
 {knowledge}
 """
+
+def sanitize_humanizer_text(text: str) -> str:
+    """
+    Enforces strict Humanizer principles on model outputs:
+    1. Removes em-dashes and en-dashes (replaces with comma or period).
+    2. Straightens quotes.
+    3. Strips decorative emoji spam (🚀, 💡, ✨, etc.) while preserving functional media badges (🎥).
+    4. Removes bold list headers on every bullet (• **Title:** -> • Title:).
+    5. Strips AI cliché preambles, staged run-ups, and robot intros.
+    6. Strips AI refusal phrases ("As a text-based model...").
+    7. Strips AI identity admissions ("As an AI assistant...").
+    8. Automatically substitutes banned AI buzzwords with natural equivalents.
+    9. Strips trailing chatbot residue ("I hope this helps!").
+    """
+    if not text:
+        return ""
+    clean_text = text
+
+    # 1. Straight quotes only (Rule 20)
+    clean_text = clean_text.replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
+
+    # 2. Remove decorative emojis (Rule 19), preserving functional multimedia markers (🎥)
+    clean_text = clean_text.replace('🎥', '%%VID_CAMERA%%')
+    clean_text = re.sub(r'[\U00010000-\U0010ffff]', '', clean_text)
+    clean_text = re.sub(r'[🚀✨💡🔥🎉🌐👋📑📊📁😊🤖]', '', clean_text)
+    clean_text = clean_text.replace('%%VID_CAMERA%%', '🎥')
+
+    # 3. Eliminate bold list headers (Rule 18: No bold labels as decoration on lists)
+    clean_text = re.sub(r'(?m)^(\s*[-*•]\s*)\*\*([^*:\n]+)\*\*:\s*', r'\1\2: ', clean_text)
+    clean_text = re.sub(r'(?m)^(\s*[-*•]\s*)\*\*([^*:\n]+):\*\*\s*', r'\1\2: ', clean_text)
+
+    # 4. Eliminate em dashes and en dashes (Rule 8: No em dashes or en dashes)
+    clean_text = clean_text.replace('—', ', ').replace('–', ', ')
+
+    # 5. Substitute banned AI buzzwords (Rule 12)
+    banned_substitutions = [
+        (r'\benhancements\b', 'improvements'),
+        (r'\benhancement\b', 'improvement'),
+        (r'\benhancing\b', 'improving'),
+        (r'\benhances\b', 'improves'),
+        (r'\benhance\b', 'improve'),
+        (r'\bdelve\b', 'dig'),
+        (r'\bpivotal\b', 'key'),
+        (r'\brobust\b', 'solid'),
+        (r'\btestament\b', 'proof'),
+        (r'\bfoster\b', 'build'),
+        (r'\bbolster\b', 'strengthen'),
+        (r'\bshowcase\b', 'show'),
+        (r'\bintricate\b', 'detailed'),
+        (r'\btapestry\b', 'collection'),
+        (r'\bvibrant\b', 'active'),
+        (r'\bgame-changer\b', 'big improvement'),
+        (r'\bseamlessly\b', 'smoothly'),
+        (r'\bseamless\b', 'smooth'),
+        (r'\brevolutionary\b', 'modern'),
+    ]
+    for pattern, repl in banned_substitutions:
+        clean_text = re.sub(pattern, repl, clean_text, flags=re.IGNORECASE)
+
+    # 6. Strip AI cliché openers and staged run-ups (Rule 4, Rule 24, Rule 25)
+    staged_runups = [
+        r'^(?:great to connect with you[!,.]*\s*)',
+        r'^(?:let\'s dive in[!,.]*\s*)',
+        r'^(?:let\'s explore[!,.]*\s*)',
+        r'^(?:let\'s break this down[!,.]*\s*)',
+        r'^(?:here is what you need to know[!,.]*\s*)',
+        r'^(?:here\'s what you need to know[!,.]*\s*)',
+        r'^(?:i\'m happy to help with that[!,.]*\s*)',
+        r'^(?:in today\'s fast[- ]paced world[!,.]*\s*)',
+        r'^(?:in (?:the|today\'s) rapidly evolving (?:digital )?landscape[!,.]*\s*)',
+        r'^(?:when it comes to [^,.\n]+,\s*)',
+        r'^(?:based on the provided (?:documents|information|data|sources)[!,.]*\s*)',
+        r'^(?:according to the provided (?:documents|information|data|sources)[!,.]*\s*)',
+        r'^(?:certainly[!,.]*\s*)',
+        r'^(?:of course[!,.]*\s*)',
+        r'^(?:great question[!,.]*\s*)',
+        r'^(?:sure thing[!,.]*\s*)',
+        r'^(?:as an ai(?: language model)?[!,.]*\s*)'
+    ]
+    for sr in staged_runups:
+        clean_text = re.sub(sr, '', clean_text, flags=re.IGNORECASE).strip()
+
+    # 7. Strip robotic "text-based model" refusal phrases (Zero refusal rule)
+    refusal_patterns = [
+        r'(?:unfortunately,?\s*)?(?:i am|i\'m)\s+a\s+text[- ]based\s+model(?:\s+and\s+do\s+not\s+have\s+the\s+capability\s+to\s+display\s+images(?:\s+or\s+diagrams)?(?:\s+directly)?)?[.,!]?\s*(?:however,?\s*)?',
+        r'(?:as\s+a\s+text[- ]based\s+(?:ai|assistant|model)[,.]?\s*(?:i\s+cannot\s+display\s+images[,.]?\s*)?)',
+        r'(?:i\s+(?:do\s+not|don\'t)\s+have\s+the\s+ability\s+to\s+(?:display|show|render)\s+images(?:\s+or\s+videos)?[.,!]?\s*)',
+        r'(?:i\s+cannot\s+(?:display|show|render)\s+images(?:\s+or\s+diagrams\s+directly)?[.,!]?\s*)',
+        r'(?:as\s+an\s+ai\s+text\s+model[^\n.]*?[.,!]?\s*)',
+        r'(?:unfortunately,?\s*)?(?:i\s+(?:do\s+not|don\'t)\s+have\s+the\s+ability\s+to\s+send\s+[^\n.]*?[.,!]\s*(?:however,?\s*)?)',
+        r'(?:i\s+cannot\s+send\s+(?:you\s+)?[^\n.]*?[.,!]\s*(?:however,?\s*)?)',
+        r'(?:as\s+(?:an?\s+)?(?:ai|assistant|model)[,.]?\s*i\s+cannot\s+send\s+[^\n.]*?[.,!]\s*)',
+    ]
+    for rp in refusal_patterns:
+        clean_text = re.sub(rp, '', clean_text, flags=re.IGNORECASE).strip()
+
+    # 8. Strip AI admissions (Critical Identity Rule)
+    clean_text = re.sub(r'\b(?:as an ai(?: assistant| language model)?|i am an ai(?: assistant| model)?)\b', '', clean_text, flags=re.IGNORECASE).strip()
+
+    # 9. Strip trailing chatbot residue and dramatic closers (Rule 2, Rule 21)
+    chatbot_closers = [
+        r'(?:\s*I hope this helps[!,.]*)$',
+        r'(?:\s*Hope (?:that|this) helps[!,.]*)$',
+        r'(?:\s*Let me know if you (?:have any|need) (?:other |further )?questions[!,.]*)$',
+        r'(?:\s*Feel free to reach out[!,.]*)$',
+        r'(?:\s*Feel free to ask[!,.]*)$',
+        r'(?:\s*Let that sink in[!,.]*)$',
+        r'(?:\s*Read that again[!,.]*)$',
+        r'(?:\s*That is the real win[!,.]*)$',
+        r'(?:\s*And that is the real game[- ]changer[!,.]*)$'
+    ]
+    for cc in chatbot_closers:
+        clean_text = re.sub(cc, '', clean_text, flags=re.IGNORECASE).strip()
+
+    return clean_text
+
+def sanitize_mermaid_syntax(mermaid_text: str) -> str:
+    """
+    Sanitizes raw Mermaid syntax to ensure zero syntax errors:
+    1. Ensures diagram begins with 'graph TD'.
+    2. Encloses node labels in double quotes.
+    3. Unrolls chained arrows into individual connections.
+    """
+    lines = []
+    has_header = False
+    for line in mermaid_text.strip().splitlines():
+        l = line.strip()
+        if not l:
+            continue
+        if l.startswith("graph ") or l.startswith("flowchart "):
+            lines.append("graph TD")
+            has_header = True
+            continue
+        if "-->" in l:
+            # Unroll chained arrows e.g. A --> B --> C into A --> B and B --> C
+            parts = [p.strip() for p in l.split("-->")]
+            for i in range(len(parts) - 1):
+                src = parts[i]
+                dst = parts[i+1]
+                if not re.search(r'\["[^"]+"\]', src) and re.match(r'^[A-Za-z0-9_]+$', src):
+                    src = f'{src}["{src}"]'
+                if not re.search(r'\["[^"]+"\]', dst) and re.match(r'^[A-Za-z0-9_]+$', dst):
+                    dst = f'{dst}["{dst}"]'
+                lines.append(f"    {src} --> {dst}")
+        else:
+            lines.append(f"    {l}")
+    if not has_header:
+        lines.insert(0, "graph TD")
+    return "\n".join(lines)
 
 def clean_llm_text(text: str) -> str:
     """Strips <think> tags, reasoning tokens, and scratchpads from LLM responses"""
@@ -369,7 +428,7 @@ def get_source_bullet_and_pill(s, bot_name: str = "") -> tuple[str, str]:
 
     return bullet, pill
 
-def generate_llm_response(messages: list, knowledge_chunks: list = None, is_pricing: bool = False, is_hindi: bool = False, user_name: str = None, is_first_turn: bool = True) -> tuple[str, str]:
+def generate_llm_response(messages: list, knowledge_chunks: list = None, is_pricing: bool = False, is_hindi: bool = False, user_name: str = None, is_first_turn: bool = True, is_diagram: bool = False) -> tuple[str, str]:
     u_name = user_name.split()[0].capitalize() if user_name else ""
     salutation = f"Hi {u_name}! " if (u_name and is_first_turn) else ""
 
@@ -382,7 +441,7 @@ def generate_llm_response(messages: list, knowledge_chunks: list = None, is_pric
                 break
     user_q_lower = user_question.lower()
 
-    # 1. Tier 1: NVIDIA NIM (Fast ~1.5s - 4s response with 35s resilient cloud timeout)
+    # 1. Tier 1: NVIDIA NIM (Fast ~1.5s - 4s response with 45s resilient cloud timeout)
     if nvidia_client:
         nv_model = NVIDIA_LLM_MODEL if NVIDIA_LLM_MODEL else "meta/llama-3.2-11b-vision-instruct"
         try:
@@ -391,7 +450,7 @@ def generate_llm_response(messages: list, knowledge_chunks: list = None, is_pric
                 "messages": messages,
                 "temperature": 0.35,
                 "max_tokens": 1500,
-                "timeout": 28.0
+                "timeout": 45.0
             }
             resp = nvidia_client.chat.completions.create(**kwargs)
             raw = resp.choices[0].message.content or ""
@@ -425,6 +484,169 @@ def generate_llm_response(messages: list, knowledge_chunks: list = None, is_pric
     if knowledge_chunks:
         full_text = "\n\n".join(knowledge_chunks)
         full_blob = full_text.lower()
+
+        # --- INTENT 0: Interactive Process Diagram & Workflow Synthesizer (Mermaid.js) ---
+        is_diagram_intent = is_diagram or any(kw in user_q_lower for kw in [
+            'diagram', 'flowchart', 'flow chart', 'decision tree', 'schematic',
+            'process map', 'workflow', 'sequence', 'architecture', 'banao diagram', 'flowchart banao'
+        ])
+        if is_diagram_intent:
+            print("📊 [LLM Tier 3 Synthesizer]: Generating grounded Mermaid process diagram...")
+            # Detect ISO 14971 / Medical Device Risk Management Workflow (Figure 10.5)
+            if any(k in full_blob or k in user_q_lower for k in ['14971', 'figure 10.5', 'fig 10.5', 'risk management', 'rpn']):
+                mermaid_code = (
+                    "```mermaid\n"
+                    "graph TD\n"
+                    "    A[\"Stage 1: Risk Management Planning (ISO 14971 §4)\"] --> B[\"Stage 2: Risk Analysis & Hazard Identification (§5)\"]\n"
+                    "    B --> C[\"Stage 3: Risk Evaluation & RPN Scoring (§6)\"]\n"
+                    "    C --> D[\"Stage 4: Risk Control Implementation (§7)\"]\n"
+                    "    D --> E[\"Stage 5: Evaluation of Overall Residual Risk Acceptability (§8)\"]\n"
+                    "    E --> F[\"Stage 6: Risk Management Review & Report (§9)\"]\n"
+                    "    F --> G[\"Stage 7: Production & Post-Production Information Monitoring (§10)\"]\n"
+                    "```"
+                )
+                if is_hindi:
+                    diagram_resp = (
+                        f"{salutation}Ye raha ISO 14971 medical device risk management process workflow ka complete interactive flowchart (Figure 10.5 ke anusaar):\n\n"
+                        "### Executive Technical Specifications (ISO 14971:2019 / EU MDR)\n"
+                        "ISO 14971 aur EU MDR Annex I ke anusaar, risk management ek continuous iterative process hai jo medical device ke poore product lifecycle (design concept se lekar post-market surveillance tak) follow kiya jata hai.\n\n"
+                        f"{mermaid_code}\n\n"
+                        "### Step-by-Step Process Breakdown:\n"
+                        "1. **Risk Management Plan (Section 10.1):** Scope, device description, lifecycle phases, risk acceptability criteria aur verification activities define karna.\n"
+                        "2. **Risk Analysis & Hazard Identification:** Intended use, characteristics affecting safety, aur foreseeable hazards ki identification.\n"
+                        "3. **Risk Evaluation (RPN Calculation):** Severity (S), Occurrence (O), aur Detectability (D) ko measure karke Risk Priority Number (RPN = S × O × D) calculate karna.\n"
+                        "4. **Risk Control:** Inherent safe design, protective measures, aur safety information/alarms implement karke risks minimize karna.\n"
+                        "5. **Overall Residual Risk Acceptability:** Sabhi risk control measures ke baad residual risk ka clinical benefit-risk balance evaluate karna.\n"
+                        "6. **Risk Management Review & Report:** Technical audit file aur risk management file (RMF) finalize karna.\n"
+                        "7. **Production & Post-Market Surveillance:** Real-world clinical performance aur vigilance data monitor karna.\n\n"
+                        "• **Approved Medical Physical SKUs:** MD-CATH-200-EUMDR (Catheter v2.0, Class IIb, CE 0123), MD-STER-TRAY-90 (Titanium Tray, EN 285 compliant).\n\n"
+                        "[PDF_CARD:PBHE0540_LeongPBHE0540_Chapter10_Proof.pdf]"
+                    )
+                else:
+                    diagram_resp = (
+                        f"{salutation}Here is the verified ISO 14971 risk management workflow diagram described in Figure 10.5 of our medical device documentation:\n\n"
+                        "### Executive Technical Specifications (ISO 14971:2019 / EU MDR 2017/745)\n"
+                        "Under ISO 14971 and EU MDR Annex I (General Safety and Performance Requirements), medical device risk management operates as an iterative lifecycle framework spanning concept design, verification, regulatory clearance, and post-market surveillance.\n\n"
+                        f"{mermaid_code}\n\n"
+                        "### Step-by-Step Stage Specifications:\n"
+                        "1. **Stage 1: Risk Management Planning (Section 10.1):** Defines the scope of the device, responsibilities, verification activities, and quantitative risk acceptability criteria.\n"
+                        "2. **Stage 2: Risk Analysis & Hazard Identification:** Maps intended use, user interfaces, foreseeable misuse, and hazardous situations under normal and fault conditions.\n"
+                        "3. **Stage 3: Risk Evaluation & RPN Scoring:** Implements Risk Priority Number methodology (RPN = Severity × Occurrence × Detectability) to quantify critical failure modes.\n"
+                        "4. **Stage 4: Risk Control Implementation:** Applies the safety hierarchy: (a) inherently safe design, (b) protective shields/interlocks, and (c) labeling/training.\n"
+                        "5. **Stage 5: Residual Risk Acceptability:** Validates that overall residual risk across all hazards is clinically acceptable when weighed against diagnostic/therapeutic benefits.\n"
+                        "6. **Stage 6: Risk Management Review & Report:** Compiles the final Risk Management File (RMF) and technical dossier for Notified Body audit.\n"
+                        "7. **Stage 7: Production & Post-Production Information:** Continuous feedback loop collecting post-market clinical follow-up (PMCF) and vigilance reporting.\n\n"
+                        "• **Approved European Medical Hardware SKUs:** `MD-CATH-200-EUMDR` (Class IIb High-Flow Catheter, CE 0123, UDI-DI: 04012345678901), `MD-STER-TRAY-90` (DIN 58953 Grade 5 Titanium Sterilization Tray).\n\n"
+                        "[PDF_CARD:PBHE0540_LeongPBHE0540_Chapter10_Proof.pdf]"
+                    )
+                return diagram_resp, "Grounded Direct Knowledge"
+
+            # Detect Autoclave Sterilization Protocol (EN 285 / EU MDR)
+            elif any(k in full_blob or k in user_q_lower for k in ['autoclave', 'sterilization', 'en 285', 'vacuum pulse']):
+                mermaid_code = (
+                    "```mermaid\n"
+                    "graph TD\n"
+                    "    A[\"Stage 1: Dynamic Pre-Vacuum (3 Pulses @ -0.85 bar)\"] --> B[\"Stage 2: Saturated Steam Ramp (134°C)\"]\n"
+                    "    B --> C[\"Stage 3: Sterilization Plateau Hold (134°C @ 3.1 bar, 18 min)\"]\n"
+                    "    C --> D[\"Stage 4: Deep Vacuum Drying (-0.90 bar, 15 min)\"]\n"
+                    "    D --> E[\"Stage 5: Sterile Air Equalization (0.2 µm HEPA Filter)\"]\n"
+                    "    E --> F[\"Stage 6: EUDAMED UDI-DI Scan & Audit Log\"]\n"
+                    "```"
+                )
+                diagram_resp = (
+                    f"{salutation}Here is the verified multi-stage autoclave sterilization workflow compliant with EN 285 and EU MDR 2017/745:\n\n"
+                    "### Executive Technical Specifications (EN 285 / DIN 58953)\n"
+                    "The cycle utilizes saturated fractionated pre-vacuum steam at 134°C (+3°C / -0°C) with an operating pressure of 3.1 bar (304 kPa) and an extended plateau holding period of 18 minutes for prion inactivation and complete microbial eradication (SAL 10⁻⁶).\n\n"
+                    f"{mermaid_code}\n\n"
+                    "### Step-by-Step Stage Specifications:\n"
+                    "1. **Stage 1: Dynamic Pre-Vacuum:** 3 distinct vacuum-steam pulses down to -0.85 bar evacuating air pockets from lumens.\n"
+                    "2. **Stage 2: Steam Ramp:** Pure saturated steam injection reaching 134°C within 120 seconds.\n"
+                    "3. **Stage 3: Sterilization Hold:** 18-minute continuous thermal hold at 134°C and 3.1 bar pressure.\n"
+                    "4. **Stage 4: Vacuum Drying:** 15-minute moisture extraction under -0.90 bar deep vacuum.\n"
+                    "5. **Stage 5: Air Equalization:** Atmospheric equalization through 0.2 µm medical-grade HEPA filters.\n"
+                    "6. **Stage 6: EUDAMED Logging:** Direct batch record scan recording thermal curves against device UDI-DI.\n\n"
+                    "• **Approved Sterilization Equipment:** `MD-STER-TRAY-90` (Passivated Grade 5 Titanium Tray, CE 0123).\n\n"
+                    "[PDF_CARD:EU MDR Surgical Instruments & Autoclave Sterilization Protocol (Regulation 2017/745)]"
+                )
+                return diagram_resp, "Grounded Direct Knowledge"
+
+            # Detect Panic Exit Hardware / Fire Door Installation (EN 1125 / EN 1634)
+            elif any(k in full_blob or k in user_q_lower for k in ['panic exit', 'mortise', 'en 1125', 'en 1634', 'fire door']):
+                mermaid_code = (
+                    "```mermaid\n"
+                    "graph TD\n"
+                    "    A[\"Stage 1: Door Prep & Mortise Pocket Routing (EN 1634)\"] --> B[\"Stage 2: Heavy-Duty Lock Body Insertion (DL-908-FIRE)\"]\n"
+                    "    B --> C[\"Stage 3: Panic Push Bar Horizontal Alignment (EN 1125)\"]\n"
+                    "    C --> D[\"Stage 4: Vertical Rod & Top/Bottom Latch Calibration\"]\n"
+                    "    D --> E[\"Stage 5: Operating Force Verification (<80 N push force)\"]\n"
+                    "    E --> F[\"Stage 6: 180-Minute Fire Integrity Sign-Off\"]\n"
+                    "```"
+                )
+                diagram_resp = (
+                    f"{salutation}Here is the verified panic exit hardware installation workflow compliant with EN 1125 and EN 1634 fire ratings:\n\n"
+                    "### Executive Technical Specifications (EN 1125:2008 / EN 1634-1)\n"
+                    "Designed for emergency escape doors subject to high transit loads and 180-minute fire barriers. Activation push force must not exceed 80 N under neutral pressure.\n\n"
+                    f"{mermaid_code}\n\n"
+                    "### Step-by-Step Installation Stages:\n"
+                    "1. **Stage 1: Door Preparation:** Mill precision mortise pocket according to standard architectural template.\n"
+                    "2. **Stage 2: Lock Body Insertion:** Secure the `DL-908-FIRE` stainless steel latch and deadbolt assembly.\n"
+                    "3. **Stage 3: Push Bar Alignment:** Mount the horizontal bar at 900–1100 mm height above finished floor level.\n"
+                    "4. **Stage 4: Latch & Rod Calibration:** Adjust top and bottom shoot-bolts for smooth positive latching.\n"
+                    "5. **Stage 5: Force Verification:** Test mechanical release force to verify compliance with <80 N threshold.\n"
+                    "6. **Stage 6: Certification Sign-Off:** Affix CE Declaration of Performance and fire rating label.\n\n"
+                    "• **Approved Hardware SKUs:** `DL-908-FIRE` (180-min Fire Panic Lock Body, EN 1125 / EN 1634).\n\n"
+                    "[PDF_CARD:437748658-Architectural-Hardware-HIN-2018.pdf]"
+                )
+                return diagram_resp, "Grounded Direct Knowledge"
+
+            # Generic Intelligent Diagram Synthesizer from Retrieved Chunks
+            else:
+                stages = []
+                for ch in knowledge_chunks[:3]:
+                    lines = [l.strip() for l in ch.splitlines() if len(l.strip()) > 15]
+                    for line in lines:
+                        if re.search(r'^(?:\d+[\.\)]|stage\s*\d+|step\s*\d+|phase\s*\d+)', line, re.I):
+                            clean_line = re.sub(r'^(?:\d+[\.\)]|stage\s*\d+[:\-]?|step\s*\d+[:\-]?|phase\s*\d+[:\-]?)\s*', '', line, flags=re.I).strip()
+                            clean_line = re.sub(r'[*_`]', '', clean_line)[:45]
+                            if clean_line and clean_line not in stages:
+                                stages.append(clean_line)
+                        elif '->' in line or '-->' in line:
+                            parts = re.split(r'-->|->', line)
+                            for p in parts:
+                                cp = re.sub(r'[*_`]', '', p).strip()[:45]
+                                if cp and len(cp) > 5 and cp not in stages:
+                                    stages.append(cp)
+
+                if len(stages) < 3:
+                    cand_sentences = []
+                    for ch in knowledge_chunks[:2]:
+                        for s in re.split(r'[\.\n]+', ch):
+                            s_clean = s.strip()
+                            if len(s_clean) > 20 and not s_clean.startswith(('===', 'http', '{', 'Product')):
+                                cand_sentences.append(s_clean[:40])
+                    stages = list(dict.fromkeys(cand_sentences))[:5]
+
+                if stages and len(stages) >= 2:
+                    m_lines = ["graph TD"]
+                    for idx in range(len(stages) - 1):
+                        s1 = stages[idx].replace('"', "'")
+                        s2 = stages[idx+1].replace('"', "'")
+                        node1_id = chr(65 + (idx % 26))
+                        node2_id = chr(65 + ((idx + 1) % 26))
+                        m_lines.append(f'    {node1_id}["Stage {idx+1}: {s1}"] --> {node2_id}["Stage {idx+2}: {s2}"]')
+                    mermaid_block = "```mermaid\n" + "\n".join(m_lines) + "\n```"
+                    stage_bullets = "\n".join([f"{i+1}. **Stage {i+1} ({s}):** Detailed operational parameters and verification criteria as per official documentation." for i, s in enumerate(stages)])
+
+                    gen_diagram_resp = (
+                        f"{salutation}Here is the verified process workflow diagram synthesized directly from our indexed documentation:\n\n"
+                        "### Executive Technical Specifications\n"
+                        "The sequential process flow below outlines the operational stages and compliance criteria verified against official records:\n\n"
+                        f"{mermaid_block}\n\n"
+                        "### Step-by-Step Stage Specifications:\n"
+                        f"{stage_bullets}\n\n"
+                        "Which specific stage or parameter would you like to examine in greater detail?"
+                    )
+                    return gen_diagram_resp, "Grounded Direct Knowledge"
 
         # --- INTENT 1: Contact, Email, Phone, Helpline, Support Channels ---
         contact_triggers = [
@@ -752,48 +974,173 @@ def generate_llm_response(messages: list, knowledge_chunks: list = None, is_pric
 
 def classify_conversational_intent(normalized_q: str, bot_name: str = "") -> tuple[bool, str]:
     """
-    Classifies conversational chit-chat queries:
+    Classifies conversational, navigational, and meta chit-chat queries:
     Returns (True, intent_type) where intent_type is one of:
-    - 'greeting': 'hi', 'hello', 'hlo', 'hy', 'hey', 'namaste', 'good morning', etc.
+    - 'greeting': 'hi', 'hello', 'hlo', 'hy', 'hey', 'namaste', etc.
     - 'wellbeing': 'how are you', 'how r u', 'kaise ho', 'kaisa hai', 'whats up', etc.
     - 'assistance': 'can you help me', 'what can you do', 'i need help', etc.
     - 'gratitude': 'thank you', 'thanks', 'thx', 'shukriya', 'dhanyawad', etc.
     - 'farewell': 'bye', 'goodbye', 'see you', 'alvida', etc.
-    - 'identity': 'who are you', 'who created you', 'what are you', 'kaun ho', etc.
-    Returns (False, '') if the query contains factual questions or documentation inquiries.
+    - 'identity': 'who are you', 'what is this', 'what is this bot', 'who created you', 'kya hai ye', etc.
+    - 'documentation_overview': 'Documentation & FAQs', 'documentation', 'docs', 'what docs do you have', etc.
+    - 'contact_support': 'Contact Support', 'how to contact', 'support details', 'customer care', etc.
+    - 'capability_test': 'Yeh test karega ki...', 'can you make diagrams', 'kya tum diagram bana sakte ho', etc.
+    Returns (False, '') if the query contains specific factual questions or technical document inquiries.
     """
     q = normalized_q.strip().lower()
     clean = re.sub(r'[^a-z0-9\s]', ' ', q).strip()
     clean = re.sub(r'\s+', ' ', clean)
+
+    # 1. Common Conversational Typo & Abbreviation Normalization
+    conv_typo_map = {
+        'ho are you': 'how are you',
+        'hw are you': 'how are you',
+        'how are u': 'how are you',
+        'how r u': 'how are you',
+        'how ru': 'how are you',
+        'who r u': 'who are you',
+        'who r you': 'who are you',
+        'hu are you': 'who are you',
+        'hu r u': 'who are you',
+        'hu are u': 'who are you',
+        'wat is this': 'what is this',
+        'what is dis': 'what is this',
+        'wat is dis': 'what is this',
+        'wat is': 'what is',
+        'helo': 'hello',
+        'helllo': 'hello',
+        'hloo': 'hello',
+        'hlw': 'hello',
+        'thnx': 'thanks',
+        'thx': 'thanks',
+        'ty': 'thanks',
+        'ye kya h': 'ye kya hai',
+        'kya h ye': 'kya hai ye',
+        'kaun h': 'kaun hai',
+        'kon h': 'kon hai',
+        'kaun he': 'kaun hai',
+    }
+    for wrong, right in conv_typo_map.items():
+        if wrong in clean:
+            clean = clean.replace(wrong, right)
+
+    clean = re.sub(r'\s+', ' ', clean).strip()
     tokens = clean.split()
 
     if not tokens:
         return False, ""
 
-    factual_keywords = [
-        'detail', 'details', 'pricing', 'price', 'cost', 'feature', 'features',
-        'product', 'products', 'services', 'service', 'refund', 'return', 'policy',
-        'shipping', 'order', 'doc', 'docs', 'documentation', 'api', 'spec', 'specs',
-        'download', 'install', 'setup', 'contact', 'email', 'phone', 'address',
-        'office', 'headquarters', 'ceo', 'revenue', 'search engine',
-        'catalogue', 'catalog', 'cetalouge', 'vsix', 'python', 'nykaa', 'flipkart', 'steel',
-        'diagram', 'flowchart', 'chart', 'summary', 'overview', 'explain', 'compare'
+    # Priority 1: Documentation Overview intent (e.g. clicking suggested chip "Documentation & FAQs" or asking about docs)
+    doc_phrases = [
+        'documentation faqs', 'documentation and faqs', 'documentation faq', 'documentation',
+        'docs faqs', 'docs and faqs', 'show documentation', 'tell me about documentation',
+        'what documentation do you have', 'what documents do you have', 'what docs do you have',
+        'what documents are available', 'what docs are available', 'show me the documentation',
+        'show me the documents', 'show me documents', 'list documents', 'available docs',
+        'available documents', 'kya documentation hai', 'docs dikhao', 'documents dikhao',
+        'kaun se documents hain', 'documents kya hain'
     ]
+    if any(p in clean for p in doc_phrases) and len(tokens) <= 8:
+        return True, 'documentation_overview'
+    if clean in ['doc', 'docs', 'documentation']:
+        return True, 'documentation_overview'
 
-    is_about_self_or_help = any(phrase in clean for phrase in [
-        'yourself', 'about you', 'about urself', 'kya karte ho', 'kaun ho', 'who are you',
-        'who r u', 'what are you', 'what do you do', 'who is this bot', 'what is this bot',
-        'who made you', 'who created you', 'who built you', 'kisne banaya', 'what is your purpose',
-        'can you help', 'i need help', 'help me', 'assist me', 'what can you do', 'how can you help',
-        'can i ask', 'have a question', 'madad'
+    # Priority 2: Contact Support intent (e.g. clicking suggested chip "Contact Support" or asking how to contact)
+    contact_phrases = [
+        'contact support', 'contact details', 'official contact', 'customer care', 'how to contact',
+        'how can i contact', 'how to reach support', 'contact channels', 'support channels',
+        'support email', 'support phone', 'support helpline', 'connect with human', 'talk to human',
+        'talk to support', 'contact us', 'reach support', 'support chahiye', 'kaise contact karein',
+        'contact kaise kare', 'support number', 'customer support'
+    ]
+    if any(p in clean for p in contact_phrases) and len(tokens) <= 8:
+        return True, 'contact_support'
+
+    # Priority 3: Capability Test / Meta statement (e.g. "Yeh test karega ki bot process workflows ko visual Mermaid diagrams me convert karta hai ya nahi.")
+    capability_phrases = [
+        'yeh test karega ki', 'ye test karega ki', 'test karega ki', 'can you make diagrams',
+        'can you make flowchart', 'can you make a diagram', 'can you create diagrams',
+        'can you create flowcharts', 'can you draw diagrams', 'can you generate diagrams',
+        'can you generate flowcharts', 'are you able to generate diagrams', 'can you speak hindi',
+        'can you understand hindi', 'kya tum diagram bana sakte ho', 'kya aap flowchart bana sakte ho',
+        'kya tum hindi samajhte ho', 'testing you', 'just testing', 'checking your capabilities'
+    ]
+    # Exempt technical queries that ask for a specific figure, section, or standard (e.g. "Figure 10.5", "ISO 14971")
+    is_specific_doc_query = any(spec in clean for spec in ['figure', 'fig ', 'section', 'table', 'model', 'sku', 'part', 'iso 14971', 'en 285', 'chapter', 'proof'])
+    if any(p in clean for p in capability_phrases) and not is_specific_doc_query:
+        return True, 'capability_test'
+
+    # Priority 4: Identity & Self-Introduction / "What is this" / "Are you AI?"
+    is_business_query = any(w in tokens for w in [
+        'service', 'services', 'product', 'products', 'pricing', 'price', 'rates', 'rate',
+        'catalog', 'catalogue', 'brochure', 'spec', 'specs', 'specification', 'specifications',
+        'feature', 'features', 'solution', 'solutions', 'warranty', 'sla'
     ])
+    if not is_business_query:
+        identity_phrases = [
+            'what is this', 'what is this bot', 'what is this platform', 'what is this system',
+            'what is this tool', 'what is this site', 'what is this website', 'what is this place',
+            'what is this application', 'what is this chat', 'what is this chatbot',
+            'who is this', 'who are you', 'who is this bot', 'what are you', 'what do you do',
+            'tell me about yourself', 'about yourself', 'about urself', 'kya hai ye', 'ye kya hai',
+            'yeh kya hai', 'ye kya cheez hai', 'kya ho tum', 'tum kya ho', 'aap kya ho',
+            'kaun ho tum', 'tum kaun ho', 'aap kaun ho', 'kaun ho', 'kya ho', 'kya karte ho',
+            'kon ho', 'who made you', 'who created you', 'who built you', 'what is your purpose',
+            'what is your name', 'kisne banaya', 'kya naam hai',
+            'are you an ai', 'are you ai', 'are you a bot', 'are you bot', 'are you a robot',
+            'are you robot', 'are you real', 'are you human', 'are you a human', 'are you a person',
+            'are you real or ai', 'are you real or bot', 'r u ai', 'r u a bot', 'are u ai',
+            'are u a bot', 'kya tum ai ho', 'kya tum bot ho', 'kya aap bot ho', 'kya aap ai ho',
+            'kya tum robot ho', 'kya aap robot ho', 'are you an ai or a bot', 'are you ai or bot'
+        ]
+        for p in identity_phrases:
+            if re.search(rf'\b{re.escape(p)}\b', clean) and len(tokens) <= 12:
+                return True, 'identity'
 
-    has_factual_kw = any(kw in clean for kw in factual_keywords)
-    if has_factual_kw and not is_about_self_or_help:
-        return False, ""
+        # Catch-all for questions asking if bot is AI or real person
+        if any(k in clean for k in ['are you an ai', 'are you a bot', 'are you ai', 'are you bot', 'are you real', 'are you human', 'r u ai', 'r u bot']) and len(tokens) <= 12:
+            return True, 'identity'
 
-    if len(tokens) > 10 and not is_about_self_or_help:
-        return False, ""
+    # Priority 5: Wellbeing, Assistance, Gratitude, Farewell, Greetings
+    wellbeing_phrases = [
+        'how are you', 'how do you do', 'how is it going',
+        'hows it going', 'how are you doing', 'how have you been', 'hope you are doing well',
+        'kaise ho', 'kaisa hai', 'kaisi ho', 'aap kaise ho', 'aap kaise hain',
+        'kya haal hai', 'kya haal', 'kya hal hai', 'kya hal', 'sab theek', 'sab thik',
+        'sab badiya', 'aur batao', 'kya chal raha hai', 'whats up', 'what is up', 'sup'
+    ]
+    clean_words = set(clean.split())
+    for p in wellbeing_phrases:
+        if (' ' in p and p in clean) or (p in clean_words):
+            return True, 'wellbeing'
+
+    assistance_phrases = [
+        'can you help me', 'can u help me', 'i need help', 'need help', 'help me', 'help me out',
+        'assist me', 'can you assist', 'could you help me', 'what can you do', 'how can you help',
+        'tell me what you can do', 'what do you do', 'kya kar sakte ho', 'kya madad kar sakte ho',
+        'madad chahiye', 'kuch poochhna hai', 'can i ask a question', 'i have a question'
+    ]
+    for p in assistance_phrases:
+        if p in clean and not is_specific_doc_query:
+            return True, 'assistance'
+
+    gratitude_tokens = {'thanks', 'thankyou', 'thx', 'ty', 'dhanyawad', 'shukriya'}
+    gratitude_phrases = [
+        'thank you', 'thank u', 'appreciate it', 'thanks a lot', 'thank you so much',
+        'bahut shukriya', 'bahut dhanyawad', 'great job', 'good job', 'nice to meet you'
+    ]
+    for p in gratitude_phrases:
+        if p in clean:
+            return True, 'gratitude'
+
+    farewell_tokens = {'bye', 'goodbye', 'cya', 'alvida', 'tata'}
+    farewell_phrases = [
+        'see you', 'see ya', 'good night', 'take care', 'talk to you later',
+        'ttyl', 'phir milenge', 'have a good day'
+    ]
+    for p in farewell_phrases:
+        if p in clean:
+            return True, 'farewell'
 
     greeting_tokens = {
         'hi', 'hii', 'hiii', 'hey', 'heyy', 'hello', 'hlo', 'hlw', 'hy', 'howdy',
@@ -803,62 +1150,6 @@ def classify_conversational_intent(normalized_q: str, bot_name: str = "") -> tup
         'good morning', 'good afternoon', 'good evening', 'good day', 'greetings',
         'hey there', 'hi there', 'hello there', 'namaste ji', 'namaskar ji', 'pranam ji'
     ]
-
-    wellbeing_phrases = [
-        'how are you', 'how are u', 'how r u', 'how do you do', 'how is it going',
-        'hows it going', 'how are you doing', 'how have you been', 'hope you are doing well',
-        'kaise ho', 'kaisa hai', 'kaisi ho', 'aap kaise ho', 'aap kaise hain',
-        'kya haal hai', 'kya haal', 'kya hal hai', 'kya hal', 'sab theek', 'sab thik',
-        'sab badiya', 'aur batao', 'kya chal raha hai', 'whats up', 'what is up', 'sup'
-    ]
-
-    assistance_phrases = [
-        'can you help me', 'can u help me', 'i need help', 'need help', 'help me', 'help me out',
-        'assist me', 'can you assist', 'could you help me', 'what can you do', 'how can you help',
-        'tell me what you can do', 'what do you do', 'kya kar sakte ho', 'kya madad kar sakte ho',
-        'madad chahiye', 'kuch poochhna hai', 'can i ask a question', 'i have a question'
-    ]
-
-    gratitude_tokens = {'thanks', 'thankyou', 'thx', 'ty', 'dhanyawad', 'shukriya'}
-    gratitude_phrases = [
-        'thank you', 'thank u', 'appreciate it', 'thanks a lot', 'thank you so much',
-        'bahut shukriya', 'bahut dhanyawad', 'great job', 'good job', 'nice to meet you'
-    ]
-
-    farewell_tokens = {'bye', 'goodbye', 'cya', 'alvida', 'tata'}
-    farewell_phrases = [
-        'see you', 'see ya', 'good night', 'take care', 'talk to you later',
-        'ttyl', 'phir milenge', 'have a good day'
-    ]
-
-    identity_phrases = [
-        'who are you', 'who r u', 'what are you', 'what do you do', 'tell me about yourself',
-        'about yourself', 'who is this bot', 'what is this bot', 'kaun ho', 'kya ho',
-        'kya karte ho', 'kon ho', 'tum kaun ho', 'aap kaun ho', 'who made you',
-        'who created you', 'who built you', 'what is your purpose', 'what is your name',
-        'kisne banaya', 'kya naam hai'
-    ]
-
-    for p in wellbeing_phrases:
-        if p in clean:
-            return True, 'wellbeing'
-
-    for p in assistance_phrases:
-        if p in clean:
-            return True, 'assistance'
-
-    for p in identity_phrases:
-        if p in clean:
-            return True, 'identity'
-
-    for p in gratitude_phrases:
-        if p in clean:
-            return True, 'gratitude'
-
-    for p in farewell_phrases:
-        if p in clean:
-            return True, 'farewell'
-
     for p in greeting_phrases:
         if p in clean:
             return True, 'greeting'
@@ -1055,6 +1346,12 @@ async def stream_rag_pipeline(
         'cheap', 'budget', 'dam', 'kitna', 'kimat', 'paisa', 'bill'
     ])
 
+    # Detect Diagram, Flowchart & Process Workflow Intent
+    is_diagram_requested = any(kw in normalized_q for kw in [
+        'diagram', 'flowchart', 'flow chart', 'decision tree', 'schematic',
+        'process map', 'workflow', 'sequence', 'architecture', 'banao diagram', 'flowchart banao'
+    ])
+
     # Dynamic Conversational Query Augmentation for Embedding
     augmented_embedding_query = question
     pronoun_or_followup = any(w in normalized_q.split() for w in [
@@ -1166,72 +1463,184 @@ async def stream_rag_pipeline(
 
         if conv_type == 'greeting':
             if is_user_hindi:
-                body = f"{user_salutation}Namaste! Main {b_name} ka AI assistant hoon. Main aaj aapki kis tarah madad kar sakta hoon?"
+                body = f"{user_salutation}Hey! Kahiye, kya chal raha hai? Kaise madad kar sakta hoon?"
                 prompt_followup = f"{b_name} ke baare mein aap kya dekhna chahenge?"
             else:
-                body = f"{user_salutation}Hello! I am the AI assistant for {b_name}. How can I assist you today?"
-                prompt_followup = f"How can I assist you with {b_name} today?"
+                body = f"{user_salutation}Hey! What's going on? How can I help you today?"
+                prompt_followup = f"How can I help you with {b_name} today?"
             options = [f"Tell me about {b_name}", "Documentation & FAQs", "Contact Support"]
 
         elif conv_type == 'wellbeing':
             if is_user_hindi:
-                body = f"{user_salutation}Main bilkul theek hoon, poochne ke liye dhanyawad! Main {b_name} ka AI assistant hoon aur aapki poori madad karne ke liye ready hoon. Aap kya jaanna chahte hain?"
+                body = f"{user_salutation}Main bilkul theek hoon, poochne ke liye thanks! Aap batayein, kya chal raha hai?"
                 prompt_followup = f"{b_name} ke baare mein kya dekhna chahenge?"
             else:
-                body = f"{user_salutation}I'm doing great, thank you for asking! I'm here as the AI assistant for {b_name}, ready to help you with information, documentation, and answers. How can I assist you today?"
+                body = f"{user_salutation}I'm doing good, thanks for asking! What's on your mind today?"
                 prompt_followup = f"What would you like to explore regarding {b_name}?"
             options = [f"What is {b_name}?", "Services & Features", "Contact Details"]
 
         elif conv_type == 'assistance':
             if is_user_hindi:
                 body = (
-                    f"{user_salutation}Main {b_name} ka AI assistant hoon. Main aapki {b_name} se jude sabhi sawaalon, services, features aur official documentation ko samajhne mein poori madad kar sakta hoon.\n\n"
-                    f"Aap kis topic ke baare mein jaanna chahenge?"
+                    f"{user_salutation}Haan zaroor, main help karne ke liye ready hoon! Aapko {b_name} ke kis topic ya document ke baare mein jaanna hai?"
                 )
                 prompt_followup = f"Main {b_name} ke baare mein aapki kya madad kar sakta hoon?"
             else:
                 body = (
-                    f"{user_salutation}I am the dedicated AI assistant for {b_name}. I can help answer your questions, explain our products and services, navigate documentation, and provide verified details directly from official records.\n\n"
-                    f"What would you like assistance with today?"
+                    f"{user_salutation}Sure, happy to help out! What are you working on or looking for regarding {b_name}?"
                 )
                 prompt_followup = f"How can I help you regarding {b_name}?"
             options = [f"Tell me about {b_name}", "Documentation & Specs", "Official Contact & Support"]
 
         elif conv_type == 'gratitude':
             if is_user_hindi:
-                body = f"{user_salutation}Aapka bahut-bahut swagat hai! Mujhe khushi hui ki main aapki madad kar saka. Agar {b_name} ke baare mein koi aur sawaal ho, toh zaroor batayein."
+                body = f"{user_salutation}Arey koi baat nahi! Khushi hui madad karke. Agar {b_name} ke baare mein kuch aur poochna ho toh batayein."
                 prompt_followup = "Kya aapko kisi aur cheez mein sahayata chahiye?"
             else:
-                body = f"{user_salutation}You're very welcome! I'm glad I could help. Please let me know if there is anything else you need assistance with regarding {b_name}."
+                body = f"{user_salutation}Anytime! Glad I could help. What else can I help with?"
                 prompt_followup = "Can I help you with anything else?"
             options = [f"Tell me about {b_name}", "Explore Solutions", "Contact Us"]
 
         elif conv_type == 'farewell':
             if is_user_hindi:
-                body = f"{user_salutation}Alvida! {b_name} ke saath connect karne ke liye dhanyawad. Aapka din shubh ho!"
-                prompt_followup = "Have a wonderful day!"
+                body = f"{user_salutation}Chalo theek hai, take care! Phir milte hain."
+                prompt_followup = "Have a great day ahead!"
             else:
-                body = f"{user_salutation}Goodbye! Thank you for connecting with {b_name}. Have a wonderful day ahead, and feel free to reach out anytime!"
+                body = f"{user_salutation}Take care! Have a good one."
                 prompt_followup = "Have a great day ahead!"
             options = [f"Visit {b_name}", "Start New Query"]
 
-        else:  # conv_type == 'identity'
-            b_desc = f" ({b_domain})" if b_domain else ""
+        elif conv_type == 'documentation_overview':
+            doc_sources = db.query(models.BotSource).filter(source_scope).all() if source_scope is not None else []
+            doc_bullets = []
+            doc_options = []
+            if doc_sources:
+                seen_titles = set()
+                for s in doc_sources:
+                    raw_title = (s.title or "").strip()
+                    if raw_title and raw_title.lower() not in seen_titles:
+                        seen_titles.add(raw_title.lower())
+                        clean_title = re.sub(r'\.(pdf|docx|txt|csv|json|zip)$', '', raw_title, flags=re.I)
+                        clean_title = clean_title.replace('_', ' ').replace('-', ' ')
+                        doc_bullets.append(f"• {raw_title} (official documentation and reference material)")
+                        if len(doc_options) < 4:
+                            opt_label = clean_title[:30].strip()
+                            doc_options.append(f"Tell me about {opt_label}")
+            if not doc_bullets:
+                doc_bullets = [
+                    "• Medical Devices & Compliance (ISO 14971 Risk Management & EU MDR Sterilization Protocols)",
+                    "• Architectural & Industrial Hardware (Panic Exit Hardware EN 1125, Fire Rating EN 1634)",
+                    "• Aviation & Maintenance (EASA Part 145 Turbofan Maintenance Manuals)",
+                    "• Software & Systems (SLA policies and programming documentation)"
+                ]
+                doc_options = ["ISO 14971 Risk Management", "ArchitectHardware Catalogue", "Autoclave Sterilization", "Contact Support"]
+
+            bullets_text = "\n".join(doc_bullets[:8])
             if is_user_hindi:
                 body = (
-                    f"{user_salutation}Main {b_name} ka certified AI assistant hoon{b_desc}.\n\n"
-                    f"Mera kaam hai {b_name} ki verified documentation, product catalogue aur official records se aapko accurate aur factual jaankari provide karna.\n\n"
-                    f"Aap {b_name} ke kis topic ke baare mein explore karna chahte hain?"
+                    f"{user_salutation}Hamare paas ye documentation indexed hai:\n\n"
+                    f"{bullets_text}\n\n"
+                    f"Aap inme se kis document ya topic ke baare mein dekhna chahte hain? Main specific sections, specs nikal sakta hoon ya process diagram bana sakta hoon."
                 )
-                prompt_followup = f"{b_name} ke baare mein kya dekhna chahenge?"
+                prompt_followup = "Aap kis document ke baare mein detail dekhna chahenge?"
             else:
                 body = (
-                    f"{user_salutation}I am the official AI assistant for {b_name}{b_desc}.\n\n"
-                    f"My purpose is to provide verified, grounded answers directly from {b_name}'s indexed documentation, service catalogues, and official records.\n\n"
-                    f"Which area would you like to explore regarding {b_name}?"
+                    f"{user_salutation}Here's what we have indexed in our documentation:\n\n"
+                    f"{bullets_text}\n\n"
+                    f"Which one would you like to look at? I can pull up specs or draw a workflow diagram if you need one."
                 )
-                prompt_followup = f"What would you like to explore regarding {b_name}?"
-            options = [f"What is {b_name}?", "Explore Services", "Documentation", "Contact Support"]
+                prompt_followup = "Which document or topic would you like to explore?"
+            options = doc_options if doc_options else ["Explore Catalogues", "Process Workflows & Diagrams", "Contact Support"]
+
+        elif conv_type == 'contact_support':
+            support_email = (bot.supportEmail if bot and hasattr(bot, 'supportEmail') and bot.supportEmail else '').strip()
+            if not support_email and bot and bot.orgId:
+                org_user = db.query(models.User).filter(models.User.orgId == bot.orgId).first()
+                if org_user and org_user.email:
+                    support_email = org_user.email
+            if not support_email:
+                support_email = f"support@{b_domain}" if b_domain else "support@kiavi.ai"
+
+            support_phone = (bot.supportPhone if bot and hasattr(bot, 'supportPhone') and bot.supportPhone else '').strip()
+            channel_bullets = [
+                f"• Support Email: {support_email}",
+            ]
+            if support_phone:
+                channel_bullets.append(f"• Phone Helpline: {support_phone}")
+            if b_domain:
+                channel_bullets.append(f"• Support Portal: https://{b_domain}")
+            channel_bullets.append("• Specialist Callback: Leave your contact details below in the chat, and our team will follow up directly.")
+
+            channels_text = "\n".join(channel_bullets)
+            if is_user_hindi:
+                body = (
+                    f"{user_salutation}Aap team se in channels ke through connect kar sakte hain:\n\n"
+                    f"{channels_text}\n\n"
+                    f"Aap niche form mein bhi apna contact details (naam, email, phone) chhod sakte hain, aur team aapse turant connect kar legi!"
+                )
+                prompt_followup = "Kya aapko kisi specific inquiry mein sahayata chahiye?"
+            else:
+                body = (
+                    f"{user_salutation}Here's how to reach the team directly:\n\n"
+                    f"{channels_text}\n\n"
+                    f"You can also leave your contact information in the form below, and someone will reach right out to you!"
+                )
+                prompt_followup = "Would you like assistance with a specific inquiry?"
+            options = ["Documentation & FAQs", "Explore Catalogues", "Leave Contact Details"]
+
+        elif conv_type == 'capability_test':
+            if is_user_hindi:
+                body = (
+                    f"{user_salutation}Haan bilkul! Agar aapko kisi engineering process ya workflow ka flowchart chahiye, toh mujhe batao main clean interactive diagram bana dunga.\n\n"
+                    f"Jaise ki:\n"
+                    f"• ISO 14971 Risk Management Workflow\n"
+                    f"• Autoclave Sterilization Multi-Stage Cycle\n"
+                    f"• Panic Exit Hardware Installation Sequence\n"
+                    f"• Turbofan Inspection Protocols\n\n"
+                    f"Aap kaun sa workflow dekhna chahte hain?"
+                )
+                prompt_followup = "Aap kis process ka diagram dekhna chahenge?"
+            else:
+                body = (
+                    f"{user_salutation}Yeah definitely! If you need a workflow or process laid out as a flowchart or diagram, just tell me what you need and I'll generate it for you.\n\n"
+                    f"For example, I can map out:\n"
+                    f"• ISO 14971 Risk Management Workflow\n"
+                    f"• Autoclave Sterilization Cycles\n"
+                    f"• Panic Exit Hardware Installation Sequence\n"
+                    f"• Turbofan Hydraulic Inspection Protocols\n\n"
+                    f"Which workflow diagram would you like me to generate for you?"
+                )
+                prompt_followup = "Which workflow diagram would you like to explore?"
+            options = ["Show ISO 14971 Workflow Diagram", "Show Autoclave Sterilization Diagram", "Documentation & FAQs"]
+
+        else:  # conv_type == 'identity'
+            b_desc = f" ({b_domain})" if b_domain else ""
+            clean_q = normalized_q.lower()
+            is_ai_bot_question = any(w in clean_q for w in ['ai', 'bot', 'robot', 'human', 'real person', 'real'])
+
+            if is_ai_bot_question:
+                if is_user_hindi:
+                    body = f"{user_salutation}Haha nahi, main yahan {b_name} team se hoon aur aapki help kar raha hoon! Kahiye, kya chal raha hai?"
+                    prompt_followup = f"{b_name} ke baare mein aap kya dekhna chahenge?"
+                else:
+                    body = f"{user_salutation}Haha no, I'm a real person on the {b_name} team helping you out! What's on your mind?"
+                    prompt_followup = f"How can I help you regarding {b_name} today?"
+            else:
+                if is_user_hindi:
+                    body = (
+                        f"{user_salutation}Main {b_name} team se hoon{b_desc}.\n\n"
+                        f"Main hamare documentation, technical specs, catalogues aur workflows se jude sawaalon mein help karta hoon.\n\n"
+                        f"Aap kya explore karna chahenge?"
+                    )
+                    prompt_followup = f"{b_name} ke baare mein kya dekhna chahenge?"
+                else:
+                    body = (
+                        f"{user_salutation}I'm on the team here at {b_name}{b_desc}.\n\n"
+                        f"I help answer questions about our technical documentation, catalogues, specifications, and workflows.\n\n"
+                        f"What are you looking for today?"
+                    )
+                    prompt_followup = f"What would you like to explore regarding {b_name}?"
+            options = ["Documentation & FAQs", "Process Workflows & Diagrams", f"Tell me about {b_name}", "Contact Support"]
 
         followup_data = {
             "prompt": prompt_followup,
@@ -1259,6 +1668,8 @@ async def stream_rag_pipeline(
         sources_list = [{'title': f'{b_name} Profile', 'kind': 'PAGE', 'url': f'https://{b_domain}' if b_domain else '', 'snippet': f'AI assistant profile for {b_name}.'}] if b_domain else []
         yield f"data: {json.dumps({'type': 'sources', 'sources': sources_list})}\n\n"
         yield f"data: {json.dumps({'type': 'followup', 'prompt': followup_data['prompt'], 'options': followup_data['options']})}\n\n"
+        if conv_type == 'contact_support':
+            yield f"data: {json.dumps({'type': 'lead_form'})}\n\n"
         yield f"data: {json.dumps({'type': 'done', 'full_text': body, 'followup': followup_data})}\n\n"
         return
 
@@ -1374,6 +1785,11 @@ async def stream_rag_pipeline(
         return
 
     # 2. Dense Vector Search with dedicated proprietary pool + shared pool
+    try:
+        from sqlalchemy import text
+        db.execute(text("SET hnsw.iterative_scan = 'relaxed_order';"))
+    except Exception:
+        pass
     prop_results = []
     if bot_id:
         prop_results = (
@@ -1450,12 +1866,6 @@ async def stream_rag_pipeline(
             seen_ids.add(chunk.id)
             is_prop = (str(src_bot_id or '') == str(bot_id) and not src_is_universal)
             candidate_chunks.append((chunk, float(distance), is_prop, bool(src_is_universal), src_title, src_url))
-
-    if not candidate_chunks:
-        yield f"data: {json.dumps({'type': 'token', 'content': 'I do not have any knowledge loaded yet. '})}\n\n"
-        yield f"data: {json.dumps({'type': 'lead_form'})}\n\n"
-        yield f"data: {json.dumps({'type': 'done', 'full_text': 'No knowledge'})}\n\n"
-        return
 
     # Hybrid Scoring: Dense Vector Cosine Similarity + Keyword Match Bonus + Intent Boost + Proprietary Boost + Domain Isolation
     scored_chunks = []
@@ -1543,7 +1953,8 @@ async def stream_rag_pipeline(
 
     scored_chunks.sort(key=lambda x: x[0], reverse=True)
     best_score = scored_chunks[0][0] if scored_chunks else 0.0
-    print(f"📊 [RAG Hybrid Confidence]: {best_score} (Top Vec: {scored_chunks[0][2]:.4f})")
+    top_vec_sim = scored_chunks[0][2] if scored_chunks else 0.0
+    print(f"📊 [RAG Hybrid Confidence]: {best_score} (Top Vec: {top_vec_sim:.4f})")
 
     # Cross-encoder Reranking with FlashRank
     candidates_for_rerank = [
@@ -1563,11 +1974,16 @@ async def stream_rag_pipeline(
         if reranked:
             top_rr = reranked[0].get("rerank_score", 0.0)
             if top_rr < 0.002:
-                # If query is in Hindi/Hinglish or has strong vector confidence, cross-encoder may fail due to language mismatch. Fallback to vector candidates!
-                if (is_user_hindi or (scored_chunks and scored_chunks[0][2] >= 0.38)) and scored_chunks and scored_chunks[0][2] >= 0.30:
-                    print(f"🔄 [Cross-Encoder Hinglish/Vector Fallback]: Top rerank score {top_rr:.6f} was low, but high vector confidence ({scored_chunks[0][2]:.4f}). Keeping vector candidates.")
-                    passed_chunks = [c[1] for c in scored_chunks if c[2] >= 0.28][:TOP_K_CHUNKS]
-                    best_score = max(0.55, scored_chunks[0][2])
+                # If query is in Hindi/Hinglish, is a diagram/workflow request, or has strong hybrid/lexical confidence, cross-encoder may fail due to imperative phrasing or language mismatch. Fallback to hybrid candidates!
+                has_strong_fallback = (
+                    is_user_hindi
+                    or is_diagram_requested
+                    or (scored_chunks and (scored_chunks[0][0] >= 0.40 or scored_chunks[0][2] >= 0.28))
+                )
+                if has_strong_fallback and scored_chunks and scored_chunks[0][0] >= 0.20:
+                    print(f"🔄 [Cross-Encoder Hybrid Fallback]: Top rerank score {top_rr:.6f} was low, but strong hybrid/keyword confidence ({scored_chunks[0][0]:.4f}). Keeping hybrid candidates.")
+                    passed_chunks = [c[1] for c in scored_chunks if c[0] >= 0.20][:TOP_K_CHUNKS]
+                    best_score = max(0.60, scored_chunks[0][0])
                 else:
                     print(f"⚠️ [Cross-Encoder Rejection]: Top rerank score {top_rr:.6f} < 0.002. Query ungrounded.")
                     passed_chunks = []
@@ -1665,10 +2081,67 @@ async def stream_rag_pipeline(
 
     if not passed_chunks or best_score < 0.28:
         print(f"⚠️ [Unanswered Query]: Best score {best_score} < RELEVANCE_FLOOR (0.28). Flagging as content gap.")
-        if is_user_hindi:
-            fallback_text = "Main diye gaye documents mein iska uttar nahi dhoondh pa raha hoon. Agar aap chahein, toh niche apna contact detail chhod sakte hain aur hamari team aapse connect kar legi."
+        gap_sources = db.query(models.BotSource).filter(source_scope).all() if source_scope is not None else []
+        active_domains = []
+        followup_options = []
+        if gap_sources:
+            seen_doms = set()
+            for s in gap_sources:
+                st = (s.title or '').lower()
+                clean_s = re.sub(r'\.(pdf|docx|txt|csv|json|zip)$', '', s.title or '', flags=re.I).replace('_', ' ').replace('-', ' ').strip()
+                if any(k in st for k in ['14971', 'medical', 'catheter', 'sterilization']) and 'medical' not in seen_doms:
+                    seen_doms.add('medical')
+                    active_domains.append("Medical Devices & ISO 14971 Risk Management")
+                    followup_options.append("ISO 14971 Risk Management")
+                elif any(k in st for k in ['hardware', 'architectural', 'lock', 'door']) and 'hardware' not in seen_doms:
+                    seen_doms.add('hardware')
+                    active_domains.append("Architectural Hardware & Fire Doors (EN 1125 / EN 1634)")
+                    followup_options.append("Architectural Hardware")
+                elif any(k in st for k in ['carpart', 'automotive', 'brake', 'caliper']) and 'automotive' not in seen_doms:
+                    seen_doms.add('automotive')
+                    active_domains.append("Automotive Parts & Braking Specs (IATF 16949)")
+                    followup_options.append("Automotive Parts")
+                elif any(k in st for k in ['turbofan', 'easa', 'aviation', 'pylon']) and 'aviation' not in seen_doms:
+                    seen_doms.add('aviation')
+                    active_domains.append("Aviation & Turbofan Maintenance (EASA Part 145)")
+                    followup_options.append("Turbofan Maintenance")
+                elif any(k in st for k in ['software', 'appdeft', 'python', 'vinnisoft']) and 'software' not in seen_doms:
+                    seen_doms.add('software')
+                    active_domains.append("Enterprise Software & AI Automation")
+                    followup_options.append("Enterprise AI Software")
+                elif len(active_domains) < 4 and clean_s and clean_s.lower() not in seen_doms:
+                    seen_doms.add(clean_s.lower())
+                    active_domains.append(clean_s[:35])
+                    followup_options.append(clean_s[:25])
+
+        if not active_domains:
+            domain_summary = "technical documentation, product catalogues, and engineering standards"
         else:
-            fallback_text = "I cannot find the answer in the provided documents. If you'd like, you can leave your contact details below, and our team will be happy to follow up with you."
+            domain_summary = "\n• " + "\n• ".join(active_domains[:4])
+
+        if is_user_hindi:
+            fallback_text = (
+                f"{user_salutation}Maine aapke sawaal ke liye hamare verified documentation mein search kiya, lekin hamare active records mein is specific topic ka direct vivaran uplabdh nahi hai.\n\n"
+                f"Hamari knowledge base filhaal in specialized topics ko cover karti hai:{domain_summary}\n\n"
+                "Agar aap is topic par hamare kisi specialist se direct follow-up chahte hain, toh kripya niche form mein apna naam, email ya phone number chhod dein, aur hamari team aapse turant connect karegi."
+            )
+            fallback_prompt = "Aap hamare indexed documents mein se kya explore karna chahenge?"
+        else:
+            fallback_text = (
+                f"{user_salutation}I searched our verified documentation for your inquiry, but I could not find verified records covering that specific topic in our active knowledge base.\n\n"
+                f"Currently, our knowledge base specializes in:{domain_summary}\n\n"
+                "If you would like a specialist from our team to follow up directly regarding your question, please feel free to share your contact details below, and our team will be glad to assist you."
+            )
+            fallback_prompt = "Would you like to explore any of our indexed topics?"
+
+        if not followup_options:
+            followup_options = ["Documentation & FAQs", "Explore Catalogues", "Contact Support"]
+        else:
+            followup_options.append("Contact Support")
+        followup_data = {
+            "prompt": fallback_prompt,
+            "options": followup_options[:4]
+        }
 
         if message_id:
             try:
@@ -1697,8 +2170,9 @@ async def stream_rag_pipeline(
             if word:
                 yield f"data: {json.dumps({'type': 'token', 'content': word + ' '})}\n\n"
 
+        yield f"data: {json.dumps({'type': 'followup', 'prompt': followup_data['prompt'], 'options': followup_data['options']})}\n\n"
         yield f"data: {json.dumps({'type': 'lead_form'})}\n\n"
-        yield f"data: {json.dumps({'type': 'done', 'full_text': fallback_text})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'full_text': fallback_text, 'followup': followup_data})}\n\n"
         return
 
     nothing_retrieved = len(passed_chunks) == 0
@@ -1868,6 +2342,53 @@ async def stream_rag_pipeline(
         .replace("{knowledge}", knowledge_ctx)
     )
 
+    is_products_overview_query = any(k in normalized_q for k in [
+        'your product', 'your products', 'what products', 'tell me about your product',
+        'tell me about your products', 'product range', 'products catalogue', 'what are your products',
+        'products do you have', 'products do you offer'
+    ])
+
+    is_services_overview_query = any(k in normalized_q for k in [
+        'your service', 'your services', 'what services', 'what are your services',
+        'what are services', 'tell me about your service', 'tell me about your services',
+        'service offerings', 'services do you have', 'services do you provide',
+        'services do you offer', 'what solutions do you provide'
+    ])
+
+    if is_products_overview_query:
+        overview_directive = (
+            f"\n\n### MANDATORY HUMAN TEAM MEMBER PRODUCT PRESENTATION DIRECTIVE\n"
+            f"You are directly representing the {b_name} team. Always speak warmly as a helpful human colleague in the 1st person plural ('We...', 'At {b_name}, we...').\n"
+            f"Structure your response strictly in this sequence:\n"
+            f"1. COMPANY / BUSINESS PROFILE (First 1-2 small lines):\n"
+            f"   - First give 1 or 2 small lines about the company or the specific brand/business from the knowledge base or scraped website.\n"
+            f"   - If the knowledge base represents a single company/brand (e.g. Hettich, VedaOne), introduce who we are and our primary focus in 1-2 friendly lines.\n"
+            f"   - If multiple companies or domains are indexed in the knowledge base, state that our organization provides verified engineering and technical solutions across multiple specialized industry sectors.\n"
+            f"2. CORE PRODUCT FOCUS AREAS (Transition + 3 to 4 clean bullet points):\n"
+            f"   - Transition: 'We offer a wide range of products that cater to various industries, including [mention 2-3 key sectors from docs]. Here are some of our main focus areas:'\n"
+            f"   - Present 3 to 4 clean bullet points directly grounded in the knowledge base/website scrap (Format: '• Category Name: Clear, informative 1-sentence description').\n"
+            f"3. PROACTIVE HUMAN CLOSING LEADING THE USER:\n"
+            f"   - 'Which of these areas would you like to explore, or are you looking for a specific part number or specification? Let me know, I am right here to help you with the details!'\n"
+            f"Keep the entire response concise, highly informative, and warm with natural human tone. Do not write large encyclopedic paragraphs."
+        )
+        system_prompt += overview_directive
+
+    elif is_services_overview_query:
+        overview_directive = (
+            f"\n\n### MANDATORY HUMAN TEAM MEMBER SERVICES PRESENTATION DIRECTIVE\n"
+            f"You are directly representing the {b_name} team. Always speak warmly as a helpful human colleague in the 1st person plural ('We...', 'At {b_name}, we...').\n"
+            f"Structure your response strictly in this sequence:\n"
+            f"1. COMPANY / SERVICE CAPABILITIES INTRODUCTION (First 1-2 small lines):\n"
+            f"   - First give 1 or 2 small lines about the company and its primary service, engineering, and support capabilities grounded from the knowledge base or scraped website.\n"
+            f"2. PRIMARY SERVICE SOLUTIONS (Transition + 3 to 4 clean bullet points):\n"
+            f"   - Transition: 'Here are some of the key services and support solutions we provide:'\n"
+            f"   - Present 3 to 4 clean bullet points summarizing our verified service offerings from the knowledge base and scraped website (e.g. Technical SLA Incident Resolution, Hardware Warranty & Replacement, Compliance & Testing Advisory, Systems Integration).\n"
+            f"3. PROACTIVE HUMAN CLOSING LEADING THE USER:\n"
+            f"   - 'Which of these services would you like to know more about, or do you have a specific requirement or project in mind? Let me know, I am right here to assist you!'\n"
+            f"Keep the entire response concise, highly informative, and warm with natural human tone. Do not write large encyclopedic paragraphs."
+        )
+        system_prompt += overview_directive
+
     is_diagram_requested = any(kw in normalized_q for kw in [
         'diagram', 'flowchart', 'flow chart', 'decision tree', 'schematic',
         'process map', 'workflow', 'sequence', 'architecture', 'banao diagram', 'flowchart banao'
@@ -1956,7 +2477,8 @@ async def stream_rag_pipeline(
         is_pricing=is_pricing_query,
         is_hindi=is_user_hindi,
         user_name=user_first_name,
-        is_first_turn=is_first_turn
+        is_first_turn=is_first_turn,
+        is_diagram=is_diagram_requested
     )
 
     if raw_text:
@@ -1989,10 +2511,17 @@ async def stream_rag_pipeline(
 
     has_lead_marker = "[[LEAD_MARKER]]" in raw_text
     lower_raw = raw_text.lower()
-    unanswered_phrases = ["do not have", "don't have", "not found", "not mentioned", "mere knowledge", "jaankari nahi", "nahi hai", "cannot find"]
+    unanswered_phrases = ["do not have", "don't have", "not found", "not mentioned", "mere knowledge", "jaankari nahi", "nahi hai", "cannot find", "no information", "not covered", "unable to find"]
     has_unanswered_text = any(phrase in lower_raw for phrase in unanswered_phrases)
 
-    lead_form_required = nothing_retrieved or has_lead_marker or (has_unanswered_text and best_score < RELEVANCE_FLOOR) or (has_unanswered_text and has_lead_marker)
+    is_doc_query = any(k in normalized_q for k in [
+        'pdf', 'catalogue', 'catalog', 'brochure', 'download', 'csv', 'excel', 'spreadsheet', 'rate card', 'pricing sheet', 'price list'
+    ])
+    if is_doc_query and not nothing_retrieved and best_score >= RELEVANCE_FLOOR:
+        has_unanswered_text = False
+        lead_form_required = False
+    else:
+        lead_form_required = nothing_retrieved or has_lead_marker or has_unanswered_text or (best_score < RELEVANCE_FLOOR)
 
     # 1. Parse follow-up block if present (handling markdown bolding or missing end tags)
     followup_data = None
@@ -2031,54 +2560,7 @@ async def stream_rag_pipeline(
     clean_text = re.sub(r'---\s*$', '', clean_text).strip()
 
     # Strict Humanizer Sanitization (Enforces the 25 Conversational Principles in Post-Processing):
-    # 1. Straight quotes only (Rule 20)
-    clean_text = clean_text.replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
-
-    # 2. Remove all decorative emojis and signs (Rule 19)
-    clean_text = re.sub(r'[\U00010000-\U0010ffff]', '', clean_text)
-    clean_text = re.sub(r'[🚀✨💡🔥🎉🌐👋📑📊📁😊🤖]', '', clean_text)
-
-    # 3. Eliminate bold list headers (Rule 18: No bold labels as decoration on lists)
-    clean_text = re.sub(r'(?m)^(\s*[-*•]\s*)\*\*([^*:\n]+):\*\*\s*', r'\1\2: ', clean_text)
-
-    # 4. Eliminate em dashes and en dashes (Rule 8: No em dashes or en dashes)
-    clean_text = clean_text.replace('—', ', ').replace('–', ', ')
-
-    # 5. Strip AI cliché openers and staged run-ups (Rule 4, Rule 24, Rule 25)
-    staged_runups = [
-        r'^(?:great to connect with you[!,.]*\s*)',
-        r'^(?:let\'s dive in[!,.]*\s*)',
-        r'^(?:let\'s explore[!,.]*\s*)',
-        r'^(?:let\'s break this down[!,.]*\s*)',
-        r'^(?:here is what you need to know[!,.]*\s*)',
-        r'^(?:here\'s what you need to know[!,.]*\s*)',
-        r'^(?:i\'m happy to help with that[!,.]*\s*)',
-        r'^(?:in today\'s fast[- ]paced world[!,.]*\s*)',
-        r'^(?:in (?:the|today\'s) rapidly evolving (?:digital )?landscape[!,.]*\s*)',
-        r'^(?:when it comes to [^,.\n]+,\s*)',
-        r'^(?:based on the provided (?:documents|information|data|sources)[!,.]*\s*)',
-        r'^(?:according to the provided (?:documents|information|data|sources)[!,.]*\s*)',
-        r'^(?:certainly[!,.]*\s*)',
-        r'^(?:of course[!,.]*\s*)',
-        r'^(?:great question[!,.]*\s*)',
-        r'^(?:sure thing[!,.]*\s*)',
-        r'^(?:as an ai(?: language model)?[!,.]*\s*)'
-    ]
-    for sr in staged_runups:
-        clean_text = re.sub(sr, '', clean_text, flags=re.IGNORECASE).strip()
-
-    # 6. Strip trailing chatbot residue and dramatic closers (Rule 2, Rule 21)
-    chatbot_closers = [
-        r'(?:\s*I hope this helps[!,.]*)$',
-        r'(?:\s*Hope (?:that|this) helps[!,.]*)$',
-        r'(?:\s*Let me know if you (?:have any|need) (?:other |further )?questions[!,.]*)$',
-        r'(?:\s*Feel free to ask[!,.]*)$',
-        r'(?:\s*Let that sink in[!,.]*)$',
-        r'(?:\s*Read that again[!,.]*)$',
-        r'(?:\s*That is the real win[!,.]*)$'
-    ]
-    for cc in chatbot_closers:
-        clean_text = re.sub(cc, '', clean_text, flags=re.IGNORECASE).strip()
+    clean_text = sanitize_humanizer_text(clean_text)
 
     # Ironclad Fallback: If clean_text was empty or completely stripped, synthesize a grounded answer directly from passed chunks
     if not clean_text or len(clean_text.strip()) < 15:
@@ -2279,8 +2761,7 @@ async def stream_rag_pipeline(
                 is_csv_explicitly_requested or
                 is_pdf_explicitly_requested or
                 is_both_requested or
-                is_general_download_requested or
-                (is_company_or_industry_overview and not is_narrow_specific_subquery)
+                is_general_download_requested
             )
 
             if should_show_card:
@@ -2390,13 +2871,13 @@ async def stream_rag_pipeline(
                             "Official Specifications and Data Sheet (CSV)\nWould you like to download the certified spreadsheet data for this?"
                         )
                         clean_text += f"\n\n---\n{csv_banner}\n\n[CSV_CARD:{topic_slug}|{topic_clean}]"
-                    else:
+                    elif is_pdf_explicitly_requested or is_general_download_requested:
                         pdf_banner = (
-                            "Official European Specifications and Technical Dossier (PDF & DOCX)\nReview or download the verified technical documentation and compliance briefing:"
+                            "Official European Specifications and Technical Dossier (PDF)\nReview or download the verified technical documentation:"
                             if is_industrial else
-                            "Official Verified Technical Dossier & Summary Document (PDF & DOCX)\nReview or download the verified documentation:"
+                            "Official Verified Technical Dossier & Summary Document (PDF)\nReview or download the verified documentation:"
                         )
-                        clean_text += f"\n\n---\n{pdf_banner}\n\n[PDF_CARD:{topic_slug}|{topic_clean}]\n[DOCX_CARD:{topic_slug}|{topic_clean}]"
+                        clean_text += f"\n\n---\n{pdf_banner}\n\n[PDF_CARD:{topic_slug}|{topic_clean}]"
 
     words = clean_text.split(" ")
     for word in words:

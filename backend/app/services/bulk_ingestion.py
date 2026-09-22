@@ -111,8 +111,10 @@ def bulk_insert_chunks(chunks_data: List[Dict[str, Any]], batch_size: int = 500,
                 cid = c.get("id") or str(uuid.uuid4())
                 source_id = c["sourceId"]
                 content = c["content"]
-                emb = c["embedding"]
-                if isinstance(emb, list):
+                emb = c.get("embedding")
+                if emb is None:
+                    emb_str = None
+                elif isinstance(emb, list):
                     # Format for pgvector string representation: '[0.1, 0.2, ...]'
                     emb_str = "[" + ",".join(str(x) for x in emb) + "]"
                 else:

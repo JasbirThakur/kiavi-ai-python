@@ -66,6 +66,11 @@ def init_db():
                 conn.execute(text("ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS \"language\" VARCHAR(10) DEFAULT 'en';"))
                 conn.execute(text("ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS \"isAiTranslated\" BOOLEAN DEFAULT FALSE;"))
                 conn.execute(text("ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS \"isFormallyReviewed\" BOOLEAN DEFAULT TRUE;"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_document_chunks_source_id ON document_chunks (\"sourceId\");"))
+                try:
+                    conn.execute(text("ALTER DATABASE kiavidb SET hnsw.iterative_scan = 'relaxed_order';"))
+                except Exception:
+                    pass
             except Exception as mig_err:
                 logger.warning(f"⚠️ Migration note: {mig_err}")
             logger.info("✅ Universal Knowledge, Bot, Enterprise & EU Governance schema verified.")

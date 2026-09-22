@@ -91,7 +91,7 @@ def three_layer_hybrid_search(
             c.language, c."isAiTranslated", c."isFormallyReviewed"
         FROM document_chunks c
         JOIN bot_sources s ON c."sourceId" = s.id
-        WHERE {scope_sql}
+        WHERE {scope_sql} AND c.embedding IS NOT NULL
         ORDER BY distance ASC
         LIMIT :top_k_vec;
     """

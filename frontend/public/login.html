@@ -267,17 +267,33 @@
         ? { email, password }
         : { email, password, full_name: fullname || 'Administrator' };
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       try {
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
-        const data = await res.json();
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (_) {}
 
         if (!res.ok) {
-          throw new Error(data.detail || 'Authentication failed. Please check credentials.');
+          let errDetail = 'Authentication failed. Please check credentials.';
+          if (Array.isArray(data.detail)) {
+            errDetail = data.detail.map(d => d.msg || JSON.stringify(d)).join(', ');
+          } else if (typeof data.detail === 'string') {
+            errDetail = data.detail;
+          } else if (data.message) {
+            errDetail = data.message;
+          }
+          throw new Error(errDetail);
         }
 
         const token = data.token || data.access_token;
@@ -287,8 +303,13 @@
 
         window.location.href = '/dashboard';
       } catch (err) {
+        clearTimeout(timeoutId);
         errorBanner.classList.remove('hidden');
-        errorMsg.innerText = err.message;
+        if (err.name === 'AbortError') {
+          errorMsg.innerText = 'Request timed out. Server might be busy, please try again.';
+        } else {
+          errorMsg.innerText = err.message || 'Authentication failed. Please check credentials.';
+        }
       } finally {
         submitBtn.disabled = false;
         submitBtn.classList.remove('opacity-75');
