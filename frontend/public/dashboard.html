@@ -636,7 +636,12 @@
             <!-- Dedicated Brightness Mode Toggle Button -->
             <button onclick="cycleBrightness()" id="navBrightnessBtn" class="px-2.5 py-2 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-blue-500/30 text-slate-300 hover:text-amber-400 transition cursor-pointer flex items-center gap-1.5" title="Brightness Mode: 100% (Click to cycle)">
                 <i id="navBrightnessIcon" data-lucide="sun-medium" class="w-4 h-4 text-amber-300"></i>
-                <span id="navBrightnessLabel" class="text-[11px] font-mono font-bold text-amber-300">100%</span>
+            </button>
+
+            <!-- Dedicated Live Ingestion Status Indicator in Header -->
+            <button onclick="openIngestionProgressModal()" id="navIngestStatusBtn" class="hidden px-3 py-1.5 rounded-xl bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-300 hover:text-white text-xs font-bold flex items-center gap-2 transition shadow-[0_0_15px_rgba(6,182,212,0.3)] animate-pulse cursor-pointer" title="Click to view ongoing ingestion progress">
+                <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin text-cyan-400"></i>
+                <span id="navIngestLabel">Processing Knowledge...</span>
             </button>
 
             <button onclick="showUniversalKnowledgeView()" class="px-3 py-1.5 rounded-xl bg-purple-900/40 hover:bg-purple-900/70 border border-purple-500/40 text-purple-200 hover:text-white text-xs font-bold flex items-center gap-1.5 transition shadow-[0_0_15px_rgba(168,85,247,0.25)] cursor-pointer">
@@ -671,7 +676,7 @@
     </header>
 
     <!-- MAIN CONTAINER -->
-    <main class="w-full max-w-[96vw] 2xl:max-w-[1720px] mx-auto px-2 sm:px-6 py-4 sm:py-6">
+    <main class="w-full max-w-[96vw] 2xl:max-w-[1720px] mx-auto px-2 sm:px-6 py-2.5 sm:py-3.5">
 
         <!-- 1. MULTI-BOT HOME VIEW -->
         <div id="homeView" class="space-y-6">
@@ -760,26 +765,26 @@
         </div>
 
         <!-- 2. SINGLE BOT WORKSPACE VIEW -->
-        <div id="botWorkspaceView" class="hidden space-y-4">
+        <div id="botWorkspaceView" class="hidden space-y-2.5">
             <button onclick="showHomeView()" class="text-slate-400 hover:text-cyan-400 flex items-center gap-1.5 font-bold transition text-xs">
                 <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> All Agents
             </button>
 
             <!-- BOT HEADER -->
-            <div class="flex justify-between items-center glow-box p-3.5 sm:p-4 rounded-2xl">
-                <div class="flex items-center gap-3.5">
-                    <div id="botIconBg" class="w-10 h-10 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-xl flex items-center justify-center text-white shadow-[0_0_20px_rgba(6,182,212,0.4)]">
-                        <i data-lucide="bot" class="w-5 h-5"></i>
+            <div class="flex justify-between items-center glow-box px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl">
+                <div class="flex items-center gap-3">
+                    <div id="botIconBg" class="w-8 h-8 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-lg flex items-center justify-center text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]">
+                        <i data-lucide="bot" class="w-4 h-4"></i>
                     </div>
                     <div>
-                        <h1 id="activeBotName" class="text-base sm:text-lg font-black text-white tracking-tight">Agent</h1>
-                        <p class="text-slate-400 text-[11px]"><span id="activeBotConvs" class="text-cyan-400 font-bold">0</span> conversations &middot; <span id="activeBotDomain" class="font-mono text-slate-500">Custom Knowledge</span></p>
+                        <h1 id="activeBotName" class="text-sm sm:text-base font-black text-white tracking-tight leading-tight">Agent</h1>
+                        <p class="text-slate-400 text-[10.5px] leading-tight"><span id="activeBotConvs" class="text-cyan-400 font-bold">0</span> conversations &middot; <span id="activeBotDomain" class="font-mono text-slate-500">Custom Knowledge</span></p>
                     </div>
                 </div>
             </div>
 
             <!-- TAB BAR -->
-            <div class="flex gap-4 sm:gap-5 border-b border-blue-500/20 font-semibold text-slate-400 overflow-x-auto text-xs">
+            <div class="flex gap-4 sm:gap-5 border-b border-blue-500/20 font-semibold text-slate-400 overflow-x-auto text-xs pb-1">
                 <button onclick="switchTab('knowledge')" id="tab-knowledge" class="tab-btn active pb-2.5 flex items-center gap-1.5 whitespace-nowrap"><i data-lucide="database" class="w-4 h-4"></i> Knowledge</button>
                 <button onclick="switchTab('products')" id="tab-products" class="tab-btn pb-2.5 flex items-center gap-1.5 text-indigo-400 hover:text-indigo-300 whitespace-nowrap"><i data-lucide="package" class="w-4 h-4"></i> Products &amp; SKUs</button>
                 <button onclick="switchTab('lms')" id="tab-lms" class="tab-btn pb-2.5 flex items-center gap-1.5 text-violet-400 hover:text-violet-300 whitespace-nowrap"><i data-lucide="graduation-cap" class="w-4 h-4"></i> LMS Academy</button>
@@ -887,6 +892,11 @@
                             </div>
                         </div>
 
+                        <!-- Dedicated On-going Ingestion Status Button -->
+                        <button type="button" id="botViewActiveIngestBtn" onclick="openIngestionProgressModal()" class="hidden w-full py-2.5 rounded-xl text-xs font-bold text-cyan-300 bg-cyan-950/70 hover:bg-cyan-900/90 border border-cyan-500/40 cursor-pointer flex items-center justify-center gap-2 transition animate-pulse">
+                            <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Ingestion In Progress &mdash; Click to View Live Status
+                        </button>
+
                         <!-- Selected Files Queue Preview -->
                         <div id="botSelectedFilesContainer" class="hidden space-y-2.5">
                             <div class="flex items-center justify-between text-xs">
@@ -950,9 +960,9 @@
             </div>
 
             <!-- TAB 2: CHAT WORKSPACE -->
-            <div id="view-test" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-5 h-[calc(100vh-175px)] min-h-[580px] max-h-[920px]">
+            <div id="view-test" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-3.5 h-[calc(100vh-215px)] min-h-[460px] max-h-[calc(100vh-190px)]">
                 <!-- 1. ChatGPT-Style Chat Sessions Sidebar -->
-                <div class="lg:col-span-3 xl:col-span-2 glow-box rounded-2xl p-3 sm:p-4 flex flex-col h-full space-y-2.5 min-w-0">
+                <div class="lg:col-span-3 xl:col-span-2 glow-box rounded-xl p-3 flex flex-col h-full space-y-2 min-w-0">
                     <div class="flex items-center justify-between pb-2 border-b border-blue-500/20">
                         <span class="font-bold text-white text-xs flex items-center gap-1.5">
                             <i data-lucide="messages-square" class="w-3.5 h-3.5 text-cyan-400"></i> Conversations
@@ -965,8 +975,8 @@
                 </div>
 
                 <!-- 2. Main Chat Box -->
-                <div class="lg:col-span-9 xl:col-span-10 glow-box rounded-2xl p-4 sm:p-6 flex flex-col h-full min-w-0 overflow-hidden">
-                    <div class="pb-2.5 border-b border-blue-500/20 flex items-center justify-between shrink-0">
+                <div class="lg:col-span-9 xl:col-span-10 glow-box rounded-xl p-3 sm:p-4 flex flex-col h-full min-w-0 overflow-hidden">
+                    <div class="pb-2 border-b border-blue-500/20 flex items-center justify-between shrink-0">
                         <div class="flex items-center gap-2 truncate mr-2">
                             <span class="w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_10px_#22d3ee] animate-pulse shrink-0"></span>
                             <span class="font-bold text-white text-xs sm:text-sm truncate">Grounded RAG Pipeline (NVIDIA Nemotron 3-Embed / Lightning Fallback)</span>
@@ -985,10 +995,10 @@
                         </div>
                     </div>
 
-                    <div id="testChatBox" class="w-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden space-y-4 py-3.5 text-[13.5px] sm:text-[14px] leading-relaxed break-words pr-1.5"></div>
+                    <div id="testChatBox" class="w-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden space-y-3 py-2.5 text-[13.5px] sm:text-[14px] leading-relaxed break-words pr-1.5"></div>
 
-                    <div class="flex gap-2 pt-2.5 border-t border-blue-500/20 shrink-0">
-                        <input id="testChatInput" placeholder="Query knowledge base in Chat Workspace or click mic..." class="flex-1 min-w-0 bg-[#060b17] border border-blue-500/30 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-cyan-400" onkeydown="if(event.key==='Enter') sendOwnerTest()" />
+                    <div class="flex gap-2 pt-2 border-t border-blue-500/20 shrink-0">
+                        <input id="testChatInput" placeholder="Ask a question or click mic..." class="flex-1 min-w-0 bg-[#060b17] border border-blue-500/30 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-cyan-400" onkeydown="if(event.key==='Enter') sendOwnerTest()" />
                         <button id="dashboardMicBtn" onclick="toggleDashboardVoiceInput()" title="Voice Input" class="bg-[#0b1329] border border-blue-500/30 hover:border-cyan-400 text-slate-400 hover:text-cyan-300 p-2 rounded-xl transition cursor-pointer shrink-0">
                             <i id="dashMicIcon" data-lucide="mic" class="w-3.5 h-3.5"></i>
                         </button>
@@ -2175,6 +2185,11 @@
                             </div>
                         </div>
 
+                        <!-- Dedicated On-going Ingestion Status Button -->
+                        <button type="button" id="univViewActiveIngestBtn" onclick="openIngestionProgressModal()" class="hidden w-full py-2.5 rounded-xl text-xs font-bold text-cyan-300 bg-cyan-950/70 hover:bg-cyan-900/90 border border-cyan-500/40 cursor-pointer flex items-center justify-center gap-2 transition animate-pulse">
+                            <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Ingestion In Progress &mdash; Click to View Live Status
+                        </button>
+
                         <!-- Selected Files Queue Preview -->
                         <div id="univSelectedFilesContainer" class="hidden space-y-2.5">
                             <div class="flex items-center justify-between text-xs">
@@ -3014,8 +3029,8 @@
 
             return {
                 prompt: allSources.length > 0
-                    ? (options.length > 1 ? "Here are the topics you can explore from your knowledge base:" : "Here is what is available in your knowledge base right now:")
-                    : "No knowledge documents or websites have been indexed yet. How would you like to get started?",
+                    ? (options.length > 1 ? "Here are some of the areas and services we offer:" : "Here is what we offer:")
+                    : "No products or documents have been added yet. How would you like to get started?",
                 options: [...new Set(options)]
             };
         }
@@ -3408,19 +3423,42 @@
                     `;
                 } else {
                     const isUnshownGreeting = m.isGreeting && !m.typewriterShown;
-                    const twSpanId = isUnshownGreeting ? `dash_greeting_text_${idx}` : '';
-                    const twFollowupId = isUnshownGreeting ? `dash_greeting_followup_${idx}` : '';
+                    const isStreamingEmpty = m.isStreaming && (!m.content || !m.content.trim());
+                    const streamDivId = m.msgId || (isUnshownGreeting ? `dash_greeting_text_${idx}` : `dash_bot_msg_${idx}`);
 
                     return `
                         <div class="flex flex-col items-start space-y-1.5 w-full min-w-0 max-w-full">
                             <div class="flex items-start gap-2.5 w-full min-w-0 max-w-full">
-                                <div ${twSpanId ? `id="${twSpanId}"` : ''} class="glow-box p-4 sm:p-5 rounded-2xl w-full min-w-0 max-w-full sm:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl text-slate-50 text-[13.5px] sm:text-[14px] font-medium leading-relaxed border-blue-500/30 shadow-lg break-words overflow-x-hidden">
-                                    ${isUnshownGreeting ? '' : formatMarkdownWithImages((m.content && m.content.trim()) ? m.content : "Here are the verified details from the knowledge base:")}
+                                <div id="${streamDivId}" class="glow-box p-4 sm:p-5 rounded-2xl w-full min-w-0 max-w-full sm:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl text-slate-50 text-[13.5px] sm:text-[14px] font-medium leading-relaxed border-blue-500/30 shadow-lg break-words overflow-x-hidden">
+                                    ${isStreamingEmpty 
+                                        ? `<span class="inline-flex items-center gap-1.5 py-0.5 text-cyan-400">
+                                            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 0ms"></span>
+                                            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 150ms"></span>
+                                            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 300ms"></span>
+                                            <span class="text-[11px] text-cyan-300 font-mono ml-2">Agent is thinking...</span>
+                                           </span>` 
+                                        : (isUnshownGreeting ? '' : formatMarkdownWithImages((m.content && m.content.trim()) ? m.content : "Here are the details:"))}
                                 </div>
                                 <button onclick="speakDashboardText(this, this.parentElement.innerText)" class="mt-1 text-slate-400 hover:text-cyan-400 p-1.5 rounded-xl transition cursor-pointer shrink-0" title="Read Aloud">
                                     <i data-lucide="volume-2" class="w-4 h-4"></i>
                                 </button>
                             </div>
+                            <div id="${streamDivId}_sources" class="w-full">
+                                ${m.sources && m.sources.length > 0 ? `
+                                    <div class="flex flex-wrap gap-1.5 mt-1 pt-1 max-w-full">
+                                        ${m.sources.map(s => `
+                                            <button onclick="showDashboardEvidence('${(s.title || '').replace(/'/g, "\\'")}', '${(s.snippet || '').replace(/'/g, "\\'").replace(/\n/g, " ")}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium transition cursor-pointer">
+                                                <i data-lucide="file-check" class="w-3 h-3"></i>
+                                                <span>${(s.title || '').length > 22 ? (s.title || '').substring(0, 20) + '...' : (s.title || 'Source')}</span>
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div id="${streamDivId}_followup" class="w-full">
+                                ${renderDashboardFollowupMarkup(m.followup, isUnshownGreeting ? `dash_greeting_followup_${idx}` : (streamDivId + '_fl'), isUnshownGreeting)}
+                            </div>
+                            <div id="${streamDivId}_lead"></div>
                             ${m.hasLeadForm ? `
                                 <div class="w-full max-w-xs sm:max-w-sm mt-1.5">
                                     <div data-question="${escape(m.content || '')}" class="p-4 glow-box border-amber-500/40 rounded-2xl space-y-2.5 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
@@ -3431,20 +3469,9 @@
                                     </div>
                                 </div>
                             ` : ''}
-                            ${m.sources && m.sources.length > 0 ? `
-                                <div class="flex flex-wrap gap-1.5 mt-1 pt-1 max-w-full">
-                                    ${m.sources.map(s => `
-                                        <button onclick="showDashboardEvidence('${(s.title || '').replace(/'/g, "\\'")}', '${(s.snippet || '').replace(/'/g, "\\'").replace(/\n/g, " ")}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium transition cursor-pointer">
-                                            <i data-lucide="file-check" class="w-3 h-3"></i>
-                                            <span>${(s.title || '').length > 22 ? (s.title || '').substring(0, 20) + '...' : (s.title || 'Source')}</span>
-                                        </button>
-                                    `).join('')}
-                                </div>
-                            ` : ''}
-                            ${renderDashboardFollowupMarkup(m.followup, twFollowupId || ('dash_msg_fl_' + idx), isUnshownGreeting)}
                             <div class="flex items-center gap-1.5 text-[9px] text-slate-500 mt-1 ml-1 font-mono">
-                                <span>${m.time}</span>
-                                ${m.latency ? `<span class="text-cyan-400 font-bold">• ⚡ ${m.latency} latency</span>` : ''}
+                                <span id="${streamDivId}_time">${m.time}</span>
+                                <span id="${streamDivId}_latency" class="text-cyan-400 font-bold">${m.latency ? `• ⚡ ${m.latency} latency` : ''}</span>
                                 ${m.isGreeting ? `<span class="text-cyan-400 font-bold">• Opening Greeting</span>` : ''}
                             </div>
                         </div>
@@ -3465,7 +3492,12 @@
                     if (spanEl) {
                         runTypewriterGreeting(spanEl, m.content, 18, () => {
                             m.typewriterShown = true;
-                            saveBotSessions(botId, sessions);
+                            const curSessions = getBotSessions(botId);
+                            const curSess = curSessions.find(s => s.id === activeSessionId) || curSessions[0];
+                            if (curSess && curSess.messages && curSess.messages[idx]) {
+                                curSess.messages[idx].typewriterShown = true;
+                                saveBotSessions(botId, curSessions);
+                            }
                             if (flEl) {
                                 flEl.classList.remove('hidden');
                                 lucide.createIcons();
@@ -3477,90 +3509,117 @@
             });
         }
 
+        let isOpeningBotWorkspace = false;
         async function openBotWorkspace(botId, targetTab = 'knowledge') {
-            if (currentStreamAbortController) {
-                try { currentStreamAbortController.abort(); } catch(e) {}
-                currentStreamAbortController = null;
-            }
-            activeBotId = botId;
-            activeSessionId = null;
-            const res = await fetch(`/api/bots/${botId}`, { headers: { 'Authorization': 'Bearer ' + token } });
-            activeBotData = await res.json();
-            localStorage.setItem('kiavi_active_bot_key', activeBotData.publicKey);
-            localStorage.setItem('kiavi_active_bot_id', botId);
-            localStorage.removeItem('kiavi_active_tab');
+            if (isOpeningBotWorkspace) return;
+            isOpeningBotWorkspace = true;
 
-            document.getElementById('homeView').classList.add('hidden');
-            const uv = document.getElementById('universalKnowledgeView');
-            if (uv) uv.classList.add('hidden');
-            document.getElementById('botWorkspaceView').classList.remove('hidden');
-
-            document.getElementById('activeBotName').innerText = activeBotData.name;
-            document.getElementById('activeBotDomain').innerText = (activeBotData.domain && activeBotData.domain.trim()) ? activeBotData.domain : 'Custom Knowledge';
-            const embedHost = (window.location.origin && !window.location.origin.includes('file://')) ? window.location.origin : 'http://127.0.0.1:8000';
-            document.getElementById('installSnippet').innerText = `<script src="${embedHost}/w.js" data-key="${activeBotData.publicKey}"><\/script>`;
-            if (document.getElementById('testSiteLink')) {
-
-                document.getElementById('testSiteLink').href = '/test-site?key=' + activeBotData.publicKey;
-            }
-
-            document.getElementById('editBotName').value = activeBotData.name;
-            document.getElementById('editGreeting').value = activeBotData.greeting;
-            document.getElementById('editSuggestions').value = activeBotData.suggestions;
-            if (document.getElementById('editSupportEmail')) {
-                document.getElementById('editSupportEmail').value = activeBotData.supportEmail || 'jasbirsingh17050@gmail.com';
-            }
-            if (document.getElementById('editSupportPhone')) {
-                document.getElementById('editSupportPhone').value = activeBotData.supportPhone || '';
-            }
-            if (document.getElementById('botWebhookUrl')) {
-                document.getElementById('botWebhookUrl').value = activeBotData.webhookUrl || '';
-            }
-            // Pre-fill Knowledge Tab URL with bot domain & setup quick notice
-            const scrapeInput = document.getElementById('scrapeUrlInput');
-            const quickNotice = document.getElementById('domainQuickScrapeNotice');
-            if (activeBotData.domain && activeBotData.domain.trim() && activeBotData.domain !== 'appdeft.ai') {
-                let dom = activeBotData.domain.trim();
-                if (!dom.startsWith('http://') && !dom.startsWith('https://')) {
-                    dom = 'https://' + dom;
+            try {
+                if (currentStreamAbortController) {
+                    try { currentStreamAbortController.abort(); } catch(e) {}
+                    currentStreamAbortController = null;
                 }
-                if (scrapeInput) scrapeInput.value = dom;
-                if (quickNotice) {
-                    quickNotice.classList.remove('hidden');
-                    document.getElementById('quickDomainName').innerText = activeBotData.domain;
+                activeBotId = botId;
+                activeSessionId = null;
+
+                // 1. Instant view transition: Check if we have basic bot data cached in allBotsList
+                const cachedBot = (allBotsList || []).find(b => b.id === botId);
+                if (cachedBot) {
+                    activeBotData = Object.assign({}, cachedBot);
+                    document.getElementById('activeBotName').innerText = cachedBot.name || 'Agent';
+                    document.getElementById('activeBotDomain').innerText = (cachedBot.domain && cachedBot.domain.trim()) ? cachedBot.domain : 'Custom Knowledge';
+                    updateAvatarDisplay(cachedBot.logoUrl, cachedBot.name);
+                    if (cachedBot.accentColor) selectColor(cachedBot.accentColor);
+                    if (cachedBot.template) selectTemplate(cachedBot.template);
                 }
-            } else {
-                if (scrapeInput) scrapeInput.value = '';
-                if (quickNotice) quickNotice.classList.add('hidden');
-            }
 
-            selectedLogoUrl = activeBotData.logoUrl || undefined;
-            updateAvatarDisplay(activeBotData.logoUrl, activeBotData.name);
+                // Immediately switch DOM views without waiting on network
+                document.getElementById('homeView').classList.add('hidden');
+                const uv = document.getElementById('universalKnowledgeView');
+                if (uv) uv.classList.add('hidden');
+                document.getElementById('botWorkspaceView').classList.remove('hidden');
 
-            selectedColor = activeBotData.accentColor || "#00c48c";
-            selectedTemplateName = activeBotData.template || "classic";
-            selectedPos = activeBotData.launcherPosition || "right";
+                // Switch to target tab immediately so layout renders without lag
+                if (targetTab === 'appearance') {
+                    switchTab('settings');
+                    switchSettingsSubTab('appearance');
+                } else {
+                    switchTab(targetTab || 'knowledge');
+                }
 
-            selectTemplate(selectedTemplateName);
-            selectColor(selectedColor);
-            setLauncherPos(selectedPos);
+                // 2. Fetch full bot configuration from backend
+                const res = await fetch(`/api/bots/${botId}`, { headers: { 'Authorization': 'Bearer ' + token } });
+                if (res.ok) {
+                    activeBotData = await res.json();
+                    localStorage.setItem('kiavi_active_bot_key', activeBotData.publicKey);
+                    localStorage.setItem('kiavi_active_bot_id', botId);
+                    localStorage.removeItem('kiavi_active_tab');
 
-            // Load bot's knowledge sources FIRST so chat greeting has accurate source counts & topics
-            await loadActiveBotSources();
+                    document.getElementById('activeBotName').innerText = activeBotData.name || 'Agent';
+                    document.getElementById('activeBotDomain').innerText = (activeBotData.domain && activeBotData.domain.trim()) ? activeBotData.domain : 'Custom Knowledge';
+                    const embedHost = (window.location.origin && !window.location.origin.includes('file://')) ? window.location.origin : 'http://127.0.0.1:8000';
+                    document.getElementById('installSnippet').innerText = `<script src="${embedHost}/w.js" data-key="${activeBotData.publicKey}"><\/script>`;
+                    if (document.getElementById('testSiteLink')) {
+                        document.getElementById('testSiteLink').href = '/test-site?key=' + activeBotData.publicKey;
+                    }
 
-            // Pre-load this bot's chat sessions and active conversation with grounded sources
-            renderBotChat(botId);
+                    document.getElementById('editBotName').value = activeBotData.name || '';
+                    document.getElementById('editGreeting').value = activeBotData.greeting || '';
+                    document.getElementById('editSuggestions').value = activeBotData.suggestions || '';
+                    if (document.getElementById('editSupportEmail')) {
+                        document.getElementById('editSupportEmail').value = activeBotData.supportEmail || 'jasbirsingh17050@gmail.com';
+                    }
+                    if (document.getElementById('editSupportPhone')) {
+                        document.getElementById('editSupportPhone').value = activeBotData.supportPhone || '';
+                    }
+                    if (document.getElementById('botWebhookUrl')) {
+                        document.getElementById('botWebhookUrl').value = activeBotData.webhookUrl || '';
+                    }
 
-            const testInput = document.getElementById('testChatInput');
-            if (testInput) testInput.value = '';
-            if (document.getElementById('testSourceCount')) document.getElementById('testSourceCount').innerText = (activeBotSpecificSources.length + activeBotUniversalSources.length).toString();
-            updateLivePreview();
+                    // Pre-fill Knowledge Tab URL with bot domain & setup quick notice
+                    const scrapeInput = document.getElementById('scrapeUrlInput');
+                    const quickNotice = document.getElementById('domainQuickScrapeNotice');
+                    if (activeBotData.domain && activeBotData.domain.trim() && activeBotData.domain !== 'appdeft.ai') {
+                        let dom = activeBotData.domain.trim();
+                        if (!dom.startsWith('http://') && !dom.startsWith('https://')) {
+                            dom = 'https://' + dom;
+                        }
+                        if (scrapeInput) scrapeInput.value = dom;
+                        if (quickNotice) {
+                            quickNotice.classList.remove('hidden');
+                            document.getElementById('quickDomainName').innerText = activeBotData.domain;
+                        }
+                    } else {
+                        if (scrapeInput) scrapeInput.value = '';
+                        if (quickNotice) quickNotice.classList.add('hidden');
+                    }
 
-            if (targetTab === 'appearance') {
-                switchTab('settings');
-                switchSettingsSubTab('appearance');
-            } else {
-                switchTab(targetTab || 'knowledge');
+                    selectedLogoUrl = activeBotData.logoUrl || undefined;
+                    updateAvatarDisplay(activeBotData.logoUrl, activeBotData.name);
+
+                    selectedColor = activeBotData.accentColor || "#00c48c";
+                    selectedTemplateName = activeBotData.template || "classic";
+                    selectedPos = activeBotData.launcherPosition || "right";
+
+                    selectTemplate(selectedTemplateName);
+                    selectColor(selectedColor);
+                    setLauncherPos(selectedPos);
+                }
+
+                // 3. Load bot knowledge sources and chat sessions
+                await loadActiveBotSources();
+                renderBotChat(botId);
+
+                const testInput = document.getElementById('testChatInput');
+                if (testInput) testInput.value = '';
+                if (document.getElementById('testSourceCount')) {
+                    document.getElementById('testSourceCount').innerText = (activeBotSpecificSources.length + activeBotUniversalSources.length).toString();
+                }
+                updateLivePreview();
+            } catch (err) {
+                console.error("Error opening bot workspace:", err);
+            } finally {
+                isOpeningBotWorkspace = false;
             }
         }
 
@@ -4083,39 +4142,221 @@
         }
 
         // ==========================================
-        // NEURAL INGESTION PROGRESS MODAL CONTROLLER
+        // PERSISTENT BACKGROUND INGESTION TRACKER & CONTROLLER
         // ==========================================
-        let ingestionInterval = null;
+        const activeIngestionTracker = {
+            isActive: false,
+            title: '',
+            targetName: '',
+            kind: 'file', // 'file' | 'website' | 'note'
+            currentStep: 1,
+            stepText: 'Step 1 of 4: Parsing document and extracting structure...',
+            timer: null,
+            metrics: null,
+            completed: false,
+            error: null
+        };
 
-        function showIngestionModal(title, targetName) {
+        function showSoftToast(message, type = 'success', duration = 5000) {
+            let container = document.getElementById('globalSoftToastContainer');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'globalSoftToastContainer';
+                container.className = 'fixed top-6 right-6 z-[99999] flex flex-col gap-2 pointer-events-none max-w-sm sm:max-w-md w-full px-4';
+                document.body.appendChild(container);
+            }
+
+            const toast = document.createElement('div');
+            const isSuccess = (type === 'success');
+            const isInfo = (type === 'info');
+            
+            let bgClass = 'bg-[#061e1a]/95 border-emerald-500/50 text-emerald-200 shadow-[0_0_25px_rgba(16,185,129,0.3)]';
+            let iconBox = 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400';
+            let iconName = 'check-circle-2';
+            let titleText = 'Knowledge Grounded';
+
+            if (!isSuccess && !isInfo) {
+                bgClass = 'bg-[#250d12]/95 border-rose-500/50 text-rose-200 shadow-[0_0_25px_rgba(244,63,94,0.3)]';
+                iconBox = 'bg-rose-500/20 border-rose-500/40 text-rose-400';
+                iconName = 'alert-circle';
+                titleText = 'Ingestion Alert';
+            } else if (isInfo) {
+                bgClass = 'bg-[#0b1730]/95 border-cyan-500/50 text-cyan-200 shadow-[0_0_25px_rgba(6,182,212,0.3)]';
+                iconBox = 'bg-cyan-500/20 border-cyan-500/40 text-cyan-400';
+                iconName = 'info';
+                titleText = 'Knowledge Process';
+            }
+
+            toast.className = `pointer-events-auto flex items-start gap-3 p-3.5 px-4 rounded-2xl shadow-2xl backdrop-blur-xl border transition-all duration-300 transform translate-y-3 opacity-0 ${bgClass}`;
+
+            toast.innerHTML = `
+                <div class="w-7 h-7 rounded-xl ${iconBox} border flex items-center justify-center shrink-0 mt-0.5">
+                    <i data-lucide="${iconName}" class="w-4 h-4"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-bold text-white text-xs">${titleText}</div>
+                    <div class="text-[11px] text-slate-300 mt-0.5 leading-relaxed break-words">${message}</div>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-white p-1 cursor-pointer shrink-0" onclick="this.closest('div.pointer-events-auto').remove()">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-3', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-3');
+                setTimeout(() => toast.remove(), 400);
+            }, duration);
+        }
+
+        function updateBackgroundIngestUI() {
+            // 1. Floating Pill in bottom-right
+            const pill = document.getElementById('activeIngestionFloatingPill');
+            const pillTarget = document.getElementById('pillTargetName');
+            const pillStepBadge = document.getElementById('pillStepBadge');
+            const pillStatusText = document.getElementById('pillStatusText');
+
+            // 2. Header nav button
+            const navBtn = document.getElementById('navIngestStatusBtn');
+            const navLabel = document.getElementById('navIngestLabel');
+
+            // 3. Knowledge tab buttons
+            const botBtn = document.getElementById('botViewActiveIngestBtn');
+            const univBtn = document.getElementById('univViewActiveIngestBtn');
+
+            if (activeIngestionTracker.isActive) {
+                const targetDisplay = activeIngestionTracker.targetName || 'Document Processing';
+                const stepNum = activeIngestionTracker.currentStep;
+                const stepLabel = `Step ${stepNum}/4`;
+
+                if (pill) {
+                    pill.classList.remove('hidden');
+                    if (pillTarget) pillTarget.innerText = targetDisplay;
+                    if (pillStepBadge) pillStepBadge.innerText = stepLabel;
+                    if (pillStatusText) {
+                        if (stepNum === 1) pillStatusText.innerText = 'Extracting raw text • Click to view';
+                        else if (stepNum === 2) pillStatusText.innerText = 'Semantic chunking • Click to view';
+                        else if (stepNum === 3) pillStatusText.innerText = 'Computing dense vectors • Click to view';
+                        else pillStatusText.innerText = 'Vector indexing • Click to view';
+                    }
+                }
+
+                if (navBtn) {
+                    navBtn.classList.remove('hidden');
+                    if (navLabel) navLabel.innerText = `${targetDisplay} (${stepLabel})`;
+                }
+
+                if (botBtn) botBtn.classList.remove('hidden');
+                if (univBtn) univBtn.classList.remove('hidden');
+            } else {
+                if (pill) pill.classList.add('hidden');
+                if (navBtn) navBtn.classList.add('hidden');
+                if (botBtn) botBtn.classList.add('hidden');
+                if (univBtn) univBtn.classList.add('hidden');
+            }
+            lucide.createIcons();
+        }
+
+        function renderIngestionState() {
             const modal = document.getElementById('ingestionProgressModal');
             if (!modal) return;
-            document.getElementById('ingestModalTitle').innerText = title || 'Neural Knowledge Ingestion';
-            document.getElementById('ingestTargetName').innerText = targetName || 'Processing Document...';
-            document.getElementById('ingestStatusSubtitle').innerText = 'Step 1 of 4: Parsing document and extracting structure...';
-            
-            // Allow skipping to workspace immediately during first two steps
-            document.getElementById('ingestModalCloseBtn').classList.remove('hidden');
-            document.getElementById('ingestDoneBtnContainer').classList.remove('hidden');
-            const doneBtn = document.querySelector('#ingestDoneBtnContainer button');
-            if (doneBtn) {
-                doneBtn.innerHTML = '<i data-lucide="arrow-right" class="w-4 h-4"></i> Continue to Workspace (Runs in Background)';
-                doneBtn.className = 'glow-btn w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer flex items-center justify-center gap-1.5 opacity-90 hover:opacity-100 transition-all';
-            }
-            document.getElementById('ingestTelemetryStats').classList.add('hidden');
 
-            setIngestStep(1);
-            modal.classList.remove('hidden');
+            document.getElementById('ingestModalTitle').innerText = activeIngestionTracker.title || 'Neural Knowledge Ingestion';
+            document.getElementById('ingestTargetName').innerText = activeIngestionTracker.targetName || 'Processing Document...';
 
-            let currentStep = 1;
-            if (ingestionInterval) clearInterval(ingestionInterval);
-            ingestionInterval = setInterval(() => {
-                if (currentStep < 2) {
-                    currentStep++;
-                    setIngestStep(currentStep);
-                    document.getElementById('ingestStatusSubtitle').innerText = 'Step 2 of 4: Semantic boundary chunking...';
+            if (activeIngestionTracker.completed) {
+                for (let i = 1; i <= 4; i++) {
+                    const el = document.getElementById(`ingestStep${i}`);
+                    if (!el) continue;
+                    el.className = 'flex items-center gap-3 p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 transition-all';
+                    const icon = el.querySelector('.step-icon');
+                    const badge = el.querySelector('.step-badge');
+                    const title = el.querySelector('.text-xs');
+                    if (icon) {
+                        icon.className = 'step-icon w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-300 text-[11px] font-bold';
+                        icon.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i>';
+                    }
+                    if (badge) {
+                        badge.className = 'step-badge text-[10px] font-mono text-emerald-400 font-bold';
+                        badge.innerText = 'Completed';
+                    }
+                    if (title) title.className = 'text-xs font-semibold text-white';
                 }
-            }, 600);
+                document.getElementById('ingestStatusSubtitle').innerHTML = `<span class="text-emerald-300 font-semibold">100% Grounded &amp; Indexed!</span> Ready for instant chat queries.`;
+            } else {
+                document.getElementById('ingestStatusSubtitle').innerText = activeIngestionTracker.stepText;
+                setIngestStep(activeIngestionTracker.currentStep);
+            }
+            updateBackgroundIngestUI();
+        }
+
+        function showIngestionModal(title, targetName, kind = 'file') {
+            // If already actively running, just bring up the existing progress modal at current step!
+            if (activeIngestionTracker.isActive) {
+                openIngestionProgressModal();
+                showSoftToast(`Ingestion for "${activeIngestionTracker.targetName}" is running in the background. Showing active status.`, 'info', 3500);
+                return;
+            }
+
+            activeIngestionTracker.isActive = true;
+            activeIngestionTracker.completed = false;
+            activeIngestionTracker.error = null;
+            activeIngestionTracker.metrics = null;
+            activeIngestionTracker.title = title || 'Neural Knowledge Ingestion';
+            activeIngestionTracker.targetName = targetName || 'Processing Document...';
+            activeIngestionTracker.kind = kind;
+            activeIngestionTracker.currentStep = 1;
+            activeIngestionTracker.stepText = 'Step 1 of 4: Parsing document and extracting structure...';
+
+            const modal = document.getElementById('ingestionProgressModal');
+            if (modal) {
+                document.getElementById('ingestModalCloseBtn').classList.remove('hidden');
+                document.getElementById('ingestDoneBtnContainer').classList.remove('hidden');
+                const doneBtn = document.querySelector('#ingestDoneBtnContainer button');
+                if (doneBtn) {
+                    doneBtn.innerHTML = '<i data-lucide="arrow-right" class="w-4 h-4"></i> Continue to Workspace (Runs in Background)';
+                    doneBtn.className = 'glow-btn w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer flex items-center justify-center gap-1.5 opacity-90 hover:opacity-100 transition-all';
+                    doneBtn.onclick = closeIngestionModal;
+                }
+                document.getElementById('ingestTelemetryStats').classList.add('hidden');
+                modal.classList.remove('hidden');
+            }
+
+            renderIngestionState();
+
+            // Realistic multi-stage progress progression:
+            // Step 1: Parsing (0-1.8s) -> Step 2: Semantic Chunking (1.8-3.6s) -> Step 3: Neural Vectorization (remains in progress until server completes)
+            if (activeIngestionTracker.timer) clearInterval(activeIngestionTracker.timer);
+            activeIngestionTracker.timer = setInterval(() => {
+                if (!activeIngestionTracker.isActive || activeIngestionTracker.completed) {
+                    clearInterval(activeIngestionTracker.timer);
+                    return;
+                }
+                if (activeIngestionTracker.currentStep === 1) {
+                    activeIngestionTracker.currentStep = 2;
+                    activeIngestionTracker.stepText = 'Step 2 of 4: Semantic boundary chunking...';
+                    renderIngestionState();
+                } else if (activeIngestionTracker.currentStep === 2) {
+                    activeIngestionTracker.currentStep = 3;
+                    activeIngestionTracker.stepText = 'Step 3 of 4: Neural embedding vectorization...';
+                    renderIngestionState();
+                }
+            }, 1800);
+
+            lucide.createIcons();
+        }
+
+        function openIngestionProgressModal() {
+            const modal = document.getElementById('ingestionProgressModal');
+            if (!modal) return;
+            renderIngestionState();
+            modal.classList.remove('hidden');
             lucide.createIcons();
         }
 
@@ -4154,7 +4395,12 @@
         }
 
         function completeIngestionModal(metrics) {
-            if (ingestionInterval) clearInterval(ingestionInterval);
+            if (activeIngestionTracker.timer) clearInterval(activeIngestionTracker.timer);
+            activeIngestionTracker.isActive = false;
+            activeIngestionTracker.completed = true;
+            activeIngestionTracker.metrics = metrics;
+            activeIngestionTracker.currentStep = 4;
+            updateBackgroundIngestUI();
 
             const s1 = document.getElementById('ingestStep1');
             const s2 = document.getElementById('ingestStep2');
@@ -4179,12 +4425,8 @@
                 if (title) title.className = 'text-xs font-semibold text-white';
             }
 
-            // Foreground steps 1 and 2: instantly completed
-            [s1, s2].forEach(el => markStepComplete(el));
-
-            // Mark Step 3 & 4 seamlessly completed
-            markStepComplete(s3);
-            markStepComplete(s4);
+            // Foreground steps 1, 2, 3 and 4: all completed
+            [s1, s2, s3, s4].forEach(el => markStepComplete(el));
 
             const totalFiles = metrics && (metrics.total_files || (metrics.files_processed && metrics.files_processed.length));
             if (totalFiles && totalFiles > 1) {
@@ -4209,12 +4451,32 @@
             if (doneBtn) {
                 doneBtn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Ready &amp; Grounded — Continue to Workspace';
                 doneBtn.className = 'glow-btn w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer flex items-center justify-center gap-1.5';
+                doneBtn.onclick = closeIngestionModal;
             }
+
+            // SOFT TOAST NOTIFICATION: Display gentle on-screen notification that upload/scraping finished!
+            let successMessage = "";
+            const targetName = activeIngestionTracker.targetName || "Document";
+            if (activeIngestionTracker.kind === 'website') {
+                successMessage = `Website "${targetName}" has been successfully scraped, chunked & indexed! Ready for chat.`;
+            } else if (activeIngestionTracker.kind === 'note') {
+                successMessage = `Grounding fact "${targetName}" has been successfully indexed into vector memory!`;
+            } else {
+                const chunksCount = metrics ? (metrics.total_chunks || metrics.chunks_created || metrics.chunks || 0) : 0;
+                const chunkStr = chunksCount ? ` (${chunksCount} chunks created & vectorized)` : '';
+                successMessage = `File "${targetName}"${chunkStr} has been successfully parsed, chunked, and indexed into your knowledge base!`;
+            }
+            showSoftToast(successMessage, 'success', 6000);
+
             lucide.createIcons();
         }
 
         function failIngestionModal(errorMsg) {
-            if (ingestionInterval) clearInterval(ingestionInterval);
+            if (activeIngestionTracker.timer) clearInterval(activeIngestionTracker.timer);
+            activeIngestionTracker.isActive = false;
+            activeIngestionTracker.error = errorMsg;
+            updateBackgroundIngestUI();
+
             document.getElementById('ingestStatusSubtitle').innerHTML = `<span class="text-rose-400 font-semibold">Error: ${errorMsg || 'Failed to process'}</span>`;
 
             // Reset all step states to halt cleanly on failure
@@ -4247,14 +4509,19 @@
             if (doneBtn) {
                 doneBtn.innerHTML = '<i data-lucide="alert-circle" class="w-4 h-4"></i> Dismiss';
                 doneBtn.className = 'bg-red-500/20 hover:bg-red-500/40 text-red-300 border border-red-500/40 w-full py-2.5 rounded-xl text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5';
+                doneBtn.onclick = closeIngestionModal;
             }
+
+            showSoftToast(`Ingestion failed for "${activeIngestionTracker.targetName}": ${errorMsg || 'Server error'}`, 'error', 7000);
             lucide.createIcons();
         }
 
         function closeIngestionModal() {
-            if (ingestionInterval) clearInterval(ingestionInterval);
+            // Note: We deliberately do NOT clear activeIngestionTracker.timer or reset isActive here!
+            // It continues to process in the background, updating state so when re-opened it is on the current step!
             const modal = document.getElementById('ingestionProgressModal');
             if (modal) modal.classList.add('hidden');
+            updateBackgroundIngestUI();
         }
 
         // ==========================================
@@ -4357,7 +4624,10 @@
                     });
                     if (updated) {
                         saveBotSessions(activeBotId, freshSessions);
-                        renderBotChat(activeBotId);
+                        const curSess = freshSessions.find(s => s.id === activeSessionId) || freshSessions[0];
+                        if (curSess && curSess.messages && curSess.messages.length <= 1) {
+                            renderBotChat(activeBotId);
+                        }
                     }
                 }
             } catch (e) {
@@ -4366,10 +4636,15 @@
         }
 
         async function submitScrape() {
+            if (activeIngestionTracker.isActive) {
+                openIngestionProgressModal();
+                showSoftToast(`Ingestion for "${activeIngestionTracker.targetName}" is already running in background.`, 'info', 4000);
+                return;
+            }
             const url = document.getElementById('scrapeUrlInput').value.trim();
             if(!url) return alert("Please enter a valid URL.");
 
-            showIngestionModal("Bot Website Crawler", url);
+            showIngestionModal("Bot Website Crawler", url, 'website');
 
             const form = new FormData();
             form.append('bot_id', activeBotId);
@@ -4529,6 +4804,12 @@
         }
 
         async function submitBotBatch() {
+            if (activeIngestionTracker.isActive) {
+                openIngestionProgressModal();
+                showSoftToast(`Ingestion for "${activeIngestionTracker.targetName}" is already running in background.`, 'info', 4000);
+                return;
+            }
+
             const files = selectedBatchFiles.bot || [];
             if (files.length === 0) {
                 const fileInput = document.getElementById('fileUploadInput');
@@ -4540,7 +4821,7 @@
             }
 
             const title = files.length === 1 ? files[0].name : `${files.length} Files Batch Ingestion`;
-            showIngestionModal("Bot Batch Knowledge Ingestion", title);
+            showIngestionModal("Bot Batch Knowledge Ingestion", title, 'file');
 
             const formData = new FormData();
             formData.append('bot_id', activeBotId);
@@ -4576,6 +4857,12 @@
         }
 
         async function submitUniversalBatch() {
+            if (activeIngestionTracker.isActive) {
+                openIngestionProgressModal();
+                showSoftToast(`Ingestion for "${activeIngestionTracker.targetName}" is already running in background.`, 'info', 4000);
+                return;
+            }
+
             const files = selectedBatchFiles.univ || [];
             if (files.length === 0) {
                 const fileInput = document.getElementById('univFileUploadInput');
@@ -4587,7 +4874,7 @@
             }
 
             const title = files.length === 1 ? files[0].name : `${files.length} Files Batch Ingestion`;
-            showIngestionModal("Universal Batch Knowledge Ingestion", title);
+            showIngestionModal("Universal Batch Knowledge Ingestion", title, 'file');
 
             const formData = new FormData();
             for (const f of files) {
@@ -4629,11 +4916,16 @@
         let activeGapQuestion = null;
 
         async function submitNote() {
+            if (activeIngestionTracker.isActive) {
+                openIngestionProgressModal();
+                showSoftToast(`Ingestion for "${activeIngestionTracker.targetName}" is already running in background.`, 'info', 4000);
+                return;
+            }
             const title = document.getElementById('noteTitle').value.trim();
             const text = document.getElementById('noteText').value.trim();
             if(!text) return alert("Note content cannot be empty.");
 
-            showIngestionModal("Bot Policy Fact Ingestion", title || "Grounding Fact");
+            showIngestionModal("Bot Policy Fact Ingestion", title || "Grounding Fact", 'note');
 
             const form = new FormData();
             form.append('bot_id', activeBotId);
@@ -4753,10 +5045,15 @@
         }
 
         async function submitUniversalScrape() {
+            if (activeIngestionTracker.isActive) {
+                openIngestionProgressModal();
+                showSoftToast(`Ingestion for "${activeIngestionTracker.targetName}" is already running in background.`, 'info', 4000);
+                return;
+            }
             const url = document.getElementById('univScrapeUrlInput').value.trim();
             if (!url) return alert("Please enter a valid URL.");
 
-            showIngestionModal("Universal Web Crawler", url);
+            showIngestionModal("Universal Web Crawler", url, 'website');
 
             const form = new FormData();
             form.append('url', url);
@@ -4783,11 +5080,16 @@
         }
 
         async function submitUniversalNote() {
+            if (activeIngestionTracker.isActive) {
+                openIngestionProgressModal();
+                showSoftToast(`Ingestion for "${activeIngestionTracker.targetName}" is already running in background.`, 'info', 4000);
+                return;
+            }
             const title = document.getElementById('univNoteTitle').value.trim();
             const text = document.getElementById('univNoteText').value.trim();
             if (!text) return alert("Content cannot be empty.");
 
-            showIngestionModal("Universal Policy Ingestion", title || "Universal Note");
+            showIngestionModal("Universal Policy Ingestion", title || "Universal Note", 'note');
 
             const form = new FormData();
             form.append('title', title);
@@ -4816,53 +5118,48 @@
             if (!q) return;
 
             const sendingBotId = activeBotId;
-            const sendingSessionId = activeSessionId;
             const userTime = formatTimeNow();
             const startTime = performance.now();
 
-            // Save user message to active session of sendingBotId
+            // Save user message and initial streaming bot message to active session
             const sessions = getBotSessions(sendingBotId);
-            let sess = sessions.find(s => s.id === sendingSessionId) || sessions[0];
+            let sess = (activeSessionId ? sessions.find(s => s.id === activeSessionId) : null) || sessions[0];
+            activeSessionId = sess.id;
+            const sendingSessionId = sess.id;
+
+            // Finalize any previous streaming bot messages in this session
+            sess.messages.forEach(m => {
+                if (m.isStreaming) m.isStreaming = false;
+            });
+
             if (sess.title.startsWith('Conversation ') && sess.messages.filter(m => m.role === 'USER').length === 0) {
                 sess.title = q.length > 24 ? q.substring(0, 22) + '...' : q;
             }
             sess.messages.push({ role: 'USER', content: q, time: userTime });
+
+            const msgId = 'stream_' + Date.now();
+            const botMsgObj = {
+                role: 'BOT',
+                content: '',
+                time: userTime,
+                msgId: msgId,
+                isStreaming: true,
+                sources: [],
+                followup: null
+            };
+            sess.messages.push(botMsgObj);
             saveBotSessions(sendingBotId, sessions);
 
-            // Re-render chat for sendingBotId
+            // Re-render chat for sendingBotId - this immediately displays all history AND the new thinking box
             renderBotChat(sendingBotId);
             input.value = "";
 
             const box = document.getElementById('testChatBox');
-            const msgId = 'stream_' + Date.now();
-            box.innerHTML += `
-                <div class="flex flex-col items-start space-y-1 w-full min-w-0 max-w-full">
-                    <div class="flex items-start gap-2.5 w-full min-w-0 max-w-full">
-                        <div id="${msgId}" class="glow-box p-4 sm:p-5 rounded-2xl w-full min-w-0 max-w-full sm:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl text-slate-50 text-[13.5px] sm:text-[14px] font-medium leading-relaxed border-blue-500/30 shadow-lg break-words overflow-x-hidden">
-                            <span class="inline-flex items-center gap-1.5 py-0.5 text-cyan-400">
-                                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 0ms"></span>
-                                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 150ms"></span>
-                                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 300ms"></span>
-                                <span class="text-[11px] text-cyan-300 font-mono ml-2">Agent is thinking...</span>
-                            </span>
-                        </div>
-                        <button id="${msgId}_tts" onclick="speakDashboardText(this, document.getElementById('${msgId}').innerText)" class="mt-1 text-slate-400 hover:text-cyan-400 p-1.5 rounded-xl transition cursor-pointer shrink-0" title="Read Aloud">
-                            <i data-lucide="volume-2" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                    <div id="${msgId}_sources" class="w-full"></div>
-                    <div id="${msgId}_followup" class="w-full"></div>
-                    <div id="${msgId}_lead"></div>
-                    <div class="flex items-center gap-1.5 text-[9px] text-slate-500 mt-1 ml-1 font-mono">
-                        <span id="${msgId}_time">${userTime}</span>
-                        <span id="${msgId}_latency" class="text-cyan-400 font-bold"></span>
-                    </div>
-                </div>
-            `;
-            lucide.createIcons();
-            box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+            if (box) box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
 
             const targetSpan = document.getElementById(msgId);
+            const sourcesContainer = document.getElementById(msgId + '_sources');
+            const followupContainer = document.getElementById(msgId + '_followup');
             const leadContainer = document.getElementById(msgId + '_lead');
             const latencySpan = document.getElementById(msgId + '_latency');
 
@@ -4889,6 +5186,7 @@
                 fetch(`/api/public/chat/conversations/${window.currentActiveLiveConvId}/visitor-reply`, { method: 'POST', body: vf }).catch(() => {});
             }
 
+            let fullText = "";
             try {
                 const res = await fetch('/api/chat/stream', {
                     method: 'POST',
@@ -4899,13 +5197,15 @@
 
                 if (!res.ok) {
                     if (targetSpan && activeBotId === sendingBotId) targetSpan.innerText = "Authentication Failed";
+                    botMsgObj.isStreaming = false;
+                    botMsgObj.content = "Authentication Failed";
+                    saveBotSessions(sendingBotId, sessions);
                     return;
                 }
 
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
                 let streamBuffer = "";
-                let fullText = "";
                 let receivedFirstToken = false;
                 let capturedSources = [];
                 let capturedFollowup = null;
@@ -4934,6 +5234,7 @@
                                         receivedFirstToken = true;
                                     }
                                     fullText += data.content;
+                                    botMsgObj.content = fullText;
                                     if (activeBotId === sendingBotId && targetSpan) {
                                         targetSpan.innerHTML = formatMarkdownWithImages(fullText);
                                         lucide.createIcons();
@@ -4941,33 +5242,35 @@
                                     }
                                 } else if (data.type === 'sources' && data.sources && data.sources.length > 0) {
                                     capturedSources = data.sources;
+                                    botMsgObj.sources = data.sources;
                                     if (activeBotId === sendingBotId) {
                                         if (document.getElementById('testSourceCount')) document.getElementById('testSourceCount').innerText = data.sources.length;
-                                        document.getElementById(msgId + '_sources').innerHTML = `
-                                            <div class="flex flex-wrap gap-1.5 mt-1 pt-1">
-                                                ${data.sources.map(s => `
-                                                    <button onclick="showDashboardEvidence('${s.title.replace(/'/g, "\\'")}', '${s.snippet.replace(/'/g, "\\'").replace(/\n/g, " ")}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium transition cursor-pointer">
-                                                        <i data-lucide="file-check" class="w-3 h-3"></i>
-                                                        <span>${s.title.length > 22 ? s.title.substring(0, 20) + '...' : s.title}</span>
-                                                    </button>
-                                                `).join('')}
-                                            </div>
-                                        `;
-                                        lucide.createIcons();
-                                        box.scrollTop = box.scrollHeight;
+                                        if (sourcesContainer) {
+                                            sourcesContainer.innerHTML = `
+                                                <div class="flex flex-wrap gap-1.5 mt-1 pt-1">
+                                                    ${data.sources.map(s => `
+                                                        <button onclick="showDashboardEvidence('${(s.title || '').replace(/'/g, "\\'")}', '${(s.snippet || '').replace(/'/g, "\\'").replace(/\n/g, " ")}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium transition cursor-pointer">
+                                                            <i data-lucide="file-check" class="w-3 h-3"></i>
+                                                            <span>${(s.title || '').length > 22 ? (s.title || '').substring(0, 20) + '...' : (s.title || 'Source')}</span>
+                                                        </button>
+                                                    `).join('')}
+                                                </div>
+                                            `;
+                                            lucide.createIcons();
+                                            box.scrollTop = box.scrollHeight;
+                                        }
                                     }
                                 } else if (data.type === 'followup' && data.prompt && data.options) {
                                     capturedFollowup = data;
-                                    if (activeBotId === sendingBotId) {
-                                        const followupContainer = document.getElementById(msgId + '_followup');
-                                        if (followupContainer) {
-                                            followupContainer.innerHTML = renderDashboardFollowupMarkup(data, `${msgId}_fl`, false);
-                                            lucide.createIcons();
-                                            box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
-                                        }
+                                    botMsgObj.followup = data;
+                                    if (activeBotId === sendingBotId && followupContainer) {
+                                        followupContainer.innerHTML = renderDashboardFollowupMarkup(data, `${msgId}_fl`, false);
+                                        lucide.createIcons();
+                                        box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
                                     }
                                 } else if (data.type === 'lead_form') {
                                     capturedLeadForm = true;
+                                    botMsgObj.hasLeadForm = true;
                                     if (activeBotId === sendingBotId && leadContainer) {
                                         renderInlineLead(leadContainer);
                                         box.scrollTop = box.scrollHeight;
@@ -4975,25 +5278,32 @@
                                 } else if (data.type === 'done') {
                                     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
                                     if (!fullText.trim()) {
-                                        fullText = (data.full_text && data.full_text.trim()) ? data.full_text : "Here are the verified details from the knowledge base:";
+                                        fullText = (data.full_text && data.full_text.trim()) ? data.full_text : "Here are the details:";
                                     }
                                     if (activeBotId === sendingBotId && latencySpan) {
                                         latencySpan.innerText = `• ⚡ ${elapsed}s latency`;
                                         if (document.getElementById('testTokensPerMsg')) document.getElementById('testTokensPerMsg').innerText = Math.max(1, Math.round(fullText.length / 4));
                                     }
 
-                                    // Save Bot reply to active session of sendingBotId ONLY!
+                                    botMsgObj.content = fullText;
+                                    botMsgObj.isStreaming = false;
+                                    botMsgObj.latency = `${elapsed}s`;
+                                    botMsgObj.sources = capturedSources;
+                                    botMsgObj.followup = capturedFollowup || (data.followup || null);
+                                    botMsgObj.hasLeadForm = capturedLeadForm;
+
+                                    // Save Bot reply to active session
                                     const freshSessions = getBotSessions(sendingBotId);
                                     const targetSess = freshSessions.find(s => s.id === sendingSessionId) || freshSessions[0];
-                                    targetSess.messages.push({
-                                        role: 'BOT',
-                                        content: fullText,
-                                        time: userTime,
-                                        latency: `${elapsed}s`,
-                                        sources: capturedSources,
-                                        followup: capturedFollowup || (data.followup || null),
-                                        hasLeadForm: capturedLeadForm
-                                    });
+                                    const targetMsg = targetSess.messages.find(m => m.msgId === msgId) || targetSess.messages[targetSess.messages.length - 1];
+                                    if (targetMsg && targetMsg.role === 'BOT') {
+                                        targetMsg.content = fullText;
+                                        targetMsg.isStreaming = false;
+                                        targetMsg.latency = `${elapsed}s`;
+                                        targetMsg.sources = capturedSources;
+                                        targetMsg.followup = capturedFollowup || (data.followup || null);
+                                        targetMsg.hasLeadForm = capturedLeadForm;
+                                    }
                                     saveBotSessions(sendingBotId, freshSessions);
                                     if (activeBotId === sendingBotId) {
                                         renderBotChat(sendingBotId);
@@ -5005,7 +5315,20 @@
                 }
             } catch (e) {
                 if (e.name !== 'AbortError' && targetSpan && activeBotId === sendingBotId) {
-                    targetSpan.innerText = "Connection lost to server.";
+                    targetSpan.innerText = fullText ? fullText : "Connection lost to server.";
+                }
+            } finally {
+                if (botMsgObj.isStreaming) {
+                    botMsgObj.isStreaming = false;
+                    if (fullText) botMsgObj.content = fullText;
+                    const finalSessions = getBotSessions(sendingBotId);
+                    const finalSess = finalSessions.find(s => s.id === sendingSessionId) || finalSessions[0];
+                    const finalMsg = finalSess.messages.find(m => m.msgId === msgId);
+                    if (finalMsg) {
+                        finalMsg.isStreaming = false;
+                        if (fullText) finalMsg.content = fullText;
+                        saveBotSessions(sendingBotId, finalSessions);
+                    }
                 }
             }
         }
@@ -5290,7 +5613,7 @@
                 }
                 isDashListening = false;
                 if (micBtn) micBtn.classList.remove('bg-red-500/30', 'text-red-400', 'animate-pulse');
-                if (input) input.placeholder = "Query knowledge base in test sandbox or click mic...";
+                if (input) input.placeholder = "Ask a question or click mic...";
                 return;
             }
 
@@ -5323,14 +5646,14 @@
                         dashRecognition.onend = () => {
                             isDashListening = false;
                             if (micBtn) micBtn.classList.remove('bg-red-500/30', 'text-red-400', 'animate-pulse');
-                            if (input) input.placeholder = "Query knowledge base in test sandbox or click mic...";
+                            if (input) input.placeholder = "Ask a question or click mic...";
                         };
 
                         dashRecognition.onerror = (err) => {
                             console.warn("Native SpeechRecognition error, switching to Audio Recorder fallback", err);
                             isDashListening = false;
                             if (micBtn) micBtn.classList.remove('bg-red-500/30', 'text-red-400', 'animate-pulse');
-                            if (input) input.placeholder = "Query knowledge base in test sandbox or click mic...";
+                            if (input) input.placeholder = "Ask a question or click mic...";
                             if (err.error === 'not-allowed') {
                                 alert("Microphone access was denied. Please allow microphone permissions in your browser.");
                             } else {
@@ -5398,7 +5721,7 @@
                     }
 
                     if (dashAudioChunks.length === 0) {
-                        if (input) input.placeholder = "Query knowledge base in test sandbox or click mic...";
+                        if (input) input.placeholder = "Ask a question or click mic...";
                         return;
                     }
 
@@ -5417,7 +5740,7 @@
                             if (data.text) {
                                 if (input) {
                                     input.value = data.text;
-                                    input.placeholder = "Query knowledge base in test sandbox or click mic...";
+                                    input.placeholder = "Ask a question or click mic...";
                                 }
                                 sendOwnerTest();
                             } else {
@@ -5432,8 +5755,8 @@
                     }
 
                     setTimeout(() => {
-                        if (input && input.placeholder !== "Query knowledge base in test sandbox or click mic...") {
-                            input.placeholder = "Query knowledge base in test sandbox or click mic...";
+                        if (input && input.placeholder !== "Ask a question or click mic...") {
+                            input.placeholder = "Ask a question or click mic...";
                         }
                     }, 3500);
                 };
@@ -6535,8 +6858,19 @@
             // 7. Bullet points (-, *, •) with bold headers
             html = html.replace(/^\s*[\-\*•]\s+([^:\n]+:\s*)(.+)$/gm, '<li class="ml-3 my-1.5 font-medium"><strong class="font-bold text-white">$1</strong>$2</li>');
             html = html.replace(/^\s*[\-\*•]\s+(.+)$/gm, '<li class="ml-3 my-1.5 font-medium">$1</li>');
+            html = html.replace(/^\s*[\-\*•]\s+([^:\n]+:\s*)(.+)$/gm, '<li class="py-0.5 font-medium"><strong class="font-bold text-white">$1</strong>$2</li>');
+            html = html.replace(/^\s*[\-\*•]\s+(.+)$/gm, '<li class="py-0.5 font-medium">$1</li>');
+
+            // Wrap consecutive <li> items into a clean, compact <ul> with no loose <br/> breaks between items
+            html = html.replace(/((?:<li\b[^>]*>.*?<\/li>\s*)+)/gs, (match) => {
+                const cleanItems = match.replace(/\n+/g, '');
+                return '<ul class="space-y-1.5 my-2.5 pl-4 list-disc marker:text-cyan-400">' + cleanItems + '</ul>';
+            });
+
             // 8. Line breaks
             html = html.replace(/\n/g, '<br/>');
+            html = html.replace(/(?:<br\s*\/?>\s*)+(<ul\b)/gi, '$1');
+            html = html.replace(/(<\/ul>)(?:\s*<br\s*\/?>)+/gi, '$1<br/>');
 
             // 9. Restore Code Blocks (Mermaid, Chart.js, and General Preformatted Code)
             for (let i = 0; i < codeBlocks.length; i++) {
@@ -6978,7 +7312,7 @@
                         // Immediately navigate to newly created bot's knowledge workspace
                         await openBotWorkspace(newBot.id, 'knowledge');
                         // Show interactive 4-step Neural Ingestion Progress Modal
-                        showIngestionModal(`Neural Knowledge Crawler (${name})`, domain);
+                        showIngestionModal(`Neural Knowledge Crawler (${name})`, domain, 'website');
                         const form = new FormData();
                         form.append('bot_id', newBot.id);
                         form.append('url', domain);
@@ -9082,6 +9416,24 @@
                 <span id="docViewerSourceId">Source ID: -</span>
                 <button type="button" onclick="closeDocChunksModal()" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold cursor-pointer transition">Close</button>
             </div>
+        </div>
+    <!-- FLOATING BACKGROUND INGESTION STATUS PILL -->
+    <div id="activeIngestionFloatingPill" onclick="openIngestionProgressModal()" class="hidden fixed bottom-6 right-6 z-40 bg-[#0b1329]/95 hover:bg-[#111c3d] border border-cyan-500/50 shadow-[0_0_30px_rgba(6,182,212,0.4)] rounded-2xl p-3 px-4 flex items-center gap-3 transition-all backdrop-blur-xl cursor-pointer hover:scale-105 group">
+        <div class="relative flex items-center justify-center">
+            <div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-400/50 flex items-center justify-center text-cyan-300">
+                <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-cyan-300"></i>
+            </div>
+            <span class="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500"></span>
+            </span>
+        </div>
+        <div class="text-left">
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-white max-w-[180px] sm:max-w-[240px] truncate" id="pillTargetName">Document</span>
+                <span class="text-[9px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/40 px-1.5 py-0.5 rounded-full font-bold" id="pillStepBadge">Step 2/4</span>
+            </div>
+            <div class="text-[10px] text-slate-400 group-hover:text-cyan-300 transition-colors" id="pillStatusText">Processing in background &bull; Click to view</div>
         </div>
     </div>
 

@@ -33,3 +33,4 @@ flashrank
 tiktoken
 arize-phoenix
 openinference-instrumentation-openai
+python-docx

@@ -20,7 +20,7 @@ def get_groq_client() -> Optional[Groq]:
         return Groq(api_key=GROQ_API_KEY)
     return None
 
-def call_llm_sync(messages: List[Dict[str, str]], temperature: float = 0.5, max_tokens: int = 1024) -> str:
+def call_llm_sync(messages: List[Dict[str, str]], temperature: float = 0.7, max_tokens: int = 1024) -> str:
     """Synchronous LLM call with Groq -> NVIDIA fallback"""
     # 1. Try Groq first for ultra-fast generation
     groq_client = get_groq_client()
@@ -54,7 +54,7 @@ def call_llm_sync(messages: List[Dict[str, str]], temperature: float = 0.5, max_
 
 async def stream_llm_tokens(
     messages: List[Dict[str, str]],
-    temperature: float = 0.6,
+    temperature: float = 0.7,
     max_tokens: int = 1500
 ) -> AsyncGenerator[str, None]:
     """Asynchronous token streaming with fallback support"""

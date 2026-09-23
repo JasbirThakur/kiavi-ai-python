@@ -11,3 +11,10 @@ node_modules/
 dist/
 bin/
 *.log
+
+backend/app/static/extracted_diagrams/
+*.js
+*scratch*
+find_*.py
+print_entries.py
+read_ldb.py

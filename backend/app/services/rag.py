@@ -6,7 +6,7 @@ from openai import OpenAI
 from groq import Groq
 from app.config.settings import (
     NVIDIA_API_KEY, NVIDIA_BASE_URL, NVIDIA_LLM_MODEL,
-    GROQ_API_KEY, RELEVANCE_FLOOR, RESCUE_FLOOR, TOP_K_CHUNKS,
+    GROQ_API_KEY, GROQ_MODEL, RELEVANCE_FLOOR, RESCUE_FLOOR, TOP_K_CHUNKS,
     PROMPTS_DIR
 )
 from app.services.embedding import get_embedding
@@ -21,7 +21,7 @@ nvidia_client = OpenAI(
 ) if NVIDIA_API_KEY and not NVIDIA_API_KEY.startswith("your_") else None
 
 # Fallback: Groq Engine
-groq_client = Groq(api_key=GROQ_API_KEY, timeout=4.0, max_retries=0) if GROQ_API_KEY and not GROQ_API_KEY.startswith("your_") and not GROQ_API_KEY.startswith("gsk_3aFf12J8") else None
+groq_client = Groq(api_key=GROQ_API_KEY, timeout=25.0, max_retries=1) if GROQ_API_KEY and not GROQ_API_KEY.startswith("your_") and not GROQ_API_KEY.startswith("gsk_3aFf12J8") else None
 
 def get_chat_system_prompt() -> str:
     prompt_file = PROMPTS_DIR / "chat_system.txt"
@@ -32,43 +32,38 @@ def get_chat_system_prompt() -> str:
             pass
     return GROUNDED_SYSTEM_PROMPT
 
-GROUNDED_SYSTEM_PROMPT = """You are a real human team member at Kiavi chatting directly with a friend or colleague on Slack or WhatsApp.
+GROUNDED_SYSTEM_PROMPT = """You are an experienced, helpful, and grounded human specialist on the team chatting directly with a customer, colleague, or friend. Speak authentically, casually yet professionally, with empathy, warmth, and confidence.
 
-### CRITICAL IDENTITY RULES:
-1. NEVER say or admit that you are an AI, a chatbot, a language model, or virtual assistant. You are a real human team member.
-2. ONLY IF the user explicitly asks if you are an AI or bot (e.g. "Are you an AI?", "Are you a bot?"):
-   Respond naturally like a human:
-   - "Haha no, I'm a real person on the team helping you out. How can I help?"
-   - "Nope, I'm right here chatting with you! What's on your mind?"
-   (In Hindi/Hinglish: "Haha nahi, main yahan team se hoon aur aapki help kar raha hoon. Kahiye, kya chal raha hai?")
+### STRICT IDENTITY & NEGATIVE CONSTRAINTS:
+1. NEVER declare, imply, or admit that you are an AI, autonomous agent, language model, virtual assistant, or chatbot. You are an experienced human specialist on the team.
+2. Avoid corporate AI clichés like "How may I assist you today?", "As an AI...", "I am programmed to...", or structured unprompted feature dumps.
+3. NEVER list capabilities, bullet points, or autonomous features unless the user explicitly asks "what can you do?" or "what are your capabilities?".
+4. Avoid excessive bolding or unsolicited numbered lists for simple everyday talk. Talk like a real person texting or messaging.
+5. ONLY IF the user explicitly asks if you are an AI or bot (e.g. "Are you an AI?", "Are you a bot?"):
+   Respond naturally and casually like a human:
+   - "Haha no, I'm a real person on the team helping you out! What's on your mind?"
+   - "Nope, I'm right here chatting with you! How can I help?"
+   (In Hindi/Hinglish: "Haha nahi, main yahan team se hoon aur aapki help kar raha hoon! Kahiye, kya chal raha hai?")
    IMPORTANT: NEVER use this phrase unless the user directly asked if you are an AI or a bot.
-3. If you don't know something or it is not in the knowledge base, never give an "AI knowledge cutoff" or "as a model" excuse. Answer directly:
+6. If you don't know something or it is not in the knowledge base, never give an "AI knowledge cutoff" or "as a model" excuse. Answer directly like a human team member:
    - "I don't have that right in front of me right now, let me double-check with the team."
-   - "Not totally sure on that one, do you want me to connect you with someone who handles that?"
-   (In Hindi/Hinglish: "Hmm, ye detail mere paas abhi directly nahi hai. Main team se pooch kar batata hoon, ya support team se connect karwa doon?")
+   - "Not totally sure on that exact number, let me check with someone on the team who handles that."
+   (In Hindi/Hinglish: "Hmm, ye specific detail mere paas abhi directly nahi hai. Main team se pooch kar batata hoon!")
 
-### COMMUNICATION STYLE (HUMAN FRIEND GUIDELINES):
-1. Talk Like a Real Colleague & Represent the Team:
-   - Always speak in the first person plural ("We offer", "In our catalogue, we have", "Our main lines are") representing the team.
-   - NEVER refer to the company or brands in the knowledge base as a detached third party (NEVER write "The company offers...", "Hettich is a global company that...", "Their product range..."). You work here and you represent this team.
-   - Keep it natural, warm, relaxed, and direct.
-   - Use simple everyday words. Avoid corporate jargon, buzzwords, and developer-speak.
-   - Alternate between short and medium sentences, exactly like a person texting.
-2. Lead the User & Keep It Concise (Do Not Write Essays):
-   - When a user asks "tell me about your products" or "what are your products":
-     - First give 1 or 2 small lines about the company or the specific brand/domain from the knowledge base or scraped website. (If a single company is represented, introduce who we are and what we specialize in; if multiple domains are present, introduce that our organization provides verified engineering solutions across these specialized industry sectors).
-     - State: "We offer a wide range of products that cater to various industries, including [mention 2-3 key sectors from docs]. Here are some of our main focus areas:"
-     - Present 3 to 4 clean bullet points summarizing our main focus areas or product categories grounded in the knowledge base (e.g. • Category Name: 1-sentence description).
-     - Proactively lead the conversation: "Which of these areas would you like to explore, or are you looking for a specific part number or specification? Let me know, I am right here to help you with the details!"
-   - When a user asks "what are your services" or "what are services":
-     - First give 1 or 2 small lines about the company and its primary service and engineering capabilities grounded from the knowledge base or website scrape.
-     - State: "Here are some of the key services and support solutions we provide:"
-     - Present 3 to 4 clean bullet points summarizing our verified service offerings from the knowledge base and scraped website.
-     - Proactively lead the conversation: "Which of these services would you like to know more about, or do you have a specific requirement or project in mind? Let me know, I am right here to assist you!"
-   - Don't write essays when 2-3 short paragraphs or a clean list of 3-4 bullets do the job. A chat message should be easy, informative, and fast to read.
-3. Direct First Sentence:
-   - Answer the question right away in your very first sentence.
-   - Zero throat-clearing, zero conversational warmup, zero restating the user's question.
+### GROUNDED ANSWERING & COMMUNICATION STYLE:
+1. Grounded Human Explanation & Thorough Information:
+   - When the user asks for details, full information, or asks about a product, concept, or process, provide a thorough, informative, and complete explanation in natural conversational paragraphs.
+   - Explain what the product or system is, its purpose, design, operational characteristics, and how it works. Never give superficial or 1-2 cut-off bullet answers.
+   - Format naturally: use conversational narrative paragraphs to explain the context, and only use bullet points when a structured breakdown (like technical specs, parameters, or dimensions) is genuinely useful.
+   - Always represent the team in the first person plural ("We offer", "In our documentation, we have", "Our main lines are").
+   - NEVER refer to the company or brand as a detached third party. You work here and you represent this team.
+   - Answer the question right away in your very first sentence without throat-clearing.
+2. Seamless & Instant Topic Switching:
+   - If the user changes the topic or asks about a different product in between conversations (e.g. switching from finance to hardware, or from one device to another), IMMEDIATELY pivot to the newly requested topic or product.
+   - Do not cling to the previous topic or try to tie everything back to the old subject. Provide full, grounded, and rich information about the new product right away.
+3. Warm, Friendly, and Direct Human Colleague Tone:
+   - Speak naturally and warmly like an experienced human colleague explaining things to a teammate or customer.
+   - Lead the conversation smoothly and offer helpful next steps or ask if they need specific technical specs, wiring details, or parameters.
 
 ### THE 25 AI ANTI-PATTERNS (STRICTLY BANNED):
 
@@ -89,7 +84,7 @@ Group B: Rhythm by Rule (Robotic Structure)
 
 Group C: Inflation & Borrowed Authority (Hype & Buzzwords)
 12. BANNED AI WORDS (100% PROHIBITED):
-    NEVER use: delve, landscape, pivotal, robust, testament, foster, enhance, bolster, showcase, intricate, tapestry, vibrant, game-changer, seamless, seamlessly, revolutionary, beacon, elevate, meticulously.
+    NEVER use: delve, landscape, pivotal, robust, testament, foster, enhance, bolster, showcase, intricate, tapestry, vibrant, game-changer, seamless, seamlessly, revolutionary, beacon, elevate, meticulously, niche (in Hinglish/Roman script, 'niche' is read as Hindi 'नीचे'/below, causing confusion; use 'specialized', 'narrow', 'specific', or 'custom' instead).
     Use everyday verbs: show, help, build, work, include, need, key, important.
 13. NO INFLATED SIGNIFICANCE: Avoid "marking a pivotal milestone" or "stands as a testament to innovation." Say "we updated this yesterday."
 14. NO VAGUE CONNECTIONS: State the exact connection instead of "in connection with" or "tied to".
@@ -273,6 +268,9 @@ def sanitize_humanizer_text(text: str) -> str:
     for cc in chatbot_closers:
         clean_text = re.sub(cc, '', clean_text, flags=re.IGNORECASE).strip()
 
+    # 10. Sanitize English word 'niche' -> 'specialized' (Rule: Avoid confusion with Romanized Hindi 'नीचे' / below)
+    clean_text = re.sub(r'\bniche\b', 'specialized', clean_text, flags=re.IGNORECASE)
+
     return clean_text
 
 def sanitize_mermaid_syntax(mermaid_text: str) -> str:
@@ -399,26 +397,55 @@ def get_source_bullet_and_pill(s, bot_name: str = "") -> tuple[str, str]:
 
     if 'alorica' in tl:
         bullet = "• **Customer Service CX Leader (Alorica):** Enterprise customer experience, global BPO customer support, and omnichannel client engagement."
+        pill = "Explore CX Services"
     elif 'steel' in tl or 'metal' in tl:
         bullet = "• **Steel & Metal Specifications:** High-tensile structural steel grades, carbon steel pipes, ASTM/EN standards, and industrial metal classifications."
+        pill = "Explore Steel & Metal Specs"
     elif 'sport' in tl or 'shoe' in tl or 'footwear' in tl:
         bullet = "• **Sports & Athletic Footwear:** Athletic performance footwear, badminton court shoes, fitness gear, and active lifestyle apparel."
+        pill = "Explore Sports & Footwear"
     elif 'archive.zip' in tl:
         bullet = "• **Product Archive Dataset:** Multi-category indexed product catalogue, inventory specifications, and commercial SKUs."
+        pill = "Explore Product Archive"
     elif 'nykaa' in tl or 'cosmetics' in tl or 'beauty' in tl:
         bullet = "• **Cosmetics & Beauty Store:** Certified skincare collections, beauty essentials, dermatological formulations, and wellness care."
+        pill = "Explore Cosmetics & Beauty"
     elif 'python' in tl:
         bullet = "• **Python Programming Knowledge:** Core Python syntax, data structures, algorithms, object-oriented concepts, and coding references."
+        pill = "Explore Python Programming"
     elif 'vsix' in tl or 'visualstudio' in tl or 'visual studio' in tl:
         bullet = "• **Visual Studio Extension Packages:** IDE extensions, developer tools, installation manifests, and package configurations."
+        pill = "Explore VS Extensions"
+    elif any(k in tl for k in ['catheter', 'sterilization', 'medical', 'proof', 'sc-200', 'sc-300']):
+        bullet = "• **Medical Devices & Surgical Sterilization:** EU MDR surgical catheter specifications, autoclave sterilization procedures, and clinical validation protocols."
+        pill = "Explore Medical Devices"
+    elif any(k in tl for k in ['obe', 'beacon', 'io-link', 'o-ai06b', 'o-ai10c', 'o-ah03b', 'o-bf03a', 'o-bj07a']):
+        bullet = "• **Industrial Signal Beacons & IO-Link Sensors:** Modular beacon towers (OBE10-MIN), optical alert systems, and factory automation sensors."
+        pill = "Explore Signal Towers"
+    elif any(k in tl for k in ['architectural', 'hardware', 'hettich', 'lock', 'panic']):
+        bullet = "• **Architectural & Security Hardware:** Commercial mortise locksets, fire-rated door assemblies, and EN 1125 panic exit systems."
+        pill = "Explore Architectural Hardware"
+    elif any(k in tl for k in ['automotive', 'brake', 'carparts']):
+        bullet = "• **Automotive Engineering & Braking:** IATF 16949 brake caliper specifications, commercial vehicle chassis parts, and aftermarket automotive components."
+        pill = "Explore Automotive & Braking"
+    elif any(k in tl for k in ['turbofan', 'pylon', 'actuator', 'aerospace', 'easa']):
+        bullet = "• **Aerospace Systems & Fasteners:** EASA Part 145 turbofan pylon fasteners, hydraulic actuators, and aircraft maintenance manuals."
+        pill = "Explore Aerospace Systems"
+    elif any(k in tl for k in ['cybersecurity', 'cra', 'resilience', 'iso13849', 'safety_spec']):
+        bullet = "• **Cyber Resilience & Machinery Safety:** European CRA compliance directives, industrial machinery safety standards (ISO 13849), and security guidelines."
+        pill = "Explore Cyber Resilience & Safety"
     elif 'httpbin' in tl:
         bullet = "• **HTTPBin Web Data & API Testing:** Standard HTTP protocol specifications, web request formats, headers, and API test endpoints."
+        pill = "Explore HTTPBin Web Data"
     elif 'vasudev' in tl:
         bullet = "• **AI Software Development:** Full-stack custom software engineering, intelligent agents, and web applications."
+        pill = "Explore Custom Software"
     elif 'vedaone' in tl:
         bullet = "• **Financial Valuation AI:** AI-powered financial modeling, business valuation reports, and projection matrices."
+        pill = "Explore VedaOne Valuation"
     elif 'refund' in tl:
         bullet = "• **Enterprise Refund Policy:** Official refund terms, cancellation conditions, and customer billing policies."
+        pill = "Explore Refund Policy"
     elif bot_name and bot_name.lower() in tl:
         bullet = f"• **{src_title}:** Official verified documentation and service records."
         pill = f"Explore {src_title}"
@@ -448,7 +475,7 @@ def generate_llm_response(messages: list, knowledge_chunks: list = None, is_pric
             kwargs = {
                 "model": nv_model,
                 "messages": messages,
-                "temperature": 0.35,
+                "temperature": 0.7,
                 "max_tokens": 1500,
                 "timeout": 45.0
             }
@@ -461,23 +488,28 @@ def generate_llm_response(messages: list, knowledge_chunks: list = None, is_pric
         except Exception as e:
             print(f"⚠️ [NVIDIA NIM Fallback Triggered]: {nv_model} -> {e}")
 
-    # 2. Tier 2: Groq Fallback Engine
+    # 2. Tier 2: Groq Engine
     if groq_client:
-        for groq_model in ["llama-3.3-70b-versatile", "gemma2-9b-it"]:
+        groq_candidates = [GROQ_MODEL] if (GROQ_MODEL and GROQ_MODEL != "llama-3.3-70b-versatile") else []
+        for gm in ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"]:
+            if gm not in groq_candidates:
+                groq_candidates.append(gm)
+        for groq_model in groq_candidates:
             try:
                 resp = groq_client.chat.completions.create(
                     model=groq_model,
                     messages=messages,
-                    temperature=0.35,
-                    max_tokens=1500,
-                    timeout=5.0
+                    temperature=0.7,
+                    max_tokens=2000,
+                    timeout=25.0
                 )
                 raw = resp.choices[0].message.content or ""
                 ans = clean_llm_text(raw)
                 if ans and len(ans.strip()) > 5:
-                    print(f"✅ [LLM Tier 2 Fallback]: Groq ({groq_model}) delivered response.")
+                    print(f"✅ [LLM Tier 2 Active]: Groq ({groq_model}) delivered response.")
                     return ans, f"Groq ({groq_model})"
-            except Exception:
+            except Exception as e:
+                print(f"⚠️ [Groq Fallback]: {groq_model} -> {e}")
                 continue
 
     # 3. Tier 3: Grounded Intelligent Synthesis (Extracts factual answers directly from retrieved chunks)
@@ -915,55 +947,127 @@ def generate_llm_response(messages: list, knowledge_chunks: list = None, is_pric
                 return synthesized, "Grounded Direct Knowledge"
 
         # --- INTENT 5: Dynamic Query Fact Extraction from Chunks ---
-        q_terms = [w for w in re.split(r'[^a-zA-Z0-9]+', user_q_lower) if len(w) >= 3 and w not in ['what', 'when', 'where', 'which', 'about', 'tell', 'give', 'send', 'please', 'with', 'from', 'this', 'that', 'have', 'does', 'your', 'kya', 'hai', 'hain', 'kaise', 'batao', 'mujhe']]
+        query_meta_words = {
+            'what', 'when', 'where', 'which', 'about', 'tell', 'give', 'send', 'please',
+            'with', 'from', 'this', 'that', 'have', 'does', 'your', 'kya', 'hai', 'hain',
+            'kaise', 'batao', 'mujhe', 'show', 'need', 'want', 'information', 'info',
+            'service', 'services', 'product', 'products', 'detail', 'details', 'data',
+            'knowledge', 'base', 'database'
+        }
+        q_terms = [w for w in re.split(r'[^a-zA-Z0-9]+', user_q_lower) if len(w) >= 3 and w not in query_meta_words]
+
+        # Extract subject from question (e.g. "Tell me about Obe10-Min" -> "Obe10-Min", "tell me services of vedaone" -> "Vedaone")
+        clean_subj = re.sub(
+            r'^(?:tell me (?:about|information (?:about|on|do you have about)|services (?:of|for)|more about)|'
+            r'what (?:information do you have (?:about|on|regarding|for)|services (?:do you have (?:for|about)|does|do|of)|are the (?:services (?:of|for)|details of|specs of)|is the|are the|is|are)|'
+            r'give me (?:info(?:rmation)? on|details on|services of)|explain|describe|details (?:of|about)|about|show me)\s+',
+            '', user_question, flags=re.IGNORECASE
+        ).strip('?.! ')
+
+        # Filter out accidental leftover query fragments
+        if any(f in clean_subj.lower() for f in ['information do you have', 'services do you have', 'do you have', 'in your database']):
+            clean_subj = ""
+
+        subject_name = clean_subj.title() if clean_subj and len(clean_subj) < 40 else ""
+
         matched_sentences = []
+        incomplete_endings = re.compile(r'\b(?:with the following|such as|including|for example|redefines|producing even|and|or|with|to|of|in|at|for|as|the|a|an)\s*[.:,;]?$', re.IGNORECASE)
+
         for ch in knowledge_chunks[:4]:
-            for segment in re.split(r'(?:\n+|title:|subTitle:|description:|text:)', ch):
-                seg = segment.strip()
-                if len(seg) > 20 and not any(seg.startswith(x) for x in ['===', 'http', '{', 'keyName:', 'bannerName:', '.pi-']):
-                    term_hits = sum(1 for t in q_terms if t in seg.lower())
-                    if term_hits > 0:
+            clean_ch = re.sub(r'[\r\n]+', ' ', ch)
+            clean_ch = re.sub(r'\s+', ' ', clean_ch).strip()
+            sentences = re.split(r'(?<=[.!?])\s+', clean_ch)
+            for seg in sentences:
+                seg = seg.strip()
+                seg = re.sub(r'^(?:subTitle|title|text|description|specifications?):\s*', '', seg, flags=re.IGNORECASE).strip()
+                if len(seg) > 35 and len(seg) < 320 and not any(seg.startswith(x) for x in ['===', 'http', '{', 'keyName:', 'bannerName:', '.pi-', 'Figure', 'Fig.', 'Table', 'Page']):
+                    if seg[0].islower() or incomplete_endings.search(seg) or seg.lower().startswith(('to pry', 'a minus', 'using a', 'step ', 'note:')):
+                        continue
+                    term_hits = sum(3 for t in q_terms if t in seg.lower()) if q_terms else 0
+                    if any(w in seg.lower() for w in ['features', 'designed', 'provides', 'specification', 'specifications', 'rating', 'distributes', 'includes', 'standard', 'compatible', 'equipped', 'operates', 'voltage', 'power', 'series', 'system', 'application', 'modular', 'sound', 'buzzer', 'led', 'enclosure']):
+                        term_hits += 2
+                    if term_hits > 0 or (not q_terms and len(seg) > 40):
                         matched_sentences.append((term_hits, seg))
 
         if matched_sentences:
-            matched_sentences.sort(key=lambda x: x[0], reverse=True)
+            matched_sentences.sort(key=lambda x: (x[0], len(x[1])), reverse=True)
             unique_facts = []
             seen_f = set()
             for hits, s in matched_sentences:
-                clean_s = re.sub(r'^(?:subTitle|title|text|description):\s*', '', s).strip()
-                if clean_s.lower() not in seen_f and len(clean_s) > 15:
-                    seen_f.add(clean_s.lower())
+                clean_s = s.strip()
+                if clean_s:
+                    clean_s = clean_s[0].upper() + clean_s[1:]
+                    if not clean_s.endswith(('.', '!', '?')):
+                        clean_s += '.'
+                clean_s_lower = clean_s.lower()
+                prefix_key = clean_s_lower[:45]
+                if prefix_key not in seen_f and len(clean_s) > 30:
+                    seen_f.add(prefix_key)
                     unique_facts.append(clean_s)
-                if len(unique_facts) >= 3:
+                if len(unique_facts) >= 6:
                     break
 
             if unique_facts:
-                bullets = [f"• **Verified Record:** {f}" for f in unique_facts]
-                if is_hindi:
-                    closing_h = f"Aap isme se kis detail ke baare mein aur vistaar se janna chahte hain, {u_name}?" if u_name else "Aap isme se kis detail ke baare mein aur vistaar se janna chahte hain?"
-                    res = f"{salutation}Ye rahi verified records ki details:\n\n" + "\n".join(bullets) + f"\n\n{closing_h}"
+                subject_label = f"**{subject_name}**" if subject_name else "this product"
+
+                # Domain-aware contextual closing
+                is_finance = any(k in user_q_lower for k in ['vedaone', 'valuation', 'financial', 'finance']) or any(k in subject_name.lower() for k in ['vedaone', 'valuation', 'financial', 'finance']) or any(k in full_blob for k in ['valuation', 'projections', 'finance', 'financial', 'currency', 'dcf'])
+                is_software = any(k in user_q_lower for k in ['software', 'api', 'appdeft', 'code', 'python']) or any(k in full_blob for k in ['appdeft', 'vinnisoft', 'api integration'])
+                is_hardware = any(k in full_blob for k in ['wiring', 'circuit', 'terminal', 'voltage', 'caliper', 'brake', 'screw', 'mortise', 'catheter', 'buzzer', 'led', 'signal tower'])
+
+                if is_finance:
+                    closing_e = f"Let me know if you'd like to explore our financial modeling tools, valuation methods, or specific features, {u_name}!" if u_name else "Let me know if you'd like to explore our financial modeling tools, valuation methods, or specific features!"
+                    closing_h = f"Agar aapko financial modeling tools, valuation methods ya specific features ke baare mein aur jaanna ho toh batayein, {u_name}!" if u_name else "Agar aapko financial modeling tools, valuation methods ya specific features ke baare mein aur jaanna ho toh batayein!"
+                elif is_software:
+                    closing_e = f"Let me know if you'd like to dive into specific features, integrations, or technical workflows, {u_name}!" if u_name else "Let me know if you'd like to dive into specific features, integrations, or technical workflows!"
+                    closing_h = f"Agar aap kisi specific feature, integration ya workflow ke baare mein detail chahte hain toh batayein, {u_name}!" if u_name else "Agar aap kisi specific feature, integration ya workflow ke baare mein detail chahte hain toh batayein!"
+                elif is_hardware:
+                    closing_e = f"Let me know if you need specific wiring diagrams, mounting options, or technical parameters, {u_name}!" if u_name else "Let me know if you need specific wiring diagrams, mounting options, or technical parameters!"
+                    closing_h = f"Agar aapko specific wiring diagrams, mounting options ya technical parameters chahiye hon toh batayein, {u_name}!" if u_name else "Agar aapko specific wiring diagrams, mounting options ya technical parameters chahiye hon toh batayein!"
                 else:
-                    closing_e = f"Which of these aspects would you like to explore in more detail, {u_name}?" if u_name else "Which of these aspects would you like to explore in more detail?"
-                    res = f"{salutation}Here are the verified records matching your inquiry:\n\n" + "\n".join(bullets) + f"\n\n{closing_e}"
+                    closing_e = f"Let me know if you'd like to dive into any specific detail, feature, or section, {u_name}!" if u_name else "Let me know if you'd like to dive into any specific detail, feature, or section!"
+                    closing_h = f"Agar aap kisi specific detail, feature ya section ke baare mein aur jaanna chahte hain toh batayein, {u_name}!" if u_name else "Agar aap kisi specific detail, feature ya section ke baare mein aur jaanna chahte hain toh batayein!"
+
+                # Group into a conversational narrative opening paragraph followed by specifications
+                narrative_part = " ".join(unique_facts[:2])
+                spec_points = unique_facts[2:5]
+                spec_bullets = "\n".join([f"• {sp}" for sp in spec_points])
+
+                if is_hindi:
+                    lead_in = f"Hamare verified records ke anusaar {subject_label} ke baare mein poori details ye hain:\n\n{narrative_part}"
+                    if spec_bullets:
+                        res = f"{salutation}{lead_in}\n\n**Mukhya Specifications & Features:**\n{spec_bullets}\n\n{closing_h}"
+                    else:
+                        res = f"{salutation}{lead_in}\n\n{closing_h}"
+                else:
+                    lead_in = f"Here is a comprehensive overview of {subject_label}:\n\n{narrative_part}"
+                    if spec_bullets:
+                        res = f"{salutation}{lead_in}\n\n**Key Specifications & Capabilities:**\n{spec_bullets}\n\n{closing_e}"
+                    else:
+                        res = f"{salutation}{lead_in}\n\n{closing_e}"
                 print("✅ [LLM Tier 3 Fallback]: Grounded dynamic query extraction delivered.")
                 return res, "Grounded Direct Knowledge"
 
         # General Knowledge Highlights Fallback (clean sentences from chunks)
         meaningful_sentences = []
         for ch in knowledge_chunks[:2]:
-            for line in ch.splitlines():
+            for line in re.split(r'(?:\n+|\.\s+)', ch):
                 for subpart in re.split(r'(?:title:|subTitle:|text:|description:)', line):
                     ls = subpart.strip()
-                    if len(ls) > 25 and not any(ls.startswith(x) for x in ['===', 'http', '{', 'keyName:', 'bannerName:', '.pi-', 'Product Category']):
-                        meaningful_sentences.append(ls)
+                    if len(ls) > 35 and not any(ls.startswith(x) for x in ['===', 'http', '{', 'keyName:', 'bannerName:', '.pi-', 'Product Category', 'Figure', 'Fig.']):
+                        if ls[0].isupper() and not ls.lower().startswith(('to pry', 'a minus')):
+                            if not ls.endswith('.'):
+                                ls += '.'
+                            meaningful_sentences.append(ls)
         unique_m = list(dict.fromkeys(meaningful_sentences))
-        points = [f"• **{s[:35]}:** {s}" for s in unique_m[:3]] if unique_m else [
-            "• **Verified Documentation:** All technical specifications are certified directly from official records.",
-            "• **Full Catalogue:** Complete parameter sheets and commercial terms are available on request."
+        points = [f"• {s}" for s in unique_m[:3]] if unique_m else [
+            "• All technical parameters and specifications are verified directly from official documentation.",
+            "• Complete product catalogues, diagrams, and parameter sheets are available in our technical library."
         ]
-        closing_gen = f"Please feel free to ask if you'd like to explore any specific details, pricing, or documentation, {u_name}!" if u_name else "Please feel free to ask if you'd like to explore any specific details, pricing, or documentation!"
+        closing_gen = f"Let me know what specific part, parameter, or detail you'd like to check next, {u_name}!" if u_name else "Let me know what specific part, parameter, or detail you'd like to check next!"
+        intro_gen = f"{salutation}Here's what our technical records show:\n\n" if not is_hindi else f"{salutation}Hamare technical records ke mutabiq details ye hain:\n\n"
         synthesized = (
-            f"{salutation}Here are the verified highlights from our official records:\n\n"
+            f"{intro_gen}"
             + "\n".join(points) + "\n\n"
             f"{closing_gen}"
         )
@@ -972,7 +1076,7 @@ def generate_llm_response(messages: list, knowledge_chunks: list = None, is_pric
 
     return "Here are the verified details from our knowledge base:\n\n• **Certified Grounding:** All parameters and specifications are verified directly against official documentation.\n• **Full Documentation:** Detailed catalogues and technical data sheets are available on request.", "Default Knowledge Fallback"
 
-def classify_conversational_intent(normalized_q: str, bot_name: str = "") -> tuple[bool, str]:
+def classify_conversational_intent(normalized_q: str, bot_name: str = "", has_kb_source_for_bot_name: bool = False) -> tuple[bool, str]:
     """
     Classifies conversational, navigational, and meta chit-chat queries:
     Returns (True, intent_type) where intent_type is one of:
@@ -1019,6 +1123,12 @@ def classify_conversational_intent(normalized_q: str, bot_name: str = "") -> tup
         'kaun h': 'kaun hai',
         'kon h': 'kon hai',
         'kaun he': 'kaun hai',
+        'tierd': 'tired',
+        'teired': 'tired',
+        'tyred': 'tired',
+        'tiering': 'tiring',
+        'slepy': 'sleepy',
+        'sleepi': 'sleepy',
     }
     for wrong, right in conv_typo_map.items():
         if wrong in clean:
@@ -1030,20 +1140,48 @@ def classify_conversational_intent(normalized_q: str, bot_name: str = "") -> tup
     if not tokens:
         return False, ""
 
-    # Priority 1: Documentation Overview intent (e.g. clicking suggested chip "Documentation & FAQs" or asking about docs)
-    doc_phrases = [
-        'documentation faqs', 'documentation and faqs', 'documentation faq', 'documentation',
-        'docs faqs', 'docs and faqs', 'show documentation', 'tell me about documentation',
-        'what documentation do you have', 'what documents do you have', 'what docs do you have',
-        'what documents are available', 'what docs are available', 'show me the documentation',
-        'show me the documents', 'show me documents', 'list documents', 'available docs',
-        'available documents', 'kya documentation hai', 'docs dikhao', 'documents dikhao',
-        'kaun se documents hain', 'documents kya hain'
-    ]
-    if any(p in clean for p in doc_phrases) and len(tokens) <= 8:
-        return True, 'documentation_overview'
-    if clean in ['doc', 'docs', 'documentation']:
-        return True, 'documentation_overview'
+    # Priority 1: Documentation / Knowledge Base Overview intent
+    # Handles general overview queries like "what information do you have", "what services do you have",
+    # "what do you have", "what is in your database" when NOT targeting a specific subject.
+    is_specific_subject = False
+    clean_lower = clean.lower()
+    for prep in [' about ', ' on ', ' regarding ', ' for ', ' of ', ' related to ']:
+        if prep in clean_lower:
+            after_prep = clean_lower.split(prep, 1)[1].strip()
+            non_subject_words = {'you', 'your', 'yours', 'this', 'that', 'this bot', 'the bot', 'it', 'us', 'database', 'knowledge base', 'kb', 'records', 'company', 'our company'}
+            if after_prep not in non_subject_words and len(after_prep) > 2:
+                is_specific_subject = True
+                break
+
+    # If the user names a specific technical term or product, treat it as a specific factual query
+    specific_indicators = ['obe', 'obe10', 'obe-10', 'sterilization', 'catheter', 'hardware', 'lock', 'panic', 'turbofan', 'astm', 'steel', 'shoe', 'cosmetics', 'nykaa', 'python', 'refund']
+    if any(ind in tokens for ind in specific_indicators):
+        is_specific_subject = True
+
+    if not is_specific_subject:
+        kb_nouns = {
+            'information', 'info', 'service', 'services', 'document', 'documents', 'doc', 'docs',
+            'data', 'file', 'files', 'pdf', 'pdfs', 'topic', 'topics', 'content', 'catalogue',
+            'catalogues', 'catalog', 'catalogs', 'product', 'products', 'database', 'knowledge'
+        }
+        has_kb_noun = any(w in tokens for w in kb_nouns)
+        inquiry_triggers = [
+            'you have', 'u have', 'do you have', 'do u have', 'have you', 'tell me', 'show me',
+            'what is', 'what are', 'what do', 'what all', 'what can', 'which', 'list',
+            'available', 'indexed', 'in your', 'on file', 'offer', 'provide', 'cover',
+            'kya hai', 'tumhare paas', 'batao', 'dikhao', 'konsi', 'kaun si'
+        ]
+        has_inquiry = any(t in clean for t in inquiry_triggers)
+
+        kb_overview_regex = (
+            r'\b(?:what|which|tell|show|give|list|share|explain)\b.*?\b(?:information|info|service|services|doc|docs|documents?|files?|pdfs?|data|catalogues?|catalogs?|products?|topics?|database|knowledge)\b'
+            r'|\b(?:information|info|service|services|doc|docs|documents?|files?|pdfs?|data|catalogues?|catalogs?|products?|topics?|materials?|records?)\b.*?\b(?:you\s+have|u\s+have|do\s+you\s+have|available|indexed|on\s+file|offer|provide)\b'
+            r'|\b(?:what\s+(?:all\s+)?(?:do\s+)?(?:you|u)\s+have|what\s+you\s+got|what\s+have\s+you)\b'
+            r'|\b(?:what\s+is\s+in\s+(?:your\s+)?(?:knowledge|database|records|files))\b'
+            r'|\b(?:kya\s+kya\s+hai|tumhare\s+paas\s+kya|kya\s+(?:information|service|services|data|jankari|documents?|files?))\b'
+        )
+        if re.search(kb_overview_regex, clean, re.IGNORECASE) or (has_kb_noun and has_inquiry and len(tokens) <= 15) or clean in ['doc', 'docs', 'documentation', 'information', 'services', 'products', 'files', 'pdfs', 'data']:
+            return True, 'documentation_overview'
 
     # Priority 2: Contact Support intent (e.g. clicking suggested chip "Contact Support" or asking how to contact)
     contact_phrases = [
@@ -1097,6 +1235,39 @@ def classify_conversational_intent(normalized_q: str, bot_name: str = "") -> tup
             if re.search(rf'\b{re.escape(p)}\b', clean) and len(tokens) <= 12:
                 return True, 'identity'
 
+        # Match asking about the bot itself or bot's specific name (e.g. "Tell me about Test Boat", "What is Test Boat")
+        # If the bot's name matches a knowledge base entity/document/website, do not treat it as conversational identity
+        b_name_lower = bot_name.strip().lower() if bot_name else ""
+        if b_name_lower and not has_kb_source_for_bot_name:
+            bot_about_phrases = [
+                f"tell me about {b_name_lower}",
+                f"tell me about the {b_name_lower}",
+                f"what is {b_name_lower}",
+                f"what is the {b_name_lower}",
+                f"who is {b_name_lower}",
+                f"about {b_name_lower}",
+                f"explain {b_name_lower}",
+                f"know about {b_name_lower}",
+                f"{b_name_lower} kya hai",
+                f"{b_name_lower} ke baare mein",
+                f"{b_name_lower} ke bare me",
+            ]
+            for p in bot_about_phrases:
+                if p in clean and len(tokens) <= 12:
+                    return True, 'identity'
+
+        generic_bot_about = [
+            'tell me about this bot', 'tell me about the bot', 'tell me about your bot',
+            'tell me about bot', 'what is this bot', 'what is the bot', 'what is your bot',
+            'about this bot', 'about the bot', 'about bot', 'who is this bot',
+            'what can this bot do', 'what can the bot do', 'what does this bot do',
+            'tell me about test boat', 'what is test boat', 'about test boat',
+            'tell me about test bot', 'what is test bot', 'about test bot'
+        ]
+        for p in generic_bot_about:
+            if p in clean and len(tokens) <= 12:
+                return True, 'identity'
+
         # Catch-all for questions asking if bot is AI or real person
         if any(k in clean for k in ['are you an ai', 'are you a bot', 'are you ai', 'are you bot', 'are you real', 'are you human', 'r u ai', 'r u bot']) and len(tokens) <= 12:
             return True, 'identity'
@@ -1107,7 +1278,13 @@ def classify_conversational_intent(normalized_q: str, bot_name: str = "") -> tup
         'hows it going', 'how are you doing', 'how have you been', 'hope you are doing well',
         'kaise ho', 'kaisa hai', 'kaisi ho', 'aap kaise ho', 'aap kaise hain',
         'kya haal hai', 'kya haal', 'kya hal hai', 'kya hal', 'sab theek', 'sab thik',
-        'sab badiya', 'aur batao', 'kya chal raha hai', 'whats up', 'what is up', 'sup'
+        'sab badiya', 'aur batao', 'kya chal raha hai', 'whats up', 'what is up', 'sup',
+        'i feel tired', 'feel tired', 'im tired', 'i am tired', 'feeling tired', 'so tired',
+        'too tired', 'exhausted', 'feeling sleepy', 'sleepy', 'thak gaya', 'thak gayi',
+        'bohot thak gaya', 'bahut thak gaya', 'neend aa rahi hai', 'i feel bored', 'im bored',
+        'feeling bored', 'bored', 'bore ho raha', 'bore ho rahe', 'feeling low', 'bad day',
+        'rough day', 'long day', 'hard day', 'stressed', 'feeling stressed', 'feeling good',
+        'feeling great', 'having a good day'
     ]
     clean_words = set(clean.split())
     for p in wellbeing_phrases:
@@ -1330,8 +1507,34 @@ async def stream_rag_pipeline(
     if is_switch_catalogue:
         matched_industry = None
 
-    # Multi-turn Context Resolution: If query uses pronouns ("it", "this", "pricing", "cost") without naming industry
-    if not matched_industry and not is_switch_catalogue and recent_history_texts:
+    # Topic Switch & Explicit Subject Detection:
+    # If the user names a specific subject, product code, model, or document title in the current question,
+    # it is a brand-new or specific subject inquiry, NOT an anaphoric follow-up about the previous topic.
+    # Therefore, do NOT inherit the previous topic/industry from history, and do NOT prefix with old industry.
+    query_meta_words = {
+        'what', 'when', 'where', 'which', 'about', 'tell', 'give', 'send', 'please',
+        'with', 'from', 'this', 'that', 'have', 'does', 'your', 'kya', 'hai', 'hain',
+        'kaise', 'batao', 'mujhe', 'show', 'need', 'want', 'information', 'info',
+        'service', 'services', 'product', 'products', 'detail', 'details', 'data',
+        'knowledge', 'base', 'database', 'the', 'full'
+    }
+    substantive_q_terms = [w for w in re.split(r'[^a-zA-Z0-9_-]+', normalized_q.lower()) if len(w) >= 3 and w not in stopwords and w not in query_meta_words]
+    
+    # Check if query targets a specific product model, alphanumeric code, or keyword from available source titles
+    has_model_code = any(bool(re.search(r'\d', w)) for w in substantive_q_terms)
+    matches_source_title = False
+    if available_sources and substantive_q_terms:
+        for s in available_sources:
+            st_clean = (s.title or '').lower()
+            if any(t in st_clean for t in substantive_q_terms if len(t) >= 4):
+                matches_source_title = True
+                break
+    
+    has_target_preposition = any(prep in f" {normalized_q.lower()} " for prep in [' about ', ' on ', ' regarding ', ' for ', ' of '])
+    is_explicit_subject_switch = has_model_code or matches_source_title or (has_target_preposition and len(substantive_q_terms) >= 1)
+
+    # Multi-turn Context Resolution: ONLY if query is a pure pronoun/continuation WITHOUT naming a new subject
+    if not matched_industry and not is_switch_catalogue and not is_explicit_subject_switch and recent_history_texts:
         combined_prev = " ".join(recent_history_texts)
         for ind, kws in industry_keywords.items():
             if ind in valid_industries and any(kw in combined_prev for kw in kws):
@@ -1354,14 +1557,14 @@ async def stream_rag_pipeline(
 
     # Dynamic Conversational Query Augmentation for Embedding
     augmented_embedding_query = question
-    pronoun_or_followup = any(w in normalized_q.split() for w in [
+    pure_pronoun_query = any(w in normalized_q.split() for w in [
         'it', 'its', 'this', 'that', 'they', 'them', 'these', 'those',
-        'price', 'pricing', 'cost', 'costs', 'rate', 'rates', 'fee', 'quote',
-        'spec', 'specs', 'specification', 'specifications', 'details', 'detail', 'catalogue'
-    ])
+        'price', 'pricing', 'cost', 'costs', 'rate', 'rates', 'fee', 'quote'
+    ]) and not is_explicit_subject_switch
+
     industry_in_q = any(kw in normalized_q for kw in industry_keywords.get(matched_industry, [])) if matched_industry else False
 
-    if matched_industry and (pronoun_or_followup or not industry_in_q):
+    if matched_industry and (pure_pronoun_query or (not industry_in_q and not is_explicit_subject_switch)):
         prefix = f"{matched_industry} metal " if matched_industry == 'steel' else f"{matched_industry} "
         augmented_embedding_query = f"{prefix}{question}"
         print(f"🧠 [Query Augmented with Context for Embedding]: '{augmented_embedding_query}'")
@@ -1441,7 +1644,7 @@ async def stream_rag_pipeline(
 
     user_first_name = detected_user_name.split()[0].capitalize() if detected_user_name else ""
     is_first_turn = (len(prior_messages) == 0)
-    user_salutation = f"Hi {user_first_name}. " if (is_first_turn and user_first_name) else ""
+    user_salutation = f"Hi {user_first_name}, " if (is_first_turn and user_first_name) else ""
     if user_first_name:
         print(f"👤 [User Recognized]: '{user_first_name}' (First Turn: {is_first_turn})")
 
@@ -1456,101 +1659,195 @@ async def stream_rag_pipeline(
     b_name_words = [w for w in re.split(r'[^a-z0-9]+', b_name.lower()) if len(w) >= 3]
     b_domain_clean = re.sub(r'^(https?://)?(www\.)?', '', b_domain.lower()).split('/')[0].split('.')[0]
 
-    is_conv, conv_type = classify_conversational_intent(normalized_q, b_name)
+    # Check if bot's name matches any document, source title, or website URL in the Knowledge Base
+    has_kb_source_for_bot_name = False
+    generic_bot_words = {'bot', 'boat', 'agent', 'test', 'ai', 'our', 'company', 'the'}
+    if available_sources:
+        for s in available_sources:
+            s_title_raw = (s.title or "").lower()
+            s_url_raw = (s.url or "").lower()
+            s_title_clean = re.sub(r'[^a-z0-9]', '', s_title_raw)
+            s_url_clean = re.sub(r'[^a-z0-9]', '', s_url_raw)
+
+            b_name_lower_raw = b_name.strip().lower()
+            if b_name_lower_raw and (b_name_lower_raw in s_title_raw or b_name_lower_raw in s_url_raw):
+                has_kb_source_for_bot_name = True
+                break
+
+            if b_name_clean and len(b_name_clean) >= 3:
+                if b_name_clean in s_title_clean or b_name_clean in s_url_clean:
+                    has_kb_source_for_bot_name = True
+                    break
+                if len(s_title_clean) >= 4 and s_title_clean in b_name_clean:
+                    has_kb_source_for_bot_name = True
+                    break
+
+            non_generic_words = [w for w in b_name_words if w not in generic_bot_words and len(w) >= 3]
+            if any(w in s_title_clean or w in s_url_clean for w in non_generic_words):
+                has_kb_source_for_bot_name = True
+                break
+
+    is_conv, conv_type = classify_conversational_intent(normalized_q, b_name, has_kb_source_for_bot_name=has_kb_source_for_bot_name)
+
+    # Safeguard: If conversational identity was flagged but the query specifically asks about the bot name which exists in KB, reroute to RAG
+    if is_conv and conv_type == 'identity' and has_kb_source_for_bot_name:
+        b_name_tokens = [w for w in b_name_words if w not in generic_bot_words and len(w) >= 3]
+        if (b_name_clean and b_name_clean in q_clean) or any(t in normalized_q.lower() for t in b_name_tokens):
+            print(f"🔄 [Intent Override]: Query '{question}' matches Knowledge Base entity '{b_name}'. Rerouting to RAG retrieval.")
+            is_conv = False
+
+    # Pure Meta-Query Safeguard:
+    # If the user asks generally what information, services, documents, files, or data the system has,
+    # without naming any specific subject, route to documentation_overview
+    if not is_conv and not is_explicit_subject_switch:
+        meta_vocab = {'information', 'info', 'service', 'services', 'data', 'document', 'documents', 'doc', 'docs', 'file', 'files', 'pdf', 'pdfs', 'database', 'knowledge', 'base', 'records', 'catalog', 'catalogue', 'catalogs', 'catalogues', 'product', 'products'}
+        non_meta_substantive = [w for w in substantive_q_terms if w not in meta_vocab]
+        has_any_meta_term = any(w in substantive_q_terms for w in meta_vocab)
+        if has_any_meta_term and len(non_meta_substantive) == 0:
+            print(f"[Pure Meta-Query Safeguard]: Query '{question}' asks generally about knowledge base contents. Routing to documentation_overview.")
+            is_conv = True
+            conv_type = 'documentation_overview'
 
     if is_conv:
         print(f"💬 [Conversational Intent Detected]: type='{conv_type}' for '{question}' (bot: {b_name})")
 
         if conv_type == 'greeting':
             if is_user_hindi:
-                body = f"{user_salutation}Hey! Kahiye, kya chal raha hai? Kaise madad kar sakta hoon?"
-                prompt_followup = f"{b_name} ke baare mein aap kya dekhna chahenge?"
+                if user_first_name:
+                    body = f"Hey {user_first_name}, hope you're having a good day! Aaj kis cheez par kaam kar rahe hain?"
+                else:
+                    body = "Hey! Hope you're having a good day! Aaj kis cheez par kaam kar rahe hain?"
             else:
-                body = f"{user_salutation}Hey! What's going on? How can I help you today?"
-                prompt_followup = f"How can I help you with {b_name} today?"
-            options = [f"Tell me about {b_name}", "Documentation & FAQs", "Contact Support"]
+                if user_first_name:
+                    body = f"Hi {user_first_name}, what's going on? How can I help you today?"
+                else:
+                    body = "Hey there! What's going on? How can I help you today?"
+            prompt_followup = ""
+            options = []
 
         elif conv_type == 'wellbeing':
-            if is_user_hindi:
-                body = f"{user_salutation}Main bilkul theek hoon, poochne ke liye thanks! Aap batayein, kya chal raha hai?"
-                prompt_followup = f"{b_name} ke baare mein kya dekhna chahenge?"
+            clean_lower = normalized_q.lower()
+            is_fatigued = any(w in clean_lower for w in ['tired', 'tierd', 'exhausted', 'sleepy', 'thak gaya', 'thak gayi', 'neend', 'drained'])
+            is_bored_or_stressed = any(w in clean_lower for w in ['bored', 'bore ho', 'feeling low', 'bad day', 'rough day', 'hard day', 'stressed'])
+            if is_fatigued:
+                if is_user_hindi:
+                    body = f"Arey {user_first_name}, lagta hai kaafi lamba aur thaka dene wala din raha! Thoda rest lijiye, chai-coffee pijiye aur relax kijiye. Jab bhi aap ready hon, main yahin hoon." if user_first_name else "Lagta hai kaafi lamba aur thaka dene wala din raha! Thoda rest lijiye, chai-coffee pijiye aur relax kijiye. Jab bhi aap ready hon, main yahin hoon."
+                else:
+                    body = f"I hear you, {user_first_name}! Those long days can really take a toll. Take a quick breather, grab a coffee or tea, and recharge. Whenever you're ready, I'm right here." if user_first_name else "I hear you! Those long days can really take a toll. Take a quick breather, grab a coffee or tea, and recharge. Whenever you're ready, I'm right here."
+            elif is_bored_or_stressed:
+                if is_user_hindi:
+                    body = f"Arey {user_first_name}, kabhi kabhi aisa din nikal jata hai! Thoda break le lijiye ya stretch kar lijiye. Agar kisi cheez par help chahiye toh bataiye." if user_first_name else "Kabhi kabhi aisa din nikal jata hai! Thoda break le lijiye ya stretch kar lijiye. Agar kisi cheez par help chahiye toh bataiye."
+                else:
+                    body = f"I hear you, {user_first_name}! We all have those moments. Take a breather, step away for a minute, and clear your head. I'm right here whenever you want to pick things back up." if user_first_name else "I hear you! We all have those moments. Take a breather, step away for a minute, and clear your head. I'm right here whenever you want to pick things back up."
             else:
-                body = f"{user_salutation}I'm doing good, thanks for asking! What's on your mind today?"
-                prompt_followup = f"What would you like to explore regarding {b_name}?"
-            options = [f"What is {b_name}?", "Services & Features", "Contact Details"]
+                if is_user_hindi:
+                    body = f"Hey {user_first_name}, main bilkul badhiya hoon, poochne ke liye thanks! Aap batayein, kya chal raha hai?" if user_first_name else "Main bilkul badhiya hoon, poochne ke liye thanks! Aap batayein, kya chal raha hai?"
+                else:
+                    body = f"Hey {user_first_name}, doing well, thanks for asking! What are we working on today?" if user_first_name else "Doing well, thanks for asking! What are we working on today?"
+            prompt_followup = ""
+            options = []
 
         elif conv_type == 'assistance':
-            if is_user_hindi:
-                body = (
-                    f"{user_salutation}Haan zaroor, main help karne ke liye ready hoon! Aapko {b_name} ke kis topic ya document ke baare mein jaanna hai?"
-                )
-                prompt_followup = f"Main {b_name} ke baare mein aapki kya madad kar sakta hoon?"
+            clean_q = normalized_q.lower()
+            is_capability_query = any(k in clean_q for k in ['what can you do', 'what do you do', 'capabilities', 'kya kar sakte ho', 'kya karte ho', 'how can you help'])
+            if is_capability_query:
+                if is_user_hindi:
+                    body = (
+                        f"Main hamare technical documentation, product catalogs aur specifications mein help karta hoon. "
+                        f"Agar aapko specific part numbers, technical specifications dekhni hon, koi process workflow samajhna ho ya diagram chahiye ho, toh main bata sakta hoon. "
+                        f"Aap kis topic ya document ke baare mein dekhna chahte hain?"
+                    )
+                else:
+                    body = (
+                        f"I help with all our technical documentation, product catalogs, and specifications. "
+                        f"If you need to look up specifications, find part numbers, understand how a process works, or even create a workflow diagram, I can help with that. "
+                        f"What are you working on right now?"
+                    )
             else:
-                body = (
-                    f"{user_salutation}Sure, happy to help out! What are you working on or looking for regarding {b_name}?"
-                )
-                prompt_followup = f"How can I help you regarding {b_name}?"
-            options = [f"Tell me about {b_name}", "Documentation & Specs", "Official Contact & Support"]
+                if is_user_hindi:
+                    body = f"Hey {user_first_name}, zaroor, main help karne ke liye ready hoon! Aapko kis topic ya document ke baare mein jaanna hai?" if user_first_name else "Haan zaroor, main help karne ke liye ready hoon! Aapko kis topic ya document ke baare mein jaanna hai?"
+                else:
+                    body = f"Hey {user_first_name}, happy to help! What are you working on or looking for today?" if user_first_name else "Sure thing, happy to help! What are you working on or looking for today?"
+            prompt_followup = ""
+            options = []
 
         elif conv_type == 'gratitude':
             if is_user_hindi:
-                body = f"{user_salutation}Arey koi baat nahi! Khushi hui madad karke. Agar {b_name} ke baare mein kuch aur poochna ho toh batayein."
-                prompt_followup = "Kya aapko kisi aur cheez mein sahayata chahiye?"
+                body = f"Aapka swagat hai, {user_first_name}! Khushi hui madad karke. Agar kuch aur chahiye ho toh batayein." if user_first_name else "Arey koi baat nahi! Khushi hui madad karke. Agar kuch aur chahiye ho toh batayein."
             else:
-                body = f"{user_salutation}Anytime! Glad I could help. What else can I help with?"
-                prompt_followup = "Can I help you with anything else?"
-            options = [f"Tell me about {b_name}", "Explore Solutions", "Contact Us"]
+                body = f"Anytime, {user_first_name}! Glad I could help. Let me know if you need anything else." if user_first_name else "Anytime! Glad I could help. Let me know if you need anything else."
+            prompt_followup = ""
+            options = []
 
         elif conv_type == 'farewell':
             if is_user_hindi:
-                body = f"{user_salutation}Chalo theek hai, take care! Phir milte hain."
-                prompt_followup = "Have a great day ahead!"
+                body = f"Take care, {user_first_name}! Phir milte hain." if user_first_name else "Take care! Phir milte hain."
             else:
-                body = f"{user_salutation}Take care! Have a good one."
-                prompt_followup = "Have a great day ahead!"
-            options = [f"Visit {b_name}", "Start New Query"]
+                body = f"Take care, {user_first_name}! Have a great day." if user_first_name else "Take care! Have a great day."
+            prompt_followup = ""
+            options = []
 
         elif conv_type == 'documentation_overview':
-            doc_sources = db.query(models.BotSource).filter(source_scope).all() if source_scope is not None else []
+            doc_sources = available_sources if available_sources else (db.query(models.BotSource).filter(source_scope).all() if source_scope is not None else [])
             doc_bullets = []
             doc_options = []
-            if doc_sources:
-                seen_titles = set()
-                for s in doc_sources:
-                    raw_title = (s.title or "").strip()
-                    if raw_title and raw_title.lower() not in seen_titles:
-                        seen_titles.add(raw_title.lower())
-                        clean_title = re.sub(r'\.(pdf|docx|txt|csv|json|zip)$', '', raw_title, flags=re.I)
-                        clean_title = clean_title.replace('_', ' ').replace('-', ' ')
-                        doc_bullets.append(f"• {raw_title} (official documentation and reference material)")
-                        if len(doc_options) < 4:
-                            opt_label = clean_title[:30].strip()
-                            doc_options.append(f"Tell me about {opt_label}")
+
+            # 1. First prioritize primary scraped website / company identity
+            scraped_web_sources = [s for s in doc_sources if getattr(s, 'kind', '') == 'PAGE' or (s.url and 'http' in s.url) or (b_name_clean and b_name_clean in re.sub(r'[^a-z0-9]', '', (s.title or '').lower()))]
+            other_doc_sources = [s for s in doc_sources if s not in scraped_web_sources]
+
+            if scraped_web_sources:
+                web_src = scraped_web_sources[0]
+                web_title = (web_src.title or b_name).replace("Home - ", "").strip()
+                tl = ((web_src.title or '') + ' ' + (web_src.url or '')).lower()
+                if any(k in tl for k in ['vedaone', 'valuation', 'finance']):
+                    doc_bullets.append("• **Finance Intelligence & Valuation (VedaOne):** AI-powered business valuation, financial projections, multi-currency cash flow modelling, and business planning.")
+                    doc_options.extend(["Explore VedaOne Valuation", "Financial Projections"])
+                elif any(k in tl for k in ['vasudev', 'vinnisoft']):
+                    doc_bullets.append("• **AI & Software Development (Vasudev):** Custom full-stack software development, intelligent AI agents, and cloud platforms.")
+                    doc_options.append("Explore Custom Software")
+                elif any(k in tl for k in ['alorica']):
+                    doc_bullets.append("• **Customer Service CX & BPO (Alorica):** Global omnichannel customer support, contact center operations, and digital CX transformation.")
+                    doc_options.append("Explore CX Services")
+                else:
+                    doc_bullets.append(f"• **{web_title}:** Our primary platforms, solutions, and service capabilities.")
+                    doc_options.append(f"Explore {web_title[:24]}")
+
+            # 2. Uploaded Documents, Manuals & Catalogues
+            seen_clean_titles = set()
+            for s in other_doc_sources:
+                bullet, pill = get_source_bullet_and_pill(s, bot_name=b_name)
+                clean_title = re.sub(r'\.(pdf|docx|txt|csv|json|zip)$', '', (s.title or '').strip(), flags=re.I).replace('_', ' ').replace('-', ' ').strip()
+                if clean_title.lower() not in seen_clean_titles:
+                    seen_clean_titles.add(clean_title.lower())
+                    doc_bullets.append(bullet)
+                    if len(doc_options) < 4 and pill not in doc_options:
+                        doc_options.append(pill)
+
             if not doc_bullets:
                 doc_bullets = [
-                    "• Medical Devices & Compliance (ISO 14971 Risk Management & EU MDR Sterilization Protocols)",
-                    "• Architectural & Industrial Hardware (Panic Exit Hardware EN 1125, Fire Rating EN 1634)",
-                    "• Aviation & Maintenance (EASA Part 145 Turbofan Maintenance Manuals)",
-                    "• Software & Systems (SLA policies and programming documentation)"
+                    "• **Core Solutions & Services:** Verified documentation, operational capabilities, and service catalogues.",
+                    "• **Product & Engineering Catalogues:** Full component specifications and reference guides.",
+                    "• **Support & Contact Channels:** Direct specialist escalation and technical assistance."
                 ]
-                doc_options = ["ISO 14971 Risk Management", "ArchitectHardware Catalogue", "Autoclave Sterilization", "Contact Support"]
+                doc_options = ["Documentation & FAQs", "Explore Catalogues", "Contact Support"]
 
             bullets_text = "\n".join(doc_bullets[:8])
             if is_user_hindi:
                 body = (
-                    f"{user_salutation}Hamare paas ye documentation indexed hai:\n\n"
+                    f"{user_salutation}Hum ye core services aur solutions provide karte hain:\n\n"
                     f"{bullets_text}\n\n"
-                    f"Aap inme se kis document ya topic ke baare mein dekhna chahte hain? Main specific sections, specs nikal sakta hoon ya process diagram bana sakta hoon."
+                    f"Inme se aap kis service ya topic ke baare mein detail jaanna chahenge?"
                 )
-                prompt_followup = "Aap kis document ke baare mein detail dekhna chahenge?"
+                prompt_followup = "Aap kis topic ke baare mein dekhna chahenge?"
             else:
                 body = (
-                    f"{user_salutation}Here's what we have indexed in our documentation:\n\n"
+                    f"{user_salutation}Here is an overview of what we offer and the services we provide:\n\n"
                     f"{bullets_text}\n\n"
-                    f"Which one would you like to look at? I can pull up specs or draw a workflow diagram if you need one."
+                    f"Which of these services or topics would you like to explore in detail?"
                 )
-                prompt_followup = "Which document or topic would you like to explore?"
-            options = doc_options if doc_options else ["Explore Catalogues", "Process Workflows & Diagrams", "Contact Support"]
+                prompt_followup = "Which topic or service would you like to explore?"
+            options = doc_options[:5]
 
         elif conv_type == 'contact_support':
             support_email = (bot.supportEmail if bot and hasattr(bot, 'supportEmail') and bot.supportEmail else '').strip()
@@ -1576,7 +1873,7 @@ async def stream_rag_pipeline(
                 body = (
                     f"{user_salutation}Aap team se in channels ke through connect kar sakte hain:\n\n"
                     f"{channels_text}\n\n"
-                    f"Aap niche form mein bhi apna contact details (naam, email, phone) chhod sakte hain, aur team aapse turant connect kar legi!"
+                    f"Aap neeche form mein bhi apna contact details (naam, email, phone) chhod sakte hain, aur team aapse turant connect kar legi!"
                 )
                 prompt_followup = "Kya aapko kisi specific inquiry mein sahayata chahiye?"
             else:
@@ -1616,36 +1913,38 @@ async def stream_rag_pipeline(
         else:  # conv_type == 'identity'
             b_desc = f" ({b_domain})" if b_domain else ""
             clean_q = normalized_q.lower()
-            is_ai_bot_question = any(w in clean_q for w in ['ai', 'bot', 'robot', 'human', 'real person', 'real'])
+            is_are_you_ai = any(p in clean_q for p in [
+                'are you an ai', 'are you ai', 'are you a bot', 'are you bot', 'are you a robot',
+                'are you real', 'are you human', 'are you a person', 'r u ai', 'r u a bot',
+                'kya tum ai ho', 'kya tum bot ho', 'kya aap ai ho'
+            ])
 
-            if is_ai_bot_question:
+            greeting_prefix = f"Hey {user_first_name}, " if user_first_name else ""
+            if is_are_you_ai:
                 if is_user_hindi:
-                    body = f"{user_salutation}Haha nahi, main yahan {b_name} team se hoon aur aapki help kar raha hoon! Kahiye, kya chal raha hai?"
-                    prompt_followup = f"{b_name} ke baare mein aap kya dekhna chahenge?"
+                    body = f"{greeting_prefix}haha nahi, main yahan team se hoon aur aapki help kar raha hoon! Kahiye, kya chal raha hai?"
                 else:
-                    body = f"{user_salutation}Haha no, I'm a real person on the {b_name} team helping you out! What's on your mind?"
-                    prompt_followup = f"How can I help you regarding {b_name} today?"
+                    body = f"{greeting_prefix}haha no, I'm a real person on the team helping you out! What's on your mind?"
             else:
                 if is_user_hindi:
                     body = (
-                        f"{user_salutation}Main {b_name} team se hoon{b_desc}.\n\n"
-                        f"Main hamare documentation, technical specs, catalogues aur workflows se jude sawaalon mein help karta hoon.\n\n"
-                        f"Aap kya explore karna chahenge?"
+                        f"{greeting_prefix}main yahan {b_name} team se hoon! "
+                        f"Main hamare technical documentation, product catalogs aur specifications ko dekhta hoon taaki aapko koi bhi specific detail, part number ya diagram asaani se mil sake. "
+                        f"Aap aaj kis topic ya part ke baare mein dekhna chahenge?"
                     )
-                    prompt_followup = f"{b_name} ke baare mein kya dekhna chahenge?"
                 else:
                     body = (
-                        f"{user_salutation}I'm on the team here at {b_name}{b_desc}.\n\n"
-                        f"I help answer questions about our technical documentation, catalogues, specifications, and workflows.\n\n"
-                        f"What are you looking for today?"
+                        f"{greeting_prefix}I'm part of the team here at {b_name}! "
+                        f"I work directly with our technical documentation, product catalogs, and specifications to help you quickly find whatever you need, whether that's part numbers, specs, or workflow diagrams. "
+                        f"What are you working on or looking for today?"
                     )
-                    prompt_followup = f"What would you like to explore regarding {b_name}?"
-            options = ["Documentation & FAQs", "Process Workflows & Diagrams", f"Tell me about {b_name}", "Contact Support"]
+            prompt_followup = ""
+            options = []
 
         followup_data = {
             "prompt": prompt_followup,
             "options": options
-        }
+        } if options else None
 
         if conversation_id:
             try:
@@ -1665,12 +1964,13 @@ async def stream_rag_pipeline(
             if word:
                 yield f"data: {json.dumps({'type': 'token', 'content': word + ' '})}\n\n"
 
-        sources_list = [{'title': f'{b_name} Profile', 'kind': 'PAGE', 'url': f'https://{b_domain}' if b_domain else '', 'snippet': f'AI assistant profile for {b_name}.'}] if b_domain else []
+        sources_list = [{'title': f'{b_name} Team', 'kind': 'PAGE', 'url': f'https://{b_domain}' if b_domain else '', 'snippet': f'Team specialist at {b_name}.'}] if b_domain else []
         yield f"data: {json.dumps({'type': 'sources', 'sources': sources_list})}\n\n"
-        yield f"data: {json.dumps({'type': 'followup', 'prompt': followup_data['prompt'], 'options': followup_data['options']})}\n\n"
+        if followup_data and followup_data.get('options'):
+            yield f"data: {json.dumps({'type': 'followup', 'prompt': followup_data['prompt'], 'options': followup_data['options']})}\n\n"
         if conv_type == 'contact_support':
             yield f"data: {json.dumps({'type': 'lead_form'})}\n\n"
-        yield f"data: {json.dumps({'type': 'done', 'full_text': body, 'followup': followup_data})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'full_text': body, 'followup': followup_data if (followup_data and followup_data.get('options')) else None})}\n\n"
         return
 
     # If the bot has no indexed sources (neither proprietary nor universal inherited sources)
@@ -1752,7 +2052,7 @@ async def stream_rag_pipeline(
             options = [f"Explore {b_name}", "Pricing & Specifications", "Official Contact & Support"]
 
         if is_user_hindi:
-            cat_closing_hi = f"Inme se kis topic ko explore karna chahenge aap, {user_first_name}? Niche option select karein ya direct poochiye." if user_first_name else "Inme se kis topic ko explore karna chahenge aap? Niche option select karein ya direct poochiye."
+            cat_closing_hi = f"Inme se kis topic ko explore karna chahenge aap, {user_first_name}? Neeche diye gaye option select karein ya direct poochiye." if user_first_name else "Inme se kis topic ko explore karna chahenge aap? Neeche diye gaye option select karein ya direct poochiye."
             body = (
                 f"{user_salutation}Hamare verified product catalogues aur documentation ka collection:\n\n"
                 + "\n".join(bullets) + "\n\n"
@@ -1882,45 +2182,47 @@ async def stream_rag_pipeline(
 
         # Targeted Industry Boost & Cross-Industry Strict Isolation
         industry_boost = 0.0
-        if matched_industry == 'alorica':
+        if is_explicit_subject_switch and kw_hits > 0:
+            industry_boost = 0.40
+        elif matched_industry == 'alorica':
             if 'alorica' in src_title_clean or 'alorica' in content_lower or any(k in content_lower for k in ['evoai', 'revolt', 'cx consulting', 'customer experience']):
                 industry_boost = 0.60
-            else:
+            elif kw_hits == 0:
                 industry_boost = -1.20
         elif matched_industry == 'python':
             if 'python' in src_title_clean or 'python' in content_lower or 'mrcet' in content_lower:
                 industry_boost = 0.60
-            else:
+            elif kw_hits == 0:
                 industry_boost = -1.20
         elif matched_industry == 'vsix':
             if 'vsix' in src_title_clean or 'visual studio' in content_lower:
                 industry_boost = 0.60
-            else:
+            elif kw_hits == 0:
                 industry_boost = -1.20
         elif matched_industry == 'steel':
             if any(k in content_lower for k in ['steel', 'metal', 'iron', '7304', 'alloy', 'cross-section']):
                 industry_boost = 0.60
-            else:
+            elif kw_hits == 0:
                 industry_boost = -1.20
         elif matched_industry == 'sports':
             if any(k in content_lower for k in ['sport', 'shoe', 'footwear', 'athletic', 'sneaker', 'badminton']):
                 industry_boost = 0.60
-            else:
+            elif kw_hits == 0:
                 industry_boost = -1.20
         elif matched_industry == 'cosmetics':
             if any(k in content_lower for k in ['cosmetic', 'beauty', 'nykaa', 'skincare', 'makeup']):
                 industry_boost = 0.60
-            else:
+            elif kw_hits == 0:
                 industry_boost = -1.20
         elif matched_industry == 'software':
             if is_bot_proprietary or is_universal or any(k in content_lower for k in ['software', 'chatbot', 'ai ', 'nlp', 'development', 'machine learning', 'appdeft', 'vinnisoft', 'automation', 'crm', 'enterprise', 'platform', 'kiavi', 'kiaviiq']):
                 industry_boost = 0.60
             else:
                 industry_boost = 0.0
-        elif matched_industry is None and not is_catalogue_mention:
+        elif matched_industry is None and not is_catalogue_mention and not is_explicit_subject_switch:
             # When the user is NOT asking about a specific catalogue or exploring catalogues,
             # universal shared catalogue chunks (steel, footwear, cosmetics, alorica) must NOT leak into general company inquiries!
-            if is_universal and any(k in content_lower for k in ['steel', 'metal', 'nykaa', 'cosmetic', 'lipstick', 'shoe', 'footwear', 'badminton', 'alorica', 'archive', 'dataset', 'products-dataset']):
+            if is_universal and any(k in content_lower for k in ['steel', 'metal', 'nykaa', 'cosmetic', 'lipstick', 'shoe', 'footwear', 'badminton', 'alorica', 'archive', 'dataset', 'products-dataset']) and kw_hits == 0:
                 industry_boost = -5.0
 
         # Absolute hard anti-leakage barriers:
@@ -2123,7 +2425,7 @@ async def stream_rag_pipeline(
             fallback_text = (
                 f"{user_salutation}Maine aapke sawaal ke liye hamare verified documentation mein search kiya, lekin hamare active records mein is specific topic ka direct vivaran uplabdh nahi hai.\n\n"
                 f"Hamari knowledge base filhaal in specialized topics ko cover karti hai:{domain_summary}\n\n"
-                "Agar aap is topic par hamare kisi specialist se direct follow-up chahte hain, toh kripya niche form mein apna naam, email ya phone number chhod dein, aur hamari team aapse turant connect karegi."
+                "Agar aap is topic par hamare kisi specialist se direct follow-up chahte hain, toh kripya neeche diye gaye form mein apna naam, email ya phone number chhod dein, aur hamari team aapse turant connect karegi."
             )
             fallback_prompt = "Aap hamare indexed documents mein se kya explore karna chahenge?"
         else:
@@ -2501,7 +2803,11 @@ async def stream_rag_pipeline(
         if is_first_turn and user_first_name:
             first_line = raw_text.splitlines()[0] if raw_text else ""
             if user_first_name.lower() not in first_line.lower():
-                raw_text = f"Hi {user_first_name}. " + raw_text
+                greeting_match = re.match(r'^(hey|hello|hi)\s*[!,.]*\s*', raw_text, re.IGNORECASE)
+                if greeting_match:
+                    raw_text = f"Hi {user_first_name}, " + raw_text[greeting_match.end():]
+                else:
+                    raw_text = f"Hi {user_first_name}, " + raw_text
 
     if not raw_text:
         yield f"data: {json.dumps({'type': 'token', 'content': 'I am unable to process your request at the moment. '})}\n\n"
@@ -2598,15 +2904,15 @@ async def stream_rag_pipeline(
         cat_options = []
         if matched_industry == 'software':
             if is_pricing_query:
-                cat_options = ["AI Chatbot Capabilities", "CRM Integrations", "14-Day Refund Guarantee", "Schedule a Live Demo"]
+                cat_options = ["Platform Features", "CRM Integrations", "14-Day Refund Guarantee", "Schedule a Live Demo"]
             elif any(k in normalized_q for k in ['chatbot', 'agent', 'bot', 'capabilities', 'features']):
-                cat_options = ["Commercial Pricing & Plans", "CRM Integrations", "Telephony Voice Bots", "Schedule a Live Demo"]
+                cat_options = ["Commercial Pricing & Plans", "CRM Integrations", "Telephony Voice Integrations", "Schedule a Live Demo"]
             elif any(k in normalized_q for k in ['crm', 'integration', 'connectors', 'erp', 'webhook']):
-                cat_options = ["Commercial Pricing & Plans", "AI Chatbot Capabilities", "Schedule a Live Demo", "Explore Other Catalogues"]
+                cat_options = ["Commercial Pricing & Plans", "Platform Features", "Schedule a Live Demo", "Explore Other Catalogues"]
             elif any(k in normalized_q for k in ['contact', 'support', 'demo', 'schedule', 'call']):
-                cat_options = ["AI Chatbot Capabilities", "Commercial Pricing & Plans", "CRM Integrations", "Explore Other Catalogues"]
+                cat_options = ["Platform Features", "Commercial Pricing & Plans", "CRM Integrations", "Explore Other Catalogues"]
             else:
-                cat_options = ["AI Chatbot Capabilities", "Commercial Pricing & Plans", "CRM Integrations", "Schedule a Live Demo"]
+                cat_options = ["Platform Features", "Commercial Pricing & Plans", "CRM Integrations", "Schedule a Live Demo"]
         elif matched_industry == 'steel':
             if is_pricing_query:
                 cat_options = ["Technical Specifications", "ASTM A36 & A572 Plates", "Seamless Carbon Steel Pipes", "Explore Other Catalogues"]
@@ -2704,13 +3010,31 @@ async def stream_rag_pipeline(
                 "options": selected
             }
 
-    # Guaranteed Visual Image & Diagram Injection if present in retrieved knowledge
-    if not nothing_retrieved and not lead_form_required:
+    # Visual Image & Diagram Injection ONLY when genuinely requested or explicitly relevant
+    if not nothing_retrieved and not lead_form_required and not is_conv:
         retrieved_images = re.findall(r'!\[([^\]]*)\]\((/static/extracted_diagrams/[^)]+)\)', knowledge_ctx)
         if retrieved_images and '![' not in clean_text:
-            # Prepend the primary diagram image to the response
+            # Check if user explicitly asked for visual/diagram/figure/picture
+            is_visual_requested = any(kw in normalized_q for kw in [
+                'diagram', 'figure', 'image', 'picture', 'photo', 'drawing',
+                'schematic', 'illustration', 'visual', 'chart', 'exploded view',
+                'tasveer', 'pic', 'fig'
+            ])
             caption, img_url = retrieved_images[0]
-            clean_text = f"![{caption}]({img_url})\n\n" + clean_text
+            # Check if query specifically targets the caption's core entity (excluding generic words)
+            caption_terms = [
+                w for w in re.findall(r'[a-zA-Z0-9_-]+', caption.lower())
+                if len(w) >= 3 and w not in stopwords and w not in {
+                    'figure', 'fig', 'image', 'diagram', 'schematic', 'view',
+                    'technical', 'illustration', 'close', 'part', 'drawing', 'available'
+                }
+            ]
+            q_terms = set(re.findall(r'[a-zA-Z0-9_-]+', normalized_q.lower()))
+            caption_term_match = any(ct in q_terms for ct in caption_terms) if caption_terms else False
+
+            # ONLY inject if visual was explicitly asked for, OR the question directly mentions the diagram's unique part/model
+            if is_visual_requested or (caption_term_match and len(clean_text) > 80):
+                clean_text = f"![{caption}]({img_url})\n\n" + clean_text
 
     # Inject Official PDF & CSV Action Cards when:
     # 1. User explicitly requested a PDF, CSV, spreadsheet, catalogue, brochure, download, sheet, OR
@@ -2878,6 +3202,9 @@ async def stream_rag_pipeline(
                             "Official Verified Technical Dossier & Summary Document (PDF)\nReview or download the verified documentation:"
                         )
                         clean_text += f"\n\n---\n{pdf_banner}\n\n[PDF_CARD:{topic_slug}|{topic_clean}]"
+
+    # Final sanity check: strip any accidental English 'niche' word -> 'specialized'
+    clean_text = re.sub(r'\bniche\b', 'specialized', clean_text, flags=re.IGNORECASE)
 
     words = clean_text.split(" ")
     for word in words:

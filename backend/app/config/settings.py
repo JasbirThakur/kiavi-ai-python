@@ -49,7 +49,7 @@ NVIDIA_EMBED_MODEL = os.getenv("NVIDIA_EMBED_MODEL", "nvidia/nemotron-3-embed-1b
 
 # Groq Engine Fallback
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 # Brandfetch & Wikipedia Settings
 BRANDFETCH_API_KEY = os.getenv("BRANDFETCH_API_KEY", "")
