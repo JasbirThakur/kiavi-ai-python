@@ -791,6 +791,7 @@
                 <button onclick="switchTab('approvals')" id="tab-approvals" class="tab-btn pb-2.5 flex items-center gap-1.5 text-amber-400 hover:text-amber-300 whitespace-nowrap"><i data-lucide="shield-check" class="w-4 h-4"></i> SME Approvals <span id="pendingApprovalsBadge" class="hidden bg-amber-500 text-black text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ml-1">0</span></button>
                 <button onclick="switchTab('test')" id="tab-test" class="tab-btn pb-2.5 flex items-center gap-1.5 whitespace-nowrap"><i data-lucide="message-square" class="w-4 h-4"></i> Chat Workspace</button>
                 <button onclick="switchTab('leads')" id="tab-leads" class="tab-btn pb-2.5 flex items-center gap-1.5 text-emerald-400 whitespace-nowrap"><i data-lucide="user-plus" class="w-4 h-4"></i> Leads</button>
+                <button onclick="switchTab('insights')" id="tab-insights" class="tab-btn pb-2.5 flex items-center gap-1.5 text-amber-400 hover:text-amber-300 whitespace-nowrap"><i data-lucide="sparkles" class="w-4 h-4"></i> Insights &amp; Gaps</button>
                 <button onclick="switchTab('conversations')" id="tab-conversations" class="tab-btn pb-2.5 flex items-center gap-1.5 text-blue-400 whitespace-nowrap"><i data-lucide="messages-square" class="w-4 h-4"></i> Conversations</button>
                 <button onclick="switchTab('audit')" id="tab-audit" class="tab-btn pb-2.5 flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 whitespace-nowrap"><i data-lucide="file-check" class="w-4 h-4"></i> Audit Trail</button>
                 <button onclick="switchTab('compliance')" id="tab-compliance" class="tab-btn pb-2.5 flex items-center gap-1.5 text-rose-400 hover:text-rose-300 whitespace-nowrap"><i data-lucide="scale" class="w-4 h-4"></i> EU Governance &amp; CRA</button>
@@ -1133,6 +1134,87 @@
                 <div id="leadsContainer" class="space-y-3"></div>
             </div>
 
+            <!-- TAB 5: INSIGHTS & GAPS -->
+            <div id="view-insights" class="hidden space-y-6">
+                <!-- Header Stats: Sentiment & Top Topics -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Sentiment Card -->
+                    <div class="glow-box p-5 rounded-3xl space-y-3 border border-emerald-500/20 bg-gradient-to-r from-emerald-950/20 via-blue-950/20 to-[#060b17]">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                                <i data-lucide="smile" class="w-4 h-4 text-emerald-400"></i> Visitor Sentiment &amp; Query Resolution
+                            </span>
+                            <span id="sentimentBadge" class="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">High Satisfaction</span>
+                        </div>
+                        <div class="space-y-1.5">
+                            <div class="flex justify-between text-xs font-mono">
+                                <span class="text-slate-400">Knowledge Coverage</span>
+                                <span id="sentimentPosVal" class="text-emerald-400 font-bold">88%</span>
+                            </div>
+                            <div class="w-full bg-[#060b17] h-2 rounded-full overflow-hidden border border-blue-500/20">
+                                <div id="sentimentPosBar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500" style="width: 88%"></div>
+                            </div>
+                        </div>
+                        <p class="text-[11px] text-slate-400">Calculated automatically from conversation resolution rates and answered queries.</p>
+                    </div>
+
+                    <!-- Top Inquired Topics -->
+                    <div class="glow-box p-5 rounded-3xl space-y-3 border border-cyan-500/20 bg-gradient-to-r from-cyan-950/20 via-blue-950/20 to-[#060b17]">
+                        <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <i data-lucide="trending-up" class="w-4 h-4 text-cyan-400"></i> Top Customer Inquiry Topics
+                        </span>
+                        <div id="topTopicsContainer" class="flex flex-wrap gap-2 pt-1">
+                            <span class="text-[11px] bg-blue-950/80 border border-blue-500/30 text-cyan-300 px-3 py-1 rounded-xl">General Inquiries</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">Automated NLP clustering across all visitor questions to detect high-intent trends.</p>
+                    </div>
+                </div>
+
+                <!-- Knowledge Gaps & Unanswered Questions Bank -->
+                <div class="glow-box p-6 rounded-3xl space-y-4 border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-transparent to-transparent">
+                    <div class="flex justify-between items-center flex-wrap gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0 shadow-[0_0_15px_rgba(245,158,11,0.25)]">
+                                <i data-lucide="sparkles" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                                    Unanswered Questions Bank &amp; Content Gaps
+                                </h2>
+                                <p class="text-xs text-slate-400 mt-0.5">Real visitor queries that the bot could not find grounded facts for. Click "Add Grounding Fact" to teach your bot!</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="unansweredBadgeCount" class="text-xs font-mono font-bold text-amber-400 bg-amber-950/80 border border-amber-500/40 px-3 py-1.5 rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.2)]">0 Gaps</span>
+                            <button onclick="loadInsights()" class="px-3.5 py-1.5 rounded-xl border border-amber-500/30 bg-amber-950/40 text-amber-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer">
+                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh Gaps
+                            </button>
+                        </div>
+                    </div>
+                    <div id="insightsContainer" class="space-y-3 pt-2"></div>
+                </div>
+
+                <!-- RAG Query Traces Section -->
+                <div class="glow-box p-6 rounded-3xl space-y-4 border border-blue-500/20">
+                    <div class="flex justify-between items-center flex-wrap gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-cyan-400 shrink-0">
+                                <i data-lucide="activity" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-base font-bold text-white">
+                                    Real-time RAG Retrieval Traces &amp; Observability
+                                </h2>
+                                <p class="text-xs text-slate-400 mt-0.5">Live dense vector similarity scores, FlashRank reranking latencies, and guardrail pass checks.</p>
+                            </div>
+                        </div>
+                        <button onclick="loadRAGTraces()" class="px-3.5 py-1.5 rounded-xl border border-cyan-500/30 bg-blue-950/50 text-cyan-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer">
+                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh Traces
+                        </button>
+                    </div>
+                    <div id="ragTracesContainer" class="space-y-3 pt-2"></div>
+                </div>
+            </div>
 
             <!-- TAB 6: CONVERSATIONS & LIVE AGENT TAKEOVER -->
             <div id="view-conversations" class="hidden space-y-5">
@@ -3772,7 +3854,7 @@
             const btn = document.getElementById('tab-' + tab);
             if(btn) btn.classList.add('active');
 
-            ['knowledge', 'products', 'lms', 'approvals', 'test', 'leads', 'conversations', 'audit', 'compliance', 'settings'].forEach(v => {
+            ['knowledge', 'products', 'lms', 'approvals', 'test', 'leads', 'insights', 'conversations', 'audit', 'compliance', 'settings'].forEach(v => {
                 const el = document.getElementById('view-' + v);
                 if(el) el.classList.add('hidden');
             });
@@ -3789,6 +3871,7 @@
             if (tab === 'lms') loadLmsCourses();
             if (tab === 'approvals') loadPendingApprovals();
             if (tab === 'leads') loadLeads();
+            if (tab === 'insights') loadInsights();
             if (tab === 'conversations') loadConversations();
             if (tab === 'audit') loadAuditData();
             if (tab === 'compliance') loadComplianceData();

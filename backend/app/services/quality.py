@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List
 from collections import defaultdict
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 
 from app.db import models
 from app.db.models import UserRole, DocumentStatus
@@ -32,7 +32,10 @@ def analyze_knowledge_quality(
     doc_query = db.query(models.BotSource)
     if current_user.role != UserRole.PLATFORM_ADMIN:
         doc_query = doc_query.filter(
-            or_(models.BotSource.orgId == org_id, models.BotSource.isUniversal == True)
+            or_(
+                models.BotSource.orgId == org_id,
+                and_(models.BotSource.isUniversal == True, models.BotSource.orgId == None)
+            )
         )
     documents = doc_query.all()
     doc_map = {d.id: d for d in documents}
